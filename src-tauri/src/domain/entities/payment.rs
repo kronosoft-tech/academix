@@ -73,6 +73,7 @@ pub struct Payment {
     pub amount: f64,
     pub method: PaymentMethod,
     pub status: PaymentStatus,
+    pub due_date: Option<String>,
     pub paid_at: Option<DateTime<Utc>>,
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -80,7 +81,7 @@ pub struct Payment {
 }
 
 impl Payment {
-    /// Create a new payment
+    /// Create a new payment (default status is PAID since all payments are confirmed)
     pub fn new(
         id: String,
         student_id: String,
@@ -95,12 +96,18 @@ impl Payment {
             group_id,
             amount,
             method,
-            status: PaymentStatus::Pending,
-            paid_at: None,
+            status: PaymentStatus::Paid, // Default to PAID since all payments are confirmed
+            due_date: None,
+            paid_at: Some(now), // Set paid_at to creation time
             description: None,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    /// Set due date for the payment
+    pub fn set_due_date(&mut self, due_date: String) {
+        self.due_date = Some(due_date);
     }
 
     /// Mark payment as paid

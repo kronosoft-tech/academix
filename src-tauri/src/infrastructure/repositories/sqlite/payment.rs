@@ -22,9 +22,10 @@ impl SqlitePaymentRepository {
     fn row_to_payment(row: &rusqlite::Row<'_>) -> rusqlite::Result<Payment> {
         let status_str: String = row.get(5)?;
         let method_str: String = row.get(4)?;
-        let paid_at_str: Option<String> = row.get(6)?;
-        let created_str: String = row.get(8)?;
-        let updated_str: String = row.get(9)?;
+        let due_date_str: Option<String> = row.get(6)?;
+        let paid_at_str: Option<String> = row.get(7)?;
+        let created_str: String = row.get(9)?;
+        let updated_str: String = row.get(10)?;
 
         Ok(Payment {
             id: row.get(0)?,
@@ -33,10 +34,11 @@ impl SqlitePaymentRepository {
             amount: row.get(3)?,
             method: PaymentMethod::from_str(&method_str).unwrap_or(PaymentMethod::Cash),
             status: PaymentStatus::from_str(&status_str).unwrap_or(PaymentStatus::Pending),
+            due_date: due_date_str,
             paid_at: paid_at_str
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
-            description: row.get(7)?,
+            description: row.get(8)?,
             created_at: DateTime::parse_from_rfc3339(&created_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
@@ -49,7 +51,7 @@ impl SqlitePaymentRepository {
 
 impl PaymentRepository for SqlitePaymentRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Payment>, DomainError> {
-        let sql = "SELECT id, student_id, group_id, amount, method, status, paid_date, 
+        let sql = "SELECT id, student_id, group_id, amount, method, status, due_date, paid_date, 
                           description, created_at, updated_at
                    FROM payments WHERE id = ?";
 
@@ -59,7 +61,7 @@ impl PaymentRepository for SqlitePaymentRepository {
     }
 
     fn find_by_student_id(&self, student_id: &str) -> Result<Vec<Payment>, DomainError> {
-        let sql = "SELECT id, student_id, group_id, amount, method, status, paid_date, 
+        let sql = "SELECT id, student_id, group_id, amount, method, status, due_date, paid_date, 
                           description, created_at, updated_at
                    FROM payments WHERE student_id = ? ORDER BY created_at DESC";
 
@@ -69,7 +71,7 @@ impl PaymentRepository for SqlitePaymentRepository {
     }
 
     fn find_by_group_id(&self, group_id: &str) -> Result<Vec<Payment>, DomainError> {
-        let sql = "SELECT id, student_id, group_id, amount, method, status, paid_date, 
+        let sql = "SELECT id, student_id, group_id, amount, method, status, due_date, paid_date, 
                           description, created_at, updated_at
                    FROM payments WHERE group_id = ? ORDER BY created_at DESC";
 
@@ -80,8 +82,8 @@ impl PaymentRepository for SqlitePaymentRepository {
 
     fn save(&self, payment: &Payment) -> Result<(), DomainError> {
         let sql = "INSERT INTO payments (id, student_id, group_id, amount, method, status, 
-                                     paid_date, description, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                                     due_date, paid_date, description, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         let paid_date = payment.paid_at.map(|dt| dt.to_rfc3339());
 
@@ -95,6 +97,7 @@ impl PaymentRepository for SqlitePaymentRepository {
                     &payment.amount.to_string(),
                     &payment.method.as_str().to_string(),
                     &payment.status.as_str().to_string(),
+                    &payment.due_date,
                     &paid_date,
                     &payment.description,
                     &payment.created_at.to_rfc3339(),
@@ -109,7 +112,7 @@ impl PaymentRepository for SqlitePaymentRepository {
     fn update(&self, payment: &Payment) -> Result<(), DomainError> {
         let sql = "UPDATE payments 
                    SET student_id = ?, group_id = ?, amount = ?, method = ?, status = ?, 
-                       paid_date = ?, description = ?, updated_at = ?
+                       due_date = ?, paid_date = ?, description = ?, updated_at = ?
                    WHERE id = ?";
 
         let paid_date = payment.paid_at.map(|dt| dt.to_rfc3339());
@@ -124,6 +127,7 @@ impl PaymentRepository for SqlitePaymentRepository {
                     &payment.amount.to_string(),
                     &payment.method.as_str().to_string(),
                     &payment.status.as_str().to_string(),
+                    &payment.due_date,
                     &paid_date,
                     &payment.description,
                     &Utc::now().to_rfc3339(),
@@ -153,7 +157,7 @@ impl PaymentRepository for SqlitePaymentRepository {
     }
 
     fn find_all(&self) -> Result<Vec<Payment>, DomainError> {
-        let sql = "SELECT id, student_id, group_id, amount, method, status, paid_date, 
+        let sql = "SELECT id, student_id, group_id, amount, method, status, due_date, paid_date, 
                           description, created_at, updated_at
                    FROM payments ORDER BY created_at DESC";
 
