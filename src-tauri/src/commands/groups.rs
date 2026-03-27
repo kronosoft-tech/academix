@@ -21,6 +21,8 @@ pub struct CreateGroupCommand {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: Option<i32>,
 }
 
@@ -33,6 +35,8 @@ pub struct UpdateGroupCommand {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: Option<i32>,
     pub status: Option<String>,
 }
@@ -67,6 +71,8 @@ pub fn create_group(
         days: request.days,
         start_time: request.start_time,
         end_time: request.end_time,
+        start_date: request.start_date,
+        end_date: request.end_date,
         max_students: request.max_students.unwrap_or(20),
     }) {
         Ok(group) => GroupCommandResponse {
@@ -132,6 +138,8 @@ pub fn update_group(
             days: request.days,
             start_time: request.start_time,
             end_time: request.end_time,
+            start_date: request.start_date,
+            end_date: request.end_date,
             max_students: request.max_students,
             status: request.status,
         },

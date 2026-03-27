@@ -44,6 +44,8 @@ pub struct Group {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: i32,
     pub current_students: i32,
     pub status: GroupStatus,
@@ -62,6 +64,8 @@ impl Group {
         days: Option<Vec<String>>,
         start_time: Option<String>,
         end_time: Option<String>,
+        start_date: Option<String>,
+        end_date: Option<String>,
         max_students: i32,
     ) -> Self {
         let now = Utc::now();
@@ -74,6 +78,8 @@ impl Group {
             days,
             start_time,
             end_time,
+            start_date,
+            end_date,
             max_students,
             current_students: 0,
             status: GroupStatus::Open,

@@ -26,6 +26,8 @@ impl<R: GroupRepository> GroupService<R> {
             days: group.days.clone(),
             start_time: group.start_time.clone(),
             end_time: group.end_time.clone(),
+            start_date: group.start_date.clone(),
+            end_date: group.end_date.clone(),
             max_students: group.max_students,
             current_students: group.current_students,
             status: group.status.as_str().to_string(),
@@ -43,6 +45,8 @@ impl<R: GroupRepository> GroupService<R> {
             request.days,
             request.start_time,
             request.end_time,
+            request.start_date,
+            request.end_date,
             request.max_students,
         );
 
@@ -101,6 +105,14 @@ impl<R: GroupRepository> GroupService<R> {
 
         if let Some(end_time) = request.end_time {
             group.end_time = Some(end_time);
+        }
+
+        if let Some(start_date) = request.start_date {
+            group.start_date = Some(start_date);
+        }
+
+        if let Some(end_date) = request.end_date {
+            group.end_date = Some(end_date);
         }
 
         if let Some(max_students) = request.max_students {

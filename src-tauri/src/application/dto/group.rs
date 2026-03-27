@@ -12,6 +12,8 @@ pub struct CreateGroupRequest {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: i32,
 }
 
@@ -24,6 +26,8 @@ pub struct UpdateGroupRequest {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: Option<i32>,
     pub status: Option<String>,
 }
@@ -39,6 +43,8 @@ pub struct GroupDto {
     pub days: Option<Vec<String>>,
     pub start_time: Option<String>,
     pub end_time: Option<String>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub max_students: i32,
     pub current_students: i32,
     pub status: String,
