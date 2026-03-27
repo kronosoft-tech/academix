@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of GroupRepository
+#[derive(Clone)]
 pub struct SqliteGroupRepository {
     pool: Arc<SqlitePool>,
 }
@@ -20,28 +21,39 @@ impl SqliteGroupRepository {
     }
 
     fn row_to_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<Group> {
-        let schedule: Option<String> = row.get(6)?;
-        let status_str: String = row.get(7)?;
-        let created_str: String = row.get(8)?;
-        let updated_str: String = row.get(9)?;
-        let days_json: Option<String> = row.get(10)?;
-        let start_time: Option<String> = row.get(11)?;
-        let end_time: Option<String> = row.get(12)?;
+        // Column order MUST match the database schema (migration 008)
+        let id: String = row.get(0)?;
+        let course_id: String = row.get(1)?;
+        let name: String = row.get(2)?;
+        let professor_id: Option<String> = row.get(3)?;
+        let schedule: Option<String> = row.get(4)?;
+        let days_json: Option<String> = row.get(5)?;
+        let start_time: Option<String> = row.get(6)?;
+        let end_time: Option<String> = row.get(7)?;
+        let start_date: Option<String> = row.get(8)?;
+        let end_date: Option<String> = row.get(9)?;
+        let max_students: i32 = row.get(10)?;
+        let current_students: i32 = row.get(11)?;
+        let status_str: String = row.get(12)?;
+        let created_str: String = row.get(13)?;
+        let updated_str: String = row.get(14)?;
 
         // Parse days from JSON if present
         let days: Option<Vec<String>> = days_json.and_then(|s| serde_json::from_str(&s).ok());
 
         Ok(Group {
-            id: row.get(0)?,
-            course_id: row.get(1)?,
-            name: row.get(2)?,
-            professor_id: row.get::<_, Option<String>>(3)?.filter(|s| !s.is_empty()),
-            schedule: schedule.filter(|s| !s.is_empty()),
+            id,
+            course_id,
+            name,
+            professor_id,
+            schedule,
             days,
             start_time,
             end_time,
-            max_students: row.get(4)?,
-            current_students: row.get(5)?,
+            start_date,
+            end_date,
+            max_students,
+            current_students,
             status: GroupStatus::from_str(&status_str).unwrap_or(GroupStatus::Open),
             created_at: DateTime::parse_from_rfc3339(&created_str)
                 .map(|dt| dt.with_timezone(&Utc))
@@ -55,8 +67,10 @@ impl SqliteGroupRepository {
 
 impl GroupRepository for SqliteGroupRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Group>, DomainError> {
-        let sql = "SELECT id, course_id, name, professor_id, max_students, current_students, 
-                          schedule, status, created_at, updated_at, days, start_time, end_time
+        // Column order MUST match the database schema (migration 008)
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
+                          start_time, end_time, start_date, end_date, 
+                          max_students, current_students, status, created_at, updated_at
                    FROM groups_table WHERE id = ?";
 
         self.pool
@@ -65,8 +79,9 @@ impl GroupRepository for SqliteGroupRepository {
     }
 
     fn find_by_course_id(&self, course_id: &str) -> Result<Vec<Group>, DomainError> {
-        let sql = "SELECT id, course_id, name, professor_id, max_students, current_students, 
-                          schedule, status, created_at, updated_at, days, start_time, end_time
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
+                          start_time, end_time, start_date, end_date, 
+                          max_students, current_students, status, created_at, updated_at
                    FROM groups_table WHERE course_id = ? ORDER BY name";
 
         self.pool
@@ -75,10 +90,11 @@ impl GroupRepository for SqliteGroupRepository {
     }
 
     fn save(&self, group: &Group) -> Result<(), DomainError> {
-        let sql = "INSERT INTO groups_table (id, course_id, name, professor_id, max_students, 
-                                     current_students, schedule, status, created_at, updated_at, days, start_time, end_time)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
+        // Column order MUST match the database schema (migration 008)
+        let sql = "INSERT INTO groups_table (id, course_id, name, professor_id, schedule, days, 
+                                           start_time, end_time, start_date, end_date, 
+                                           max_students, current_students, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         let days_json = group
             .days
             .as_ref()
@@ -92,15 +108,17 @@ impl GroupRepository for SqliteGroupRepository {
                     &group.course_id,
                     &group.name,
                     &group.professor_id,
-                    &group.max_students.to_string(),
-                    &group.current_students.to_string(),
                     &group.schedule,
-                    &group.status.as_str().to_string(),
-                    &group.created_at.to_rfc3339(),
-                    &group.updated_at.to_rfc3339(),
                     &days_json,
                     &group.start_time,
                     &group.end_time,
+                    &group.start_date,
+                    &group.end_date,
+                    &group.max_students.to_string(),
+                    &group.current_students.to_string(),
+                    &group.status.as_str().to_string(),
+                    &group.created_at.to_rfc3339(),
+                    &group.updated_at.to_rfc3339(),
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -111,7 +129,7 @@ impl GroupRepository for SqliteGroupRepository {
     fn update(&self, group: &Group) -> Result<(), DomainError> {
         let sql = "UPDATE groups_table 
                    SET name = ?, professor_id = ?, schedule = ?, max_students = ?, current_students = ?, 
-                       status = ?, updated_at = ?, days = ?, start_time = ?, end_time = ?
+                       status = ?, updated_at = ?, days = ?, start_time = ?, end_time = ?, start_date = ?, end_date = ?
                    WHERE id = ?";
 
         let days_json = group
@@ -134,6 +152,8 @@ impl GroupRepository for SqliteGroupRepository {
                     &days_json,
                     &group.start_time,
                     &group.end_time,
+                    &group.start_date,
+                    &group.end_date,
                     &group.id,
                 ],
             )
@@ -160,8 +180,9 @@ impl GroupRepository for SqliteGroupRepository {
     }
 
     fn find_all(&self) -> Result<Vec<Group>, DomainError> {
-        let sql = "SELECT id, course_id, name, professor_id, max_students, current_students, 
-                          schedule, status, created_at, updated_at, days, start_time, end_time
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
+                          start_time, end_time, start_date, end_date, 
+                          max_students, current_students, status, created_at, updated_at
                    FROM groups_table ORDER BY name";
 
         self.pool
@@ -170,8 +191,9 @@ impl GroupRepository for SqliteGroupRepository {
     }
 
     fn find_by_professor_id(&self, professor_id: &str) -> Result<Vec<Group>, DomainError> {
-        let sql = "SELECT id, course_id, name, professor_id, max_students, current_students, 
-                          schedule, status, created_at, updated_at, days, start_time, end_time
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
+                          start_time, end_time, start_date, end_date, 
+                          max_students, current_students, status, created_at, updated_at
                    FROM groups_table WHERE professor_id = ? ORDER BY name";
 
         self.pool
