@@ -22,8 +22,8 @@ use commands::courses::{
 };
 use commands::groups::{create_group, delete_group, get_group, list_groups, update_group};
 use commands::payments::{
-    create_payment, delete_payment, get_payment, list_payments, list_payments_by_student,
-    update_payment,
+    create_payment, delete_payment, get_all_students_payment_summary, get_payment,
+    get_student_payment_status, list_payments, list_payments_by_student, update_payment,
 };
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
@@ -79,6 +79,18 @@ fn init_database() -> SqlitePool {
     let migration_006_sql = include_str!("../migrations/006_add_group_schedule_fields.sql");
     let _ = conn.execute_batch(migration_006_sql);
 
+    // Run migration 007 - add start_date column to groups
+    let migration_007_sql = include_str!("../migrations/007_add_start_date_to_groups.sql");
+    let _ = conn.execute_batch(migration_007_sql);
+
+    // Run migration 008 - fix groups table schema (add end_date, fix columns)
+    let migration_008_sql = include_str!("../migrations/008_fix_groups_table_schema.sql");
+    let _ = conn.execute_batch(migration_008_sql);
+
+    // Run migration 009 - make payments.due_date nullable
+    let migration_009_sql = include_str!("../migrations/009_make_payments_due_date_nullable.sql");
+    let _ = conn.execute_batch(migration_009_sql);
+
     println!("Database initialized successfully");
     drop(conn);
     pool
@@ -123,7 +135,7 @@ fn create_service_states(
     StudentService<SqliteStudentRepository, SqliteGroupRepository>,
     CourseService<SqliteCourseRepository>,
     GroupService<SqliteGroupRepository>,
-    PaymentService<SqlitePaymentRepository>,
+    PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>,
     AttendanceService<SqliteAttendanceRepository>,
 ) {
     let user_repo = SqliteUserRepository::new(Arc::clone(&pool));
@@ -136,9 +148,9 @@ fn create_service_states(
     (
         UserService::new(user_repo),
         StudentService::new(student_repo, SqliteGroupRepository::new(Arc::clone(&pool))),
-        CourseService::new(course_repo),
-        GroupService::new(group_repo),
-        PaymentService::new(payment_repo),
+        CourseService::new(SqliteCourseRepository::new(Arc::clone(&pool))),
+        GroupService::new(group_repo.clone()),
+        PaymentService::new(payment_repo, group_repo, course_repo),
         AttendanceService::new(attendance_repo),
     )
 }
@@ -212,6 +224,8 @@ pub fn run() {
             list_payments_by_student,
             update_payment,
             delete_payment,
+            get_student_payment_status,
+            get_all_students_payment_summary,
             // Attendance commands
             create_attendance,
             get_attendance,
