@@ -7,8 +7,12 @@ import GroupsPage from "../../features/groups/routes/GroupsPage";
 import PaymentsPage from "../../features/payments/routes/PaymentsPage";
 import AttendancePage from "../../features/attendance/routes/AttendancePage";
 import UsersPage from "../../features/users/routes/UsersPage";
+import AccountingPage from "../../features/accounting/routes/AccountingPage";
+import EmployeesPage from "../../features/accounting/routes/EmployeesPage";
+import PayrollPage from "../../features/accounting/routes/PayrollPage";
+import ReportsPage from "../../features/accounting/routes/ReportsPage";
 
-type Page = "dashboard" | "students" | "courses" | "groups" | "payments" | "attendance" | "users";
+type Page = "dashboard" | "students" | "courses" | "groups" | "payments" | "attendance" | "users" | "accounting" | "employees" | "payroll" | "reports";
 
 interface NavItem {
   name: string;
@@ -23,6 +27,10 @@ const allNavigation: NavItem[] = [
   { name: "Grupos", page: "groups" },
   { name: "Pagos", page: "payments", allowedRoles: ["admin", "gerente", "empleado"] },
   { name: "Asistencia", page: "attendance" },
+  { name: "Contabilidad", page: "accounting", allowedRoles: ["admin", "gerente"] },
+  { name: "Empleados", page: "employees", allowedRoles: ["admin", "gerente"] },
+  { name: "Nómina", page: "payroll", allowedRoles: ["admin", "gerente"] },
+  { name: "Reportes", page: "reports", allowedRoles: ["admin", "gerente"] },
   { name: "Usuarios", page: "users", allowedRoles: ["admin", "gerente"] },
 ];
 
@@ -69,6 +77,30 @@ const UsersIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const AccountingIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+  </svg>
+);
+
+const EmployeesIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+  </svg>
+);
+
+const PayrollIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+  </svg>
+);
+
+const ReportsIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+
 const LogoutIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -83,6 +115,10 @@ const icons: Record<Page, React.FC<{ className?: string }>> = {
   payments: PaymentsIcon,
   attendance: AttendanceIcon,
   users: UsersIcon,
+  accounting: AccountingIcon,
+  employees: EmployeesIcon,
+  payroll: PayrollIcon,
+  reports: ReportsIcon,
 };
 
 export default function MainLayout() {
@@ -113,6 +149,10 @@ export default function MainLayout() {
       case "groups": return <GroupsPage />;
       case "payments": return <PaymentsPage />;
       case "attendance": return <AttendancePage />;
+      case "accounting": return <AccountingPage />;
+      case "employees": return <EmployeesPage />;
+      case "payroll": return <PayrollPage />;
+      case "reports": return <ReportsPage />;
       case "users": return <UsersPage />;
       default: return <DashboardPage />;
     }
