@@ -8,7 +8,7 @@ use crate::application::dto::invoice::{
 };
 use crate::application::ports::invoice::{InvoiceLineRepository, InvoiceRepository};
 use crate::domain::entities::invoice::{
-    calculate_igv, calculate_total, Invoice, InvoiceLine, InvoicePaymentMethod, InvoiceStatus,
+    calculate_igv, calculate_total, Invoice, InvoiceLine, InvoiceStatus,
 };
 use chrono::{DateTime, Utc};
 
@@ -65,8 +65,8 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
             .iter()
             .map(|l| l.quantity * l.unit_price)
             .sum();
-        let igv = calculate_igv(subtotal);
-        let total = calculate_total(subtotal);
+        let _igv = calculate_igv(subtotal);
+        let _total = calculate_total(subtotal);
 
         // Create invoice
         let mut invoice = Invoice::new(

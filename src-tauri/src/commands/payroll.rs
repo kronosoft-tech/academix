@@ -3,7 +3,7 @@
 //! Expose payroll operations to the frontend.
 
 use crate::application::dto::payroll::{
-    PayrollEntryDto, PayrollRunDto, PayrollRunWithEntriesDto, PayrollSummary, RunPayrollRequest,
+    PayrollRunDto, PayrollRunWithEntriesDto, PayrollSummary, RunPayrollRequest,
 };
 use crate::application::use_cases::PayrollService;
 use crate::infrastructure::repositories::{

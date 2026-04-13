@@ -234,8 +234,8 @@ impl AccountingEntryRepository for InMemoryAccountingEntryRepository {
 
     fn list(
         &self,
-        date_from: Option<&str>,
-        date_to: Option<&str>,
+        _date_from: Option<&str>,
+        _date_to: Option<&str>,
         entry_type: Option<EntryType>,
     ) -> Result<Vec<AccountingEntry>, String> {
         let entries = self.entries.read().unwrap();
@@ -280,8 +280,8 @@ impl AccountingEntryRepository for InMemoryAccountingEntryRepository {
 
     fn get_by_date_range(
         &self,
-        date_from: &str,
-        date_to: &str,
+        _date_from: &str,
+        _date_to: &str,
     ) -> Result<Vec<AccountingEntry>, String> {
         let entries = self.entries.read().unwrap();
         let mut result: Vec<AccountingEntry> = entries.values().cloned().collect();
@@ -308,19 +308,19 @@ impl AccountingEntryRepository for InMemoryAccountingEntryRepository {
         }
     }
 
-    fn get_total_debits(&self, date_from: &str, date_to: &str) -> Result<f64, String> {
+    fn get_total_debits(&self, _date_from: &str, _date_to: &str) -> Result<f64, String> {
         let entries = self.entries.read().unwrap();
         let total: f64 = entries.values().map(|e| e.amount).sum();
         Ok(total)
     }
 
-    fn get_total_credits(&self, date_from: &str, date_to: &str) -> Result<f64, String> {
+    fn get_total_credits(&self, _date_from: &str, _date_to: &str) -> Result<f64, String> {
         let entries = self.entries.read().unwrap();
         let total: f64 = entries.values().map(|e| e.amount).sum();
         Ok(total)
     }
 
-    fn get_next_reference(&self, prefix: &str) -> Result<u32, String> {
+    fn get_next_reference(&self, _prefix: &str) -> Result<u32, String> {
         let counter = self.next_ref.read().unwrap();
         Ok(*counter)
     }

@@ -8,8 +8,7 @@ pub mod domain;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AccountingService, AttendanceService, CourseService, EmployeeService, GroupService, 
-    InvoiceService, PaymentService, PayrollService, StudentService, UserService,
+    AttendanceService, CourseService, GroupService, PaymentService, StudentService, UserService,
 };
 use commands::accounting::{
     create_entry, get_entry, list_entries, get_trial_balance, get_income_statement,

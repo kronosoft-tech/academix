@@ -230,7 +230,7 @@ impl InvoiceLineRepository for InMemoryInvoiceLineRepository {
 
     fn get_by_invoice(&self, invoice_id: &str) -> Result<Vec<InvoiceLine>, String> {
         let lines = self.lines.read().unwrap();
-        let mut result: Vec<InvoiceLine> = lines
+        let result: Vec<InvoiceLine> = lines
             .values()
             .filter(|l| l.invoice_id == invoice_id)
             .cloned()

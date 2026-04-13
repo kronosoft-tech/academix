@@ -9,7 +9,7 @@ use crate::application::ports::employee::EmployeeRepository;
 use crate::application::ports::payroll::{PayrollEntryRepository, PayrollRepository};
 use crate::domain::entities::employee::Employee;
 use crate::domain::entities::payroll::{
-    PayrollEntry, PayrollEntryStatus, PayrollRun, PayrollRunStatus,
+    PayrollEntry, PayrollRun, PayrollRunStatus,
 };
 use chrono::{DateTime, Utc};
 

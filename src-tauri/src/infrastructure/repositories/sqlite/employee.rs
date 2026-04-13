@@ -210,7 +210,7 @@ impl EmployeeRepository for SqliteEmployeeRepository {
             placeholders.join(", ")
         );
 
-        let params: Vec<String> = ids.iter().map(|s| s.clone()).collect();
+        let _params: Vec<String> = ids.iter().map(|s| s.clone()).collect();
         self.pool
             .query(&sql, &[], Self::row_to_employee)
             .map_err(|e| e.to_string())

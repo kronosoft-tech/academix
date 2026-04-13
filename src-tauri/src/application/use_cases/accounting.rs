@@ -9,7 +9,7 @@ use crate::application::dto::accounting::{
 };
 use crate::application::ports::accounting::{AccountCategoryRepository, AccountingEntryRepository};
 use crate::domain::entities::accounting::{
-    AccountCategory, AccountingEntry, CategoryType, EntryType,
+    AccountingEntry, CategoryType, EntryType,
 };
 use chrono::{DateTime, Utc};
 

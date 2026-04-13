@@ -3,7 +3,7 @@
 //! Port interfaces for payroll operations.
 
 use crate::domain::entities::payroll::{
-    PayrollEntry, PayrollEntryStatus, PayrollRun, PayrollRunStatus,
+    PayrollEntry, PayrollRun, PayrollRunStatus,
 };
 
 /// Payroll run repository trait (port)

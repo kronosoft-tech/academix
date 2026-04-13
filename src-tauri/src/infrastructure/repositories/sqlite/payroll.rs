@@ -104,7 +104,7 @@ impl PayrollRepository for SqlitePayrollRepository {
             .map_err(|e| e.to_string())
     }
 
-    fn list(&self, status: Option<PayrollRunStatus>) -> Result<Vec<PayrollRun>, String> {
+    fn list(&self, _status: Option<PayrollRunStatus>) -> Result<Vec<PayrollRun>, String> {
         let sql = "SELECT id, total_gross, total_deductions, total_net,
                          status, period_start, period_end, created_at, created_by
                   FROM payroll_runs ORDER BY period_start DESC";

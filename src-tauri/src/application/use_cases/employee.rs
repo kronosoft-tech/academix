@@ -8,7 +8,7 @@ use crate::application::dto::employee::{
 };
 use crate::application::ports::employee::EmployeeRepository;
 use crate::domain::entities::employee::Employee;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 /// Employee service - orchestrates employee operations
 pub struct EmployeeService<R: EmployeeRepository> {
