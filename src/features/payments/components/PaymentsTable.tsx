@@ -181,7 +181,7 @@ export function PaymentsTable({
                   {getDaysDelayed(summary.daysDelayed)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(summary.dueDate).toLocaleDateString("es-CO")}
+                  {summary.dueDate ? new Date(summary.dueDate).toLocaleDateString("es-CO") : "-"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button

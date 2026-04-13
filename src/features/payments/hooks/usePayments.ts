@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Payment, CreatePaymentInput, UpdatePaymentInput } from "../../../shared/types/Payment";
+import type { Payment, CreatePaymentInput, UpdatePaymentInput, PaymentStatusType } from "../../../shared/types/Payment";
 
 interface BackendPaymentDto {
   id: string;
@@ -22,10 +22,11 @@ interface UsePaymentsReturn {
   updatePayment: (id: string, data: UpdatePaymentInput) => Promise<{ success: boolean; error?: string }>;
   deletePayment: (id: string) => Promise<{ success: boolean; error?: string }>;
   refetch: () => void;
+  getStudentPayments: (studentId: string) => Promise<Payment[]>;
+  getStudentPaymentStatus: (studentId: string) => Promise<PaymentStatusType>;
 }
 
 function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
-  // Map backend status to frontend PaymentStatus
   const statusMap: Record<string, Payment["status"]> = {
     pending: "pending",
     paid: "completed",
@@ -43,6 +44,7 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     status: statusMap[dto.status] ?? "pending",
     reference: dto.reference ?? undefined,
     paidAt: dto.paid_date ?? undefined,
+    dueDate: dto.due_date ?? undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -159,6 +161,43 @@ export function usePayments(): UsePaymentsReturn {
     }
   };
 
+  const getStudentPayments = async (studentId: string): Promise<Payment[]> => {
+    try {
+      const response = await invoke<{
+        success: boolean;
+        data: BackendPaymentDto[] | null;
+        error: string | null;
+      }>("list_payments");
+      
+      if (response.success && response.data) {
+        return response.data
+          .filter(p => p.student_id === studentId)
+          .map(mapBackendToFrontend);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+
+  const getStudentPaymentStatus = async (studentId: string): Promise<PaymentStatusType> => {
+    const studentPayments = await getStudentPayments(studentId);
+    
+    if (studentPayments.length === 0) return "current";
+    
+    const now = new Date();
+    const hasOverdue = studentPayments.some(p => 
+      p.status === "pending" && p.dueDate && new Date(p.dueDate) < now
+    );
+    
+    if (hasOverdue) return "delinquent";
+    
+    const hasPaid = studentPayments.some(p => p.status === "completed");
+    if (hasPaid) return "current";
+    
+    return "current";
+  };
+
   return {
     payments,
     isLoading,
@@ -167,5 +206,7 @@ export function usePayments(): UsePaymentsReturn {
     updatePayment,
     deletePayment,
     refetch: fetchPayments,
+    getStudentPayments,
+    getStudentPaymentStatus,
   };
 }

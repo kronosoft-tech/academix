@@ -380,7 +380,7 @@ pub fn calculate_employer_taxes(gross_income: f64) -> f64 {
 
 /// Calculate transport allowance (only for incomes below threshold)
 pub fn calculate_transport_allowance(base_salary: f64) -> f64 {
-    if base_salary + calculate_transport_allowance(0.0) <= constants::TRANSPORT_THRESHOLD {
+    if base_salary <= constants::TRANSPORT_THRESHOLD {
         constants::TRANSPORT_ALLOWANCE
     } else {
         0.0

@@ -1,5 +1,20 @@
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PaymentMethod = "cash" | "card" | "transfer" | "online";
+export type PaymentStatusType = "current" | "delinquent" | "ahead";
+export type PaymentDelinquencyStatus = "current" | "delinquent" | "ahead";
+
+export interface PaymentStatusSummary {
+  studentId: string;
+  studentName: string;
+  groupName: string;
+  status: PaymentStatusType;
+  daysDelayed: number;
+  dueDate?: string;
+  coursePrice?: number;
+  monthsPaid?: number;
+  debtAmount?: number;
+  nextPaymentDate?: string;
+}
 
 export interface Payment {
   id: string;
@@ -11,6 +26,7 @@ export interface Payment {
   reference?: string;
   description?: string;
   paidAt?: string;
+  dueDate?: string;
   createdAt: string;
   updatedAt: string;
 }
