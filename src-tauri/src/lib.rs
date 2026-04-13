@@ -8,7 +8,12 @@ pub mod domain;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AttendanceService, CourseService, GroupService, PaymentService, StudentService, UserService,
+    AccountingService, AttendanceService, CourseService, EmployeeService, GroupService, 
+    InvoiceService, PaymentService, PayrollService, StudentService, UserService,
+};
+use commands::accounting::{
+    create_entry, get_entry, list_entries, get_trial_balance, get_income_statement,
+    list_accounts, get_account_tree, get_accounting_summary,
 };
 use commands::attendance::{
     create_attendance, delete_attendance, get_attendance, get_group_attendance_stats,
@@ -20,10 +25,19 @@ use commands::courses::{
     archive_course, create_course, delete_course, get_course, hard_delete_course,
     list_archived_courses, list_courses, restore_course, update_course,
 };
+use commands::employees::{
+    create_employee, get_employee, list_employees, update_employee, delete_employee, get_employee_summary,
+};
 use commands::groups::{create_group, delete_group, get_group, list_groups, update_group};
+use commands::invoices::{
+    create_invoice, get_invoice, list_invoices, register_payment, cancel_invoice, get_invoice_summary,
+};
 use commands::payments::{
     create_payment, delete_payment, get_all_students_payment_summary, get_payment,
     get_student_payment_status, list_payments, list_payments_by_student, update_payment,
+};
+use commands::payroll::{
+    run_payroll, get_payroll_run, list_payroll_runs, get_payroll_summary,
 };
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
@@ -185,8 +199,9 @@ pub fn run() {
         .manage(payment_service)
         .manage(attendance_service)
         .invoke_handler(tauri::generate_handler![
-            // Auth commands
+            // Health check
             health,
+            // Auth commands
             login,
             logout,
             // User commands
@@ -235,6 +250,34 @@ pub fn run() {
             update_attendance,
             delete_attendance,
             get_group_attendance_stats,
+            // Employee commands
+            create_employee,
+            get_employee,
+            list_employees,
+            update_employee,
+            delete_employee,
+            get_employee_summary,
+            // Payroll commands
+            run_payroll,
+            get_payroll_run,
+            list_payroll_runs,
+            get_payroll_summary,
+            // Accounting commands
+            create_entry,
+            get_entry,
+            list_entries,
+            get_trial_balance,
+            get_income_statement,
+            list_accounts,
+            get_account_tree,
+            get_accounting_summary,
+            // Invoice commands
+            create_invoice,
+            get_invoice,
+            list_invoices,
+            register_payment,
+            cancel_invoice,
+            get_invoice_summary,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
