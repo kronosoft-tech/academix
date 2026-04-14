@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { ArchiveIcon, PencilIcon, RotateCcwIcon, TrashIcon, XIcon } from "lucide-react";
 import { useCourses } from "../hooks/useCourses";
 import { useGroups } from "../../groups/hooks/useGroups";
@@ -6,7 +6,6 @@ import { CourseForm } from "../components/CourseForm";
 import { Button } from "../../../shared/ui";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 import { Modal } from "../../../shared/ui/components/Modal";
-import { useStaggeredEntry } from "../../../lib/animations/hooks";
 import type { Course, CreateCourseInput } from "../../../shared/types/Course";
 
 export default function CoursesPage() {
@@ -16,21 +15,6 @@ export default function CoursesPage() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  
-  const coursesRef = useRef<HTMLDivElement>(null);
-  const archivedRef = useRef<HTMLDivElement>(null);
-
-  // Stagger animation for active courses
-  useStaggeredEntry(coursesRef, {
-    type: "fade",
-    delay: 60,
-  });
-
-  // Stagger animation for archived courses
-  useStaggeredEntry(archivedRef, {
-    type: "fade",
-    delay: 60,
-  });
 
   const handleCreate = () => {
     setEditingCourse(null);
@@ -132,7 +116,7 @@ export default function CoursesPage() {
         </div>
       )}
 
-      <div ref={coursesRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {courses.map((course) => (
           <div
             key={course.id}
@@ -190,7 +174,7 @@ export default function CoursesPage() {
               No hay cursos archivados.
             </div>
           ) : (
-            <div ref={archivedRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {archivedCourses.map((course) => (
                 <div
                   key={course.id}

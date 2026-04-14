@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub enum DocumentType {
     CC,  // Cédula de Ciudadanía
     CE,  // Carné de Extranjería
+    DNI, // Documento Nacional de Identidad
     RUC, // Registro Único de Contribuyentes
     NIT, // Número de Identificación Tributaria
     Passport,
@@ -21,6 +22,7 @@ impl DocumentType {
         match self {
             DocumentType::CC => "CC",
             DocumentType::CE => "CE",
+            DocumentType::DNI => "DNI",
             DocumentType::RUC => "RUC",
             DocumentType::NIT => "NIT",
             DocumentType::Passport => "PASSPORT",
@@ -31,6 +33,7 @@ impl DocumentType {
         match s.to_uppercase().as_str() {
             "CC" => Some(DocumentType::CC),
             "CE" => Some(DocumentType::CE),
+            "DNI" => Some(DocumentType::DNI),
             "RUC" => Some(DocumentType::RUC),
             "NIT" => Some(DocumentType::NIT),
             "PASSPORT" => Some(DocumentType::Passport),
@@ -81,6 +84,11 @@ pub enum AFP {
     Porvenir,
     Skandia,
     BBVA,
+    Prima,
+    Habitat,
+    Integra,
+    Profuturo,
+    ONP,
 }
 
 impl AFP {
@@ -92,6 +100,11 @@ impl AFP {
             AFP::Porvenir => "porvenir",
             AFP::Skandia => "skandia",
             AFP::BBVA => "bbva",
+            AFP::Prima => "prima",
+            AFP::Habitat => "habitat",
+            AFP::Integra => "integra",
+            AFP::Profuturo => "profuturo",
+            AFP::ONP => "onp",
         }
     }
 
@@ -103,6 +116,11 @@ impl AFP {
             "porvenir" => Some(AFP::Porvenir),
             "skandia" => Some(AFP::Skandia),
             "bbva" => Some(AFP::BBVA),
+            "prima" => Some(AFP::Prima),
+            "habitat" => Some(AFP::Habitat),
+            "integra" => Some(AFP::Integra),
+            "profuturo" => Some(AFP::Profuturo),
+            "onp" => Some(AFP::ONP),
             _ => None,
         }
     }
@@ -110,6 +128,25 @@ impl AFP {
     /// AFP contribution rates (employee portion: 4%)
     pub fn rate(&self) -> f64 {
         0.04 // 4% employee contribution
+    }
+
+    /// Get AFP rates as (employer_rate, employee_rate) tuple
+    /// Based on Peru AFP rates (2024)
+    pub fn rates(&self) -> (f64, f64) {
+        match self {
+            AFP::Prima => (10.00, 1.25),
+            AFP::Habitat => (10.00, 1.35),
+            AFP::Integra => (10.00, 1.45),
+            AFP::Profuturo => (10.00, 1.60),
+            AFP::ONP => (13.00, 0.0),
+            // Colombian AFPs (fallback)
+            AFP::Colpensiones => (12.0, 0.0),
+            AFP::Protección => (12.0, 4.0),
+            AFP::OldMutual => (12.0, 4.0),
+            AFP::Porvenir => (12.0, 4.0),
+            AFP::Skandia => (12.0, 4.0),
+            AFP::BBVA => (12.0, 4.0),
+        }
     }
 }
 

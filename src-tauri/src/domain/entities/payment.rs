@@ -97,9 +97,9 @@ impl Payment {
             group_id,
             amount,
             method,
-            status: PaymentStatus::Paid, // Default to PAID since all payments are confirmed
+            status: PaymentStatus::Pending, // Default to Pending until payment is confirmed
             due_date: None,
-            paid_at: Some(now), // Set paid_at to creation time
+            paid_at: None, // Not paid yet
             reference: None,
             description: None,
             created_at: now,

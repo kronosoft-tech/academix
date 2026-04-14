@@ -138,9 +138,14 @@ mod tests {
             "group-1".to_string(),
             "course-1".to_string(),
             "Group A".to_string(),
-            None,
-            None,
-            30,
+            None, // professor_id
+            None, // schedule
+            None, // days
+            None, // start_time
+            None, // end_time
+            None, // start_date
+            None, // end_date
+            30,   // max_students
         );
 
         assert_eq!(group.id, "group-1");
@@ -156,6 +161,11 @@ mod tests {
             "group-1".to_string(),
             "course-1".to_string(),
             "Group A".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
             None,
             None,
             30,
@@ -182,6 +192,11 @@ mod tests {
             "Group A".to_string(),
             None,
             None,
+            None,
+            None,
+            None,
+            None,
+            None,
             30,
         );
 
@@ -206,6 +221,11 @@ mod tests {
             "Group A".to_string(),
             None,
             None,
+            None,
+            None,
+            None,
+            None,
+            None,
             30,
         );
 
@@ -222,6 +242,11 @@ mod tests {
             "group-1".to_string(),
             "course-1".to_string(),
             "Group A".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
             None,
             None,
             30,

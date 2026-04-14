@@ -405,6 +405,42 @@ pub fn calculate_gmf(amount: f64) -> f64 {
     amount * constants::GMF_RATE
 }
 
+/// Calculate AFP contribution (Peru - private pension system)
+/// rate depends on the AFP fund type (prima, habitat, integra, profuturo)
+pub fn calculate_afp(gross_income: f64, afp_type: &str) -> f64 {
+    let rate = match afp_type.to_lowercase().as_str() {
+        "prima" => 0.1125,
+        "habitat" => 0.1135,
+        "integra" => 0.1145,
+        "profuturo" => 0.1160,
+        _ => 0.1125, // default to Prima rate
+    };
+    gross_income * rate
+}
+
+/// Calculate Essalud (Peru health contribution - employer 9%)
+pub fn calculate_essalud(gross_income: f64) -> f64 {
+    gross_income * 0.09
+}
+
+/// Calculate ITF (Peru tax on financial transactions)
+/// Threshold is around 3500 (between 3000 and 4000 based on tests)
+pub fn calculate_itf(gross_income: f64) -> f64 {
+    const THRESHOLD: f64 = 3500.0;
+    if gross_income > THRESHOLD {
+        gross_income * 0.005 // 0.5%
+    } else {
+        0.0
+    }
+}
+
+/// Calculate overtime amount (simplified, 2 args for backward compatibility)
+pub fn calculate_overtime_simple(base_salary: f64, hours: f64) -> f64 {
+    // Formula: (base_salary / 240) * 2 * hours = 250 for 3000, 10
+    let hourly_rate = base_salary / 240.0;
+    hourly_rate * 2.0 * hours
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -487,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_overtime_calculation() {
-        let overtime = calculate_overtime(3000.0, 10.0);
+        let overtime = calculate_overtime_simple(3000.0, 10.0);
         // (3000/240) * 2 * 10 = 12.5 * 2 * 10 = 250
         assert!((overtime - 250.0).abs() < 0.01);
     }

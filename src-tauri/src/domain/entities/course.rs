@@ -166,6 +166,8 @@ mod tests {
             "New Name".to_string(),
             Some("New description".to_string()),
             6,
+            150.0, // price
+            30,    // duration
         );
 
         assert_eq!(course.name, "New Name");
