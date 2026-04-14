@@ -137,12 +137,68 @@ pub struct CategoryTotalDto {
     pub total: f64,
 }
 
+/// Monthly data point for charts
+#[derive(Debug, Serialize)]
+pub struct MonthlyDataPoint {
+    pub month: String,
+    pub income: f64,
+    pub expenses: f64,
+}
+
+/// Expense breakdown by category
+#[derive(Debug, Serialize)]
+pub struct ExpenseByCategory {
+    pub category_name: String,
+    pub amount: f64,
+}
+
 /// Accounting summary for dashboard
 #[derive(Debug, Serialize)]
 pub struct AccountingSummary {
-    pub total_debits: f64,
-    pub total_credits: f64,
+    /// Total de dinero que ha entrado por ingresos (cuentas 6xxx)
+    pub total_income: f64,
+    /// Total de dinero gastado en el periodo (cuentas 4xxx y 5xxx)
+    pub total_expenses: f64,
+    /// Balance = Ingresos - Gastos (positivo = ganancia, negativo = pérdida)
+    pub net_balance: f64,
+    /// Cantidad de cuentas contables activas
     pub account_count: i64,
+    /// Cantidad de asientos contables registrados
     pub entry_count: i64,
+    /// Asientos más recientes
     pub recent_entries: Vec<AccountingEntryDto>,
+    /// Datos mensuales para gráfico de tendencias
+    pub monthly_data: Vec<MonthlyDataPoint>,
+    /// Gastos por categoría
+    pub expenses_by_category: Vec<ExpenseByCategory>,
+    /// Ingresos por categoría
+    pub income_by_category: Vec<ExpenseByCategory>,
+}
+
+/// Financial Balance (Balance Financiero) - shows Assets, Liabilities, Equity
+#[derive(Debug, Serialize)]
+pub struct FinancialBalanceDto {
+    pub as_of_date: String,
+    /// Activos (cuentas 1xxx)
+    pub assets: Vec<AccountBalanceDto>,
+    /// Pasivos (cuentas 2xxx)
+    pub liabilities: Vec<AccountBalanceDto>,
+    /// Patrimonio (cuentas 3xxx)
+    pub equity: Vec<AccountBalanceDto>,
+    /// Total Activos
+    pub total_assets: f64,
+    /// Total Pasivos
+    pub total_liabilities: f64,
+    /// Total Patrimonio
+    pub total_equity: f64,
+    /// Balance verification (Activos = Pasivos + Patrimonio)
+    pub is_balanced: bool,
+}
+
+/// Account balance for financial balance report
+#[derive(Debug, Serialize)]
+pub struct AccountBalanceDto {
+    pub account_code: String,
+    pub account_name: String,
+    pub balance: f64,
 }

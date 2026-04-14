@@ -3,8 +3,7 @@
 //! Expose invoice operations to the frontend.
 
 use crate::application::dto::invoice::{
-    CreateInvoiceRequest, InvoiceDto, InvoiceSummary, InvoiceWithLinesDto,
-    RegisterPaymentRequest,
+    CreateInvoiceRequest, InvoiceDto, InvoiceSummary, InvoiceWithLinesDto, RegisterPaymentRequest,
 };
 use crate::application::use_cases::InvoiceService;
 use crate::infrastructure::repositories::{

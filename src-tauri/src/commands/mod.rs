@@ -12,6 +12,7 @@ pub mod groups;
 pub mod invoices;
 pub mod payments;
 pub mod payroll;
+pub mod pdf;
 pub mod students;
 pub mod users;
 
@@ -25,5 +26,6 @@ pub use groups::*;
 pub use invoices::*;
 pub use payments::*;
 pub use payroll::*;
+pub use pdf::*;
 pub use students::*;
 pub use users::*;

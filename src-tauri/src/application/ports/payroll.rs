@@ -2,9 +2,7 @@
 //!
 //! Port interfaces for payroll operations.
 
-use crate::domain::entities::payroll::{
-    PayrollEntry, PayrollRun, PayrollRunStatus,
-};
+use crate::domain::entities::payroll::{PayrollEntry, PayrollRun, PayrollRunStatus};
 
 /// Payroll run repository trait (port)
 pub trait PayrollRepository: Send + Sync {
