@@ -1,6 +1,5 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { useEntranceAnimation } from "../../lib/animations/hooks";
 import DashboardPage from "../../features/dashboard/routes/DashboardPage";
 import StudentsPage from "../../features/students/routes/StudentsPage";
 import CoursesPage from "../../features/courses/routes/CoursesPage";
@@ -125,13 +124,6 @@ const icons: Record<Page, React.FC<{ className?: string }>> = {
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
-  const pageRef = useRef<HTMLDivElement>(null);
-
-  // Animate page content on change
-  useEntranceAnimation(pageRef, {
-    type: "fade",
-    duration: 300,
-  });
 
   const navigation = allNavigation.filter((item) => {
     if (!item.allowedRoles) return true;
@@ -218,7 +210,7 @@ export default function MainLayout() {
           </div>
         </aside>
 
-        <main ref={pageRef} className="flex-1 ml-64 p-6">
+        <main className="flex-1 ml-64 p-6">
           {renderPage()}
         </main>
       </div>
