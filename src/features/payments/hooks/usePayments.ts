@@ -81,34 +81,37 @@ export function usePayments(): UsePaymentsReturn {
     fetchPayments();
   }, [fetchPayments]);
 
-  const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    try {
-      const response = await invoke<{
-        success: boolean;
-        data: BackendPaymentDto | null;
-        error: string | null;
-      }>("create_payment", {
-        request: {
-          student_id: data.studentId,
-          group_id: data.groupId,
-          amount: data.amount,
-          method: data.method,
-        },
-      });
+   const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
+     setIsLoading(true);
+     try {
+       const response = await invoke<{
+         success: boolean;
+         data: BackendPaymentDto | null;
+         error: string | null;
+       }>("create_payment", {
+         request: {
+           student_id: data.studentId,
+           group_id: data.groupId,
+           amount: data.amount,
+           method: data.method,
+         },
+       });
 
-      if (response.success) {
-        await fetchPayments();
-        return { success: true };
-      } else {
-        return { success: false, error: response.error || "Failed to create payment" };
-      }
-    } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+       if (response.success) {
+         console.log("[FRONTEND] Payment created successfully, refetching...");
+         await fetchPayments();
+         return { success: true };
+       } else {
+         console.log("[FRONTEND] Payment creation failed:", response.error);
+         return { success: false, error: response.error || "Failed to create payment" };
+       }
+     } catch (err) {
+       console.log("[FRONTEND] Payment creation error:", err);
+       return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
+     } finally {
+       setIsLoading(false);
+     }
+   };
 
   const updatePayment = async (id: string, data: UpdatePaymentInput): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);

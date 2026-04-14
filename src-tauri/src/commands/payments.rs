@@ -112,17 +112,24 @@ pub fn get_payment(state: State<PaymentServiceState>, id: String) -> PaymentComm
 /// List all payments
 #[tauri::command]
 pub fn list_payments(state: State<PaymentServiceState>) -> PaymentListCommandResponse {
+    eprintln!("[DEBUG] list_payments called");
     match state.list() {
-        Ok(payments) => PaymentListCommandResponse {
-            success: true,
-            data: Some(payments),
-            error: None,
-        },
-        Err(e) => PaymentListCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        Ok(payments) => {
+            eprintln!("[DEBUG] list_payments returned {} payments", payments.len());
+            PaymentListCommandResponse {
+                success: true,
+                data: Some(payments),
+                error: None,
+            }
+        }
+        Err(e) => {
+            eprintln!("[DEBUG] list_payments failed: {}", e);
+            PaymentListCommandResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            }
+        }
     }
 }
 
