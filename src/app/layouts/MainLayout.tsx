@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../shared/hooks/useAuth";
-import { useEntranceAnimation } from "../../lib/animations/hooks";
+import { animate, set } from "animejs";
 import DashboardPage from "../../features/dashboard/routes/DashboardPage";
 import StudentsPage from "../../features/students/routes/StudentsPage";
 import CoursesPage from "../../features/courses/routes/CoursesPage";
@@ -35,7 +35,6 @@ const allNavigation: NavItem[] = [
   { name: "Usuarios", page: "users", allowedRoles: ["admin", "gerente"] },
 ];
 
-// Simple icon components inline
 const DashboardIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -62,19 +61,13 @@ const GroupsIcon = ({ className }: { className?: string }) => (
 
 const PaymentsIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
   </svg>
 );
 
 const AttendanceIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-  </svg>
-);
-
-const UsersIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 );
 
@@ -84,21 +77,9 @@ const AccountingIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const EmployeesIcon = ({ className }: { className?: string }) => (
+const UsersIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-);
-
-const PayrollIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-);
-
-const ReportsIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
   </svg>
 );
 
@@ -115,32 +96,74 @@ const icons: Record<Page, React.FC<{ className?: string }>> = {
   groups: GroupsIcon,
   payments: PaymentsIcon,
   attendance: AttendanceIcon,
-  users: UsersIcon,
   accounting: AccountingIcon,
-  employees: EmployeesIcon,
-  payroll: PayrollIcon,
-  reports: ReportsIcon,
+  employees: AccountingIcon,
+  payroll: AccountingIcon,
+  reports: AccountingIcon,
+  users: UsersIcon,
 };
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const contentRef = useRef<HTMLDivElement>(null);
+  const isAnimating = useRef(false);
 
   const navigation = allNavigation.filter((item) => {
     if (!item.allowedRoles) return true;
     return user && item.allowedRoles.includes(user.role);
   });
 
-  const handleLogout = () => {
-    logout();
-  };
-
-  const handlePageChange = (page: Page) => {
-    if (page !== currentPage) {
+  const handlePageChange = useCallback((page: Page) => {
+    if (page === currentPage || isAnimating.current) return;
+    
+    const content = contentRef.current;
+    if (!content) {
       setCurrentPage(page);
+      return;
     }
-  };
+
+    isAnimating.current = true;
+
+    // Exit animation for current page
+    animate(content, {
+      opacity: [1, 0],
+      translateX: [0, -20],
+      duration: 150,
+      ease: "inQuad",
+      complete: () => {
+        setCurrentPage(page);
+        
+        // Entrance animation for new page - use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+          set(content, { opacity: 0, translateX: 20 });
+          animate(content, {
+            opacity: [0, 1],
+            translateX: [20, 0],
+            duration: 200,
+            ease: "outQuad",
+            complete: () => {
+              isAnimating.current = false;
+            }
+          });
+        }, 10);
+      }
+    });
+  }, [currentPage]);
+
+  // Initial animation on mount
+  useEffect(() => {
+    const content = contentRef.current;
+    if (content) {
+      set(content, { opacity: 0, translateX: 20 });
+      animate(content, {
+        opacity: [0, 1],
+        translateX: [20, 0],
+        duration: 300,
+        ease: "outQuad"
+      });
+    }
+  }, []);
 
   const roleLabels: Record<string, string> = {
     admin: "Administrador",
@@ -166,13 +189,6 @@ export default function MainLayout() {
     }
   };
 
-  // Animate page content on change
-  useEntranceAnimation(contentRef, {
-    type: "fade",
-    duration: 200,
-    enabled: true,
-  });
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
@@ -193,33 +209,24 @@ export default function MainLayout() {
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
-                  <NavIcon className="h-5 w-5" />
+                  <NavIcon className="w-5 h-5" />
                   {item.name}
                 </button>
               );
             })}
           </nav>
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                <span className="text-sm font-medium text-blue-600">
-                  {user?.name?.charAt(0) || "U"}
-                </span>
+            {user && (
+              <div className="mb-3">
+                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                <p className="text-xs text-gray-500">{roleLabels[user.role] || user.role}</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.name || "Usuario"}
-                </p>
-                <p className="text-xs text-gray-500 truncate capitalize">
-                  {user?.role ? roleLabels[user.role] || user.role : "Usuario"}
-                </p>
-              </div>
-            </div>
+            )}
             <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={logout}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
             >
-              <LogoutIcon className="h-4 w-4" />
+              <LogoutIcon className="w-4 h-4" />
               Cerrar sesión
             </button>
           </div>
