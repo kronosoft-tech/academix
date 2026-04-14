@@ -10,265 +10,266 @@
 -- 4xxx: Gastos
 -- 5xxx: Costos de Producción
 -- 6xxx: Ingresos
+-- Note: Using code as id for simplicity (PUC codes are unique)
 
 -- ============================================
 -- 1xxx - ACTIVOS
 -- ============================================
 -- 11 - Caja y Bancos
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1105', 'CAJA', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('1105', '1105', 'CAJA', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '110501', 'Caja General', 'asset', (SELECT id FROM account_categories WHERE code = '1105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('110501', '110501', 'Caja General', 'asset', '1105', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '110502', 'Caja Menor', 'asset', (SELECT id FROM account_categories WHERE code = '1105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('110502', '110502', 'Caja Menor', 'asset', '1105', 0, 1, datetime('now'), datetime('now'));
 
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1110', 'BANCOS', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('1110', '1110', 'BANCOS', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '111001', 'Banco de Colombia', 'asset', (SELECT id FROM account_categories WHERE code = '1110'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('111001', '111001', 'Banco de Colombia', 'asset', '1110', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '111002', 'Banco Davivienda', 'asset', (SELECT id FROM account_categories WHERE code = '1110'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('111002', '111002', 'Banco Davivienda', 'asset', '1110', 0, 1, datetime('now'), datetime('now'));
 
 -- 12 - Inversiones Temporales
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '12', 'INVERSIONES TEMPORALES', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('12', '12', 'INVERSIONES TEMPORALES', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 13 - Cuentas por Cobrar
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1305', 'CLIENTES', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('1305', '1305', 'CLIENTES', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '130501', 'Cuentas por Cobrar - Matrículas', 'asset', (SELECT id FROM account_categories WHERE code = '1305'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('130501', '130501', 'Cuentas por Cobrar - Matrículas', 'asset', '1305', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '130502', 'Cuentas por Cobrar - Mensualidades', 'asset', (SELECT id FROM account_categories WHERE code = '1305'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('130502', '130502', 'Cuentas por Cobrar - Mensualidades', 'asset', '1305', 0, 1, datetime('now'), datetime('now'));
 
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1380', 'OTRAS CUENTAS POR COBRAR', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('1380', '1380', 'OTRAS CUENTAS POR COBRAR', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 14 - Otras Cuentas por Cobrar
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '14', 'OTRAS CUENTAS POR COBRAR', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('14', '14', 'OTRAS CUENTAS POR COBRAR', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 15 - Inventarios
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '15', 'INVENTARIOS', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('15', '15', 'INVENTARIOS', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1516', 'Materiales y Suministros', 'asset', (SELECT id FROM account_categories WHERE code = '15'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('1516', '1516', 'Materiales y Suministros', 'asset', '15', 0, 1, datetime('now'), datetime('now'));
 
 -- 16 - Propiedad, Planta y Equipo
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '16', 'PROPIEDAD, PLANTA Y EQUIPO', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('16', '16', 'PROPIEDAD,PLANTA Y EQUIPO', 'asset', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1615', 'Muebles y Enseres', 'asset', (SELECT id FROM account_categories WHERE code = '16'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('1615', '1615', 'Muebles y Enseres', 'asset', '16', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1616', 'Equipos de Oficina', 'asset', (SELECT id FROM account_categories WHERE code = '16'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('1616', '1616', 'Equipos de Oficina', 'asset', '16', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1617', 'Equipos de Computación', 'asset', (SELECT id FROM account_categories WHERE code = '16'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('1617', '1617', 'Equipos de Computación', 'asset', '16', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '1620', 'Depreciación Acumulada', 'asset', (SELECT id FROM account_categories WHERE code = '16'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('1620', '1620', 'Depreciación Acumulada', 'asset', '16', 0, 1, datetime('now'), datetime('now'));
 
 -- ============================================
 -- 2xxx - PASIVOS
 -- ============================================
 -- 21 - Proveedores
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '21', 'PROVEEDORES', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('21', '21', 'PROVEEDORES', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2105', 'Proveedores Nacionales', 'liability', (SELECT id FROM account_categories WHERE code = '21'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2105', '2105', 'Proveedores Nacionales', 'liability', '21', 0, 1, datetime('now'), datetime('now'));
 
 -- 22 - Cuentas por Pagar
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '22', 'CUENTAS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('22', '22', 'CUENTAS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 23 - Obligaciones Laborales
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '23', 'OBLIGACIONES LABORALES', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('23', '23', 'OBLIGACIONES LABORALES', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2310', 'Salarios por Pagar', 'liability', (SELECT id FROM account_categories WHERE code = '23'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2310', '2310', 'Salarios por Pagar', 'liability', '23', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2315', 'Cesantías Consignadas', 'liability', (SELECT id FROM account_categories WHERE code = '23'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2315', '2315', 'Cesantías Consignadas', 'liability', '23', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2320', 'Intereses sobre Cesantías', 'liability', (SELECT id FROM account_categories WHERE code = '23'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2320', '2320', 'Intereses sobre Cesantías', 'liability', '23', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2330', 'Prima de Servicios', 'liability', (SELECT id FROM account_categories WHERE code = '23'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2330', '2330', 'Prima de Servicios', 'liability', '23', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2340', 'Vacaciones', 'liability', (SELECT id FROM account_categories WHERE code = '23'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2340', '2340', 'Vacaciones', 'liability', '23', 0, 1, datetime('now'), datetime('now'));
 
 -- 24 - Impuestos por Pagar
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '24', 'IMPUESTOS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('24', '24', 'IMPUESTOS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2408', 'IVA por Pagar', 'liability', (SELECT id FROM account_categories WHERE code = '24'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2408', '2408', 'IVA por Pagar', 'liability', '24', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2412', 'Retención en la Fuente', 'liability', (SELECT id FROM account_categories WHERE code = '24'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2412', '2412', 'Retención en la Fuente', 'liability', '24', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '2436', 'ReteIVA', 'liability', (SELECT id FROM account_categories WHERE code = '24'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('2436', '2436', 'ReteIVA', 'liability', '24', 0, 1, datetime('now'), datetime('now'));
 
 -- 25 - Obligaciones Financieras
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '25', 'OBLIGACIONES FINANCIERAS', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('25', '25', 'OBLIGACIONES FINANCIERAS', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 26 - Otras Cuentas por Pagar
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '26', 'OTRAS CUENTAS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('26', '26', 'OTRAS CUENTAS POR PAGAR', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- ============================================
 -- 3xxx - PATRIMONIO
 -- ============================================
 -- 31 - Capital
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '31', 'CAPITAL', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('31', '31', 'CAPITAL', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3115', 'Capital Suscrito y Pagado', 'equity', (SELECT id FROM account_categories WHERE code = '31'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3115', '3115', 'Capital Suscrito y Pagado', 'equity', '31', 0, 1, datetime('now'), datetime('now'));
 
 -- 32 - Reservas
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '32', 'RESERVAS', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('32', '32', 'RESERVAS', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3210', 'Reserva Legal', 'equity', (SELECT id FROM account_categories WHERE code = '32'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3210', '3210', 'Reserva Legal', 'equity', '32', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3220', 'Reservas Ocasionales', 'equity', (SELECT id FROM account_categories WHERE code = '32'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3220', '3220', 'Reservas Ocasionales', 'equity', '32', 0, 1, datetime('now'), datetime('now'));
 
 -- 33 - Resultados del Ejercicio
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '33', 'RESULTADOS DEL EJERCICIO', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('33', '33', 'RESULTADOS DEL EJERCICIO', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3310', 'Utilidades del Ejercicio', 'equity', (SELECT id FROM account_categories WHERE code = '33'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3310', '3310', 'Utilidades del Ejercicio', 'equity', '33', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3320', 'Pérdidas del Ejercicio', 'equity', (SELECT id FROM account_categories WHERE code = '33'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3320', '3320', 'Pérdidas del Ejercicio', 'equity', '33', 0, 1, datetime('now'), datetime('now'));
 
 -- 34 - Resultados Acumulados
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '34', 'RESULTADOS ACUMULADOS', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('34', '34', 'RESULTADOS ACUMULADOS', 'equity', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3410', 'Utilidades Acumuladas', 'equity', (SELECT id FROM account_categories WHERE code = '34'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3410', '3410', 'Utilidades Acumuladas', 'equity', '34', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '3420', 'Pérdidas Acumuladas', 'equity', (SELECT id FROM account_categories WHERE code = '34'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('3420', '3420', 'Pérdidas Acumuladas', 'equity', '34', 0, 1, datetime('now'), datetime('now'));
 
 -- ============================================
 -- 4xxx - GASTOS
 -- ============================================
 -- 41 - Gastos de Personal
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '41', 'GASTOS DE PERSONAL', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('41', '41', 'GASTOS DE PERSONAL', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4105', 'Salarios', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4105', '4105', 'Salarios', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4110', 'Auxilio de Transporte', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4110', '4110', 'Auxilio de Transporte', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4115', 'Horas Extras', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4115', '4115', 'Horas Extras', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4120', 'Comisiones', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4120', '4120', 'Comisiones', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4130', 'Cesantías', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4130', '4130', 'Cesantías', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4135', 'Intereses sobre Cesantías', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4135', '4135', 'Intereses sobre Cesantías', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4140', 'Prima de Servicios', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4140', '4140', 'Prima de Servicios', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4145', 'Vacaciones', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4145', '4145', 'Vacaciones', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4150', 'Aporte a Salud (EPS)', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4150', '4150', 'Aporte a Salud (EPS)', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4155', 'Aporte a Pensión (AFP)', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4155', '4155', 'Aporte a Pensión (AFP)', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4160', 'Aporte a Riesgos Laborales (ARL)', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4160', '4160', 'Aporte a Riesgos Laborales (ARL)', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4165', 'Aporte a ICBF y SENA', 'expense', (SELECT id FROM account_categories WHERE code = '41'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4165', '4165', 'Aporte a ICBF y SENA', 'expense', '41', 0, 1, datetime('now'), datetime('now'));
 
 -- 42 - Gastos de Operación
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '42', 'GASTOS DE OPERACIÓN', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('42', '42', 'GASTOS DE OPERACIÓN', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4210', 'Arrendamientos', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4210', '4210', 'Arrendamientos', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4215', 'Servicios', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4215', '4215', 'Servicios', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4220', 'Gas', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4220', '4220', 'Gas', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4225', 'Energía', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4225', '4225', 'Energía', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4230', 'Agua y Alcantarillado', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4230', '4230', 'Agua y Alcantarillado', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4235', 'Teléfono e Internet', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4235', '4235', 'Teléfono e Internet', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4240', 'Mantenimiento y Reparaciones', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4240', '4240', 'Mantenimiento y Reparaciones', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4245', 'Gastos de Representación', 'expense', (SELECT id FROM account_categories WHERE code = '42'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4245', '4245', 'Gastos de Representación', 'expense', '42', 0, 1, datetime('now'), datetime('now'));
 
 -- 43 - Depreciaciones
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '43', 'DEPRECIACIONES', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('43', '43', 'DEPRECIACIONES', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 
 -- 44 - Gastos Financieros
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '44', 'GASTOS FINANCIEROS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('44', '44', 'GASTOS FINANCIEROS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4410', 'Intereses', 'expense', (SELECT id FROM account_categories WHERE code = '44'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4410', '4410', 'Intereses', 'expense', '44', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4420', 'Comisiones Bancarias', 'expense', (SELECT id FROM account_categories WHERE code = '44'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4420', '4420', 'Comisiones Bancarias', 'expense', '44', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4430', 'GMF (4x1000)', 'expense', (SELECT id FROM account_categories WHERE code = '44'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4430', '4430', 'GMF (4x1000)', 'expense', '44', 0, 1, datetime('now'), datetime('now'));
 
 -- 45 - Otros Gastos
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '45', 'OTROS GASTOS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('45', '45', 'OTROS GASTOS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4510', 'Gastos Extraordinarios', 'expense', (SELECT id FROM account_categories WHERE code = '45'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4510', '4510', 'Gastos Extraordinarios', 'expense', '45', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4520', 'Gastos Varios', 'expense', (SELECT id FROM account_categories WHERE code = '45'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4520', '4520', 'Gastos Varios', 'expense', '45', 0, 1, datetime('now'), datetime('now'));
 
 -- 48 - Gastos por Impuestos
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '48', 'GASTOS POR IMPUESTOS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('48', '48', 'GASTOS POR IMPUESTOS', 'expense', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4810', 'Impuesto de Industria y Comercio (ICA)', 'expense', (SELECT id FROM account_categories WHERE code = '48'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4810', '4810', 'Impuesto de Industria y Comercio (ICA)', 'expense', '48', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '4815', 'Gravamen a los Movimientos Financieros', 'expense', (SELECT id FROM account_categories WHERE code = '48'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('4815', '4815', 'Gravamen a los Movimientos Financieros', 'expense', '48', 0, 1, datetime('now'), datetime('now'));
 
 -- ============================================
 -- 5xxx - COSTOS DE PRODUCCIÓN
 -- ============================================
 -- 51 - Costos de Operación
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '51', 'COSTOS DE OPERACIÓN', 'cost', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('51', '51', 'COSTOS DE OPERACIÓN', 'cost', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '5105', 'Costos de Educación', 'cost', (SELECT id FROM account_categories WHERE code = '51'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('5105', '5105', 'Costos de Educación', 'cost', '51', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '5110', 'Materiales Didácticos', 'cost', (SELECT id FROM account_categories WHERE code = '51'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('5110', '5110', 'Materiales Didácticos', 'cost', '51', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '5115', 'Gastos de Personal Docente', 'cost', (SELECT id FROM account_categories WHERE code = '51'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('5115', '5115', 'Gastos de Personal Docente', 'cost', '51', 0, 1, datetime('now'), datetime('now'));
 
 -- ============================================
 -- 6xxx - INGRESOS
 -- ============================================
 -- 61 - Ingresos Operacionales
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '61', 'INGRESOS OPERACIONALES', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('61', '61', 'INGRESOS OPERACIONALES', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6105', 'SERVICIOS EDUCATIVOS', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('6105', '6105', 'SERVICIOS EDUCATIVOS', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6110', 'Matrículas', 'income', (SELECT id FROM account_categories WHERE code = '6105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6110', '6110', 'Matrículas', 'income', '6105', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6115', 'Mensualidades', 'income', (SELECT id FROM account_categories WHERE code = '6105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6115', '6115', 'Mensualidades', 'income', '6105', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6120', 'Cursos Especiales', 'income', (SELECT id FROM account_categories WHERE code = '6105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6120', '6120', 'Cursos Especiales', 'income', '6105', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6125', 'Certificaciones', 'income', (SELECT id FROM account_categories WHERE code = '6105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6125', '6125', 'Certificaciones', 'income', '6105', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6130', 'Uniformes y Materiales', 'income', (SELECT id FROM account_categories WHERE code = '6105'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6130', '6130', 'Uniformes y Materiales', 'income', '6105', 0, 1, datetime('now'), datetime('now'));
 
 -- 62 - Ingresos No Operacionales
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '62', 'INGRESOS NO OPERACIONALES', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('62', '62', 'INGRESOS NO OPERACIONALES', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6205', 'Intereses Ganados', 'income', (SELECT id FROM account_categories WHERE code = '62'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6205', '6205', 'Intereses Ganados', 'income', '62', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6210', 'Dividendos', 'income', (SELECT id FROM account_categories WHERE code = '62'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6210', '6210', 'Dividendos', 'income', '62', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6215', 'Arrendamientos', 'income', (SELECT id FROM account_categories WHERE code = '62'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6215', '6215', 'Arrendamientos', 'income', '62', 0, 1, datetime('now'), datetime('now'));
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '6220', 'Otros Ingresos', 'income', (SELECT id FROM account_categories WHERE code = '62'), 0, 1, datetime('now'), datetime('now'));
+VALUES ('6220', '6220', 'Otros Ingresos', 'income', '62', 0, 1, datetime('now'), datetime('now'));
 
 -- 63 - Devoluciones, Rebajas y Descuentos
 INSERT INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
-VALUES (gen_random_uuid(), '63', 'DEVOLUCIONES, REBAJAS Y DESCuentos', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
+VALUES ('63', '63', 'DEVOLUCIONES,REBAJAS Y DESCUNTOS', 'income', NULL, 0, 1, datetime('now'), datetime('now'));
