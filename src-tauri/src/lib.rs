@@ -8,11 +8,12 @@ pub mod domain;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AttendanceService, CourseService, GroupService, PaymentService, StudentService, UserService,
+    AccountingService, AttendanceService, CourseService, GroupService, PaymentService,
+    StudentService, UserService,
 };
 use commands::accounting::{
-    create_entry, get_entry, list_entries, get_trial_balance, get_income_statement,
-    list_accounts, get_account_tree, get_accounting_summary,
+    create_entry, get_account_tree, get_accounting_summary, get_entry, get_financial_balance,
+    get_income_statement, get_trial_balance, list_accounts, list_entries,
 };
 use commands::attendance::{
     create_attendance, delete_attendance, get_attendance, get_group_attendance_stats,
@@ -25,27 +26,29 @@ use commands::courses::{
     list_archived_courses, list_courses, restore_course, update_course,
 };
 use commands::employees::{
-    create_employee, get_employee, list_employees, update_employee, delete_employee, get_employee_summary,
+    create_employee, delete_employee, get_employee, get_employee_summary, list_employees,
+    update_employee,
 };
 use commands::groups::{create_group, delete_group, get_group, list_groups, update_group};
 use commands::invoices::{
-    create_invoice, get_invoice, list_invoices, register_payment, cancel_invoice, get_invoice_summary,
+    cancel_invoice, create_invoice, get_invoice, get_invoice_summary, list_invoices,
+    register_payment,
 };
 use commands::payments::{
     create_payment, delete_payment, get_all_students_payment_summary, get_payment,
     get_student_payment_status, list_payments, list_payments_by_student, update_payment,
 };
-use commands::payroll::{
-    run_payroll, get_payroll_run, list_payroll_runs, get_payroll_summary,
-};
+use commands::payroll::{get_payroll_run, get_payroll_summary, list_payroll_runs, run_payroll};
+use commands::pdf::{export_financial_balance_pdf, export_income_statement_pdf};
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
 };
 use commands::users::{create_user, delete_user, get_user, list_users, update_user};
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
-    SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
-    SqlitePaymentRepository, SqliteStudentRepository, SqliteUserRepository,
+    SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteAttendanceRepository,
+    SqliteCourseRepository, SqliteGroupRepository, SqlitePaymentRepository,
+    SqliteStudentRepository, SqliteUserRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -104,6 +107,26 @@ fn init_database() -> SqlitePool {
     let migration_009_sql = include_str!("../migrations/009_make_payments_due_date_nullable.sql");
     let _ = conn.execute_batch(migration_009_sql);
 
+    // Run migration 010 - accounting schema
+    let migration_010_sql = include_str!("../migrations/010_accounting_schema.sql");
+    conn.execute_batch(migration_010_sql)
+        .expect("Failed to run migration 010");
+    println!("Migration 010 applied");
+
+    // Run migration 011 - accounting seed (PUC Colombian chart of accounts)
+    let migration_011_sql = include_str!("../migrations/011_accounting_seed.sql");
+    conn.execute_batch(migration_011_sql)
+        .expect("Failed to run migration 011");
+    println!("Migration 011 applied - PUC seeded");
+
+    // Verify accounts exist
+    let count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM account_categories", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(0);
+    println!("Total account categories in DB: {}", count);
+
     println!("Database initialized successfully");
     drop(conn);
     pool
@@ -150,6 +173,8 @@ fn create_service_states(
     GroupService<SqliteGroupRepository>,
     PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>,
     AttendanceService<SqliteAttendanceRepository>,
+    SqliteAccountingEntryRepository,
+    SqliteAccountCategoryRepository,
 ) {
     let user_repo = SqliteUserRepository::new(Arc::clone(&pool));
     let student_repo = SqliteStudentRepository::new(Arc::clone(&pool));
@@ -157,6 +182,9 @@ fn create_service_states(
     let group_repo = SqliteGroupRepository::new(Arc::clone(&pool));
     let payment_repo = SqlitePaymentRepository::new(Arc::clone(&pool));
     let attendance_repo = SqliteAttendanceRepository::new(Arc::clone(&pool));
+    // Accounting repositories
+    let accounting_entry_repo = SqliteAccountingEntryRepository::new(Arc::clone(&pool));
+    let accounting_category_repo = SqliteAccountCategoryRepository::new(Arc::clone(&pool));
 
     (
         UserService::new(user_repo),
@@ -165,6 +193,8 @@ fn create_service_states(
         GroupService::new(group_repo.clone()),
         PaymentService::new(payment_repo, group_repo, course_repo),
         AttendanceService::new(attendance_repo),
+        accounting_entry_repo,
+        accounting_category_repo,
     )
 }
 
@@ -186,10 +216,18 @@ pub fn run() {
         group_service,
         payment_service,
         attendance_service,
+        accounting_entry_repo,
+        accounting_category_repo,
     ) = create_service_states(Arc::clone(&pool));
+
+    // Create accounting service
+    let accounting_service =
+        AccountingService::new(accounting_entry_repo, accounting_category_repo);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(AuthAppState::new(Arc::clone(&pool)))
         .manage(user_service)
         .manage(student_service)
@@ -197,6 +235,7 @@ pub fn run() {
         .manage(group_service)
         .manage(payment_service)
         .manage(attendance_service)
+        .manage(accounting_service)
         .invoke_handler(tauri::generate_handler![
             // Health check
             health,
@@ -270,6 +309,9 @@ pub fn run() {
             list_accounts,
             get_account_tree,
             get_accounting_summary,
+            get_financial_balance,
+            export_financial_balance_pdf,
+            export_income_statement_pdf,
             // Invoice commands
             create_invoice,
             get_invoice,
