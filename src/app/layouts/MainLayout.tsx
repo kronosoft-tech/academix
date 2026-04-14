@@ -226,7 +226,7 @@ export default function MainLayout() {
         </aside>
 
         <main className="flex-1 ml-64 p-6">
-          <div ref={contentRef} style={{ opacity: 0 }}>
+          <div ref={contentRef}>
             {renderPage()}
           </div>
         </main>
