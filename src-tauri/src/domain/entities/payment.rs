@@ -75,6 +75,7 @@ pub struct Payment {
     pub status: PaymentStatus,
     pub due_date: Option<String>,
     pub paid_at: Option<DateTime<Utc>>,
+    pub reference: Option<String>,
     pub description: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -99,6 +100,7 @@ impl Payment {
             status: PaymentStatus::Paid, // Default to PAID since all payments are confirmed
             due_date: None,
             paid_at: Some(now), // Set paid_at to creation time
+            reference: None,
             description: None,
             created_at: now,
             updated_at: now,

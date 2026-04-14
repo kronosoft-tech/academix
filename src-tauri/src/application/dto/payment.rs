@@ -25,9 +25,11 @@ pub struct CreatePaymentRequest {
 }
 
 /// Update payment status request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct UpdatePaymentRequest {
     pub status: Option<String>,
+    pub reference: Option<String>,
+    pub paid_date: Option<String>,
 }
 
 /// Payment status DTO

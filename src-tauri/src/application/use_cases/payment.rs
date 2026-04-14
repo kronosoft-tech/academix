@@ -76,7 +76,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
         };
 
         let mut payment = Payment::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.student_id,
             request.group_id,
             request.amount,
@@ -177,6 +177,18 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
                 crate::domain::entities::PaymentStatus::from_str(&status).unwrap_or(payment.status);
             if status == "paid" {
                 payment.paid_at = Some(Utc::now());
+            }
+        }
+
+        // Handle reference if provided
+        if let Some(ref r) = request.reference {
+            payment.reference = Some(r.clone());
+        }
+
+        // Handle paid_date if provided
+        if let Some(ref pd) = request.paid_date {
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(pd) {
+                payment.paid_at = Some(dt.with_timezone(&Utc));
             }
         }
 

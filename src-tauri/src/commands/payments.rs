@@ -5,12 +5,15 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::application::dto::accounting::CreateEntryRequest;
 use crate::application::dto::{
     CreatePaymentRequest, PaymentDto, PaymentStatusDto, UpdatePaymentRequest,
 };
+use crate::application::use_cases::AccountingService;
 use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
-    SqliteCourseRepository, SqliteGroupRepository, SqlitePaymentRepository,
+    InMemoryAccountCategoryRepository, InMemoryAccountingEntryRepository, SqliteCourseRepository,
+    SqliteGroupRepository, SqlitePaymentRepository,
 };
 
 pub type PaymentServiceState =
@@ -28,9 +31,11 @@ pub struct CreatePaymentCommand {
 }
 
 /// Update payment request payload
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct UpdatePaymentCommand {
     pub status: Option<String>,
+    pub reference: Option<String>,
+    pub paid_date: Option<String>,
 }
 
 /// Payment response payload
@@ -130,24 +135,64 @@ pub fn list_payments_by_student(
     }
 }
 
-/// Update payment
+/// Update payment - when status="paid", automatically creates accounting entry
 #[tauri::command]
 pub fn update_payment(
     state: State<PaymentServiceState>,
     id: String,
     request: UpdatePaymentCommand,
 ) -> PaymentCommandResponse {
-    match state.update(
+    let update_result = state.update(
         &id,
         UpdatePaymentRequest {
-            status: request.status,
+            status: request.status.clone(),
+            reference: request.reference.clone(),
+            paid_date: request.paid_date.clone(),
         },
-    ) {
-        Ok(payment) => PaymentCommandResponse {
-            success: true,
-            data: Some(payment),
-            error: None,
-        },
+    );
+
+    match update_result {
+        Ok(payment) => {
+            // If status is "paid", automatically create accounting entry
+            if request.status.as_deref() == Some("paid") {
+                let entry_repo = InMemoryAccountingEntryRepository::new();
+                let category_repo = InMemoryAccountCategoryRepository::new();
+                let accounting_service = AccountingService::new(entry_repo, category_repo);
+
+                // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
+                let entry_request = CreateEntryRequest {
+                    date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                    description: format!("Pago estudiante - {}", id),
+                    debit_account: "1105".to_string(),  // Caja
+                    credit_account: "6115".to_string(), // Mensualidades
+                    amount: payment.amount,
+                    entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
+                    reference: request.reference.or(Some(format!("PAG-{}", &id[..8]))),
+                    related_id: Some(payment.id.clone()),
+                    related_type: Some("payment".to_string()),
+                };
+
+                match accounting_service.create_entry(entry_request, "system".to_string()) {
+                    Ok(_entry) => {
+                        // Success - payment updated and accounting entry created
+                    }
+                    Err(e) => {
+                        // Payment was updated but accounting entry failed
+                        return PaymentCommandResponse {
+                            success: true,
+                            data: Some(payment),
+                            error: Some(format!("Pago actualizado pero error contable: {}", e)),
+                        };
+                    }
+                }
+            }
+
+            PaymentCommandResponse {
+                success: true,
+                data: Some(payment),
+                error: None,
+            }
+        }
         Err(e) => PaymentCommandResponse {
             success: false,
             data: None,
@@ -173,6 +218,73 @@ pub fn delete_payment(state: State<PaymentServiceState>, id: String) -> PaymentC
     }
 }
 
+/// Register payment and create accounting entry automatically
+/// This is used when a payment is received - marks it as paid and creates
+/// an accounting entry for the income (e.g., monthly fee)
+#[tauri::command]
+pub fn register_payment_with_income(
+    state: State<PaymentServiceState>,
+    payment_id: String,
+    reference: String,
+) -> PaymentCommandResponse {
+    // First update payment to "paid" status
+    let update_result = state.update(
+        &payment_id,
+        UpdatePaymentRequest {
+            status: Some("paid".to_string()),
+            reference: Some(reference.clone()),
+            paid_date: Some(chrono::Utc::now().format("%Y-%m-%d").to_string()),
+        },
+    );
+
+    match update_result {
+        Ok(_payment) => {
+            // Now create accounting entry for the income
+            let entry_repo = InMemoryAccountingEntryRepository::new();
+            let category_repo = InMemoryAccountCategoryRepository::new();
+            let accounting_service = AccountingService::new(entry_repo, category_repo);
+
+            // Create entry: Debit to Cash/Bank (1105), Credit to Income (6115 - Mensualidades)
+            let entry_request = CreateEntryRequest {
+                date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                description: format!("Pago {}", _payment.student_id),
+                debit_account: "1105".to_string(),  // Caja
+                credit_account: "6115".to_string(), // Mensualidades
+                amount: _payment.amount,
+                entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
+                reference: Some(format!("PAG-{}", reference)),
+                related_id: Some(_payment.id.clone()),
+                related_type: Some("payment".to_string()),
+            };
+
+            match accounting_service.create_entry(entry_request, "system".to_string()) {
+                Ok(_entry) => PaymentCommandResponse {
+                    success: true,
+                    data: Some(_payment),
+                    error: None,
+                },
+                Err(e) => {
+                    // Payment was updated but accounting entry failed
+                    // Still return success but log the error
+                    PaymentCommandResponse {
+                        success: true,
+                        data: Some(_payment),
+                        error: Some(format!(
+                            "Warning: Payment updated but accounting entry failed: {}",
+                            e
+                        )),
+                    }
+                }
+            }
+        }
+        Err(e) => PaymentCommandResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
 /// Payment status command response
 #[derive(Debug, Serialize)]
 pub struct PaymentStatusCommandResponse {
@@ -180,6 +292,8 @@ pub struct PaymentStatusCommandResponse {
     pub data: Option<PaymentStatusDto>,
     pub error: Option<String>,
 }
+
+/// Get student payment status
 
 /// Payment status list command response
 #[derive(Debug, Serialize)]

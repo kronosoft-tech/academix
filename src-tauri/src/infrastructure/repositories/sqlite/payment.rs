@@ -24,6 +24,7 @@ impl SqlitePaymentRepository {
         let method_str: String = row.get(4)?;
         let due_date_str: Option<String> = row.get(6)?;
         let paid_at_str: Option<String> = row.get(7)?;
+        let reference_str: Option<String> = row.get(8)?;
         let created_str: String = row.get(9)?;
         let updated_str: String = row.get(10)?;
 
@@ -38,7 +39,8 @@ impl SqlitePaymentRepository {
             paid_at: paid_at_str
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
-            description: row.get(8)?,
+            reference: reference_str,
+            description: row.get(11)?,
             created_at: DateTime::parse_from_rfc3339(&created_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),

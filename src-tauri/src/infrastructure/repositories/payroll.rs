@@ -3,9 +3,7 @@
 //! In-memory repository implementations for payroll.
 
 use crate::application::ports::payroll::{PayrollEntryRepository, PayrollRepository};
-use crate::domain::entities::payroll::{
-    PayrollEntry, PayrollRun, PayrollRunStatus,
-};
+use crate::domain::entities::payroll::{PayrollEntry, PayrollRun, PayrollRunStatus};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
