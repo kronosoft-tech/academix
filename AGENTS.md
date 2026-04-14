@@ -71,6 +71,7 @@ Load these skills when working on specific areas:
 | Testing | `playwright` | E2E tests |
 | State | `zustand-5` | If adding global state |
 | Styling | `tailwind-4` | If adding Tailwind |
+| Animations | `animejs` | Anime.js v4 animations |
 
 ---
 

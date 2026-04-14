@@ -56,7 +56,6 @@ export function useModalAnimation(options: UseModalAnimationOptions) {
 
   // Entrance animation - useLayoutEffect to prevent flash
   useLayoutEffect(() => {
-    console.log('[DEBUG useModalAnimation] isOpen:', isOpen, 'hasEntered:', hasEntered.current);
     if (!isOpen || hasEntered.current) return;
     if (prefersReducedMotion()) {
       // Instant appearance for reduced motion

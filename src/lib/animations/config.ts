@@ -28,12 +28,10 @@ export const animationConfig = {
 /** Global animation settings - can be overridden at runtime */
 let globalConfig = { ...animationConfig };
 
-/** Check if user prefers reduced motion - ALWAYS returns false for now to ensure animations work */
+/** Check if user prefers reduced motion */
 export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
-  // DEBUG: Always return false to ensure animations work
-  // return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /** Set global animation config */
