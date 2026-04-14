@@ -27,37 +27,59 @@ impl InMemoryAccountCategoryRepository {
 
     fn seed_default_accounts(&self) {
         let default_accounts = vec![
-            // 1xxx - Activos
-            ("acc-001", "10101", "Caja", CategoryType::Asset),
-            ("acc-002", "10401", "Banco", CategoryType::Asset),
-            ("acc-003", "1201", "Cuentas por Cobrar", CategoryType::Asset),
-            // 2xxx - Pasivos
-            ("acc-004", "20101", "Proveedores", CategoryType::Liability),
+            // 1xxx - Activos (Debe)
+            ("caja", "1101", "Caja", CategoryType::Asset),
+            ("banco", "1111", "Banco", CategoryType::Asset),
             (
-                "acc-005",
-                "4011",
+                "cuentas_cobrar",
+                "1201",
+                "Cuentas por Cobrar",
+                CategoryType::Asset,
+            ),
+            // 2xxx - Pasivos (Haber)
+            (
+                "proveedores",
+                "2101",
+                "Proveedores",
+                CategoryType::Liability,
+            ),
+            (
+                "remuneraciones",
+                "2201",
                 "Remuneraciones por Pagar",
                 CategoryType::Liability,
             ),
             // 3xxx - Patrimonio
-            ("acc-006", "301", "Capital", CategoryType::Equity),
-            ("acc-007", "302", "Reservas", CategoryType::Equity),
-            // 4xxx - Gastos
+            ("capital", "3101", "Capital", CategoryType::Equity),
+            ("reservas", "3201", "Reservas", CategoryType::Equity),
+            // 4xxx - Gastos (Débito)
             (
-                "acc-008",
-                "401",
+                "sueldos",
+                "4101",
                 "Sueldos y Salarios",
                 CategoryType::Expense,
             ),
-            ("acc-009", "403", "Servicios", CategoryType::Expense),
-            ("acc-010", "621", "Sueldos", CategoryType::Expense),
-            // 5xxx - Costos
-            ("acc-011", "501", "Costos de Servicios", CategoryType::Cost),
-            // 6xxx - Ingresos
+            ("servicios", "4102", "Servicios", CategoryType::Expense),
             (
-                "acc-012",
-                "701",
+                "gastos_varios",
+                "4103",
+                "Gastos Varios",
+                CategoryType::Expense,
+            ),
+            // 5xxx - Costos
+            ("costos", "5101", "Costos de Servicios", CategoryType::Cost),
+            // 6xxx - Ingresos (Crédito)
+            (
+                "servicios_edu",
+                "6101",
                 "Servicios Educativos",
+                CategoryType::Income,
+            ),
+            ("matriculas", "6102", "Matrículas", CategoryType::Income),
+            (
+                "otros_ingresos",
+                "6103",
+                "Otros Ingresos",
                 CategoryType::Income,
             ),
         ];

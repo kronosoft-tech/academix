@@ -219,9 +219,11 @@ impl SqliteAccountingEntryRepository {
     }
 
     fn row_to_accounting_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<AccountingEntry> {
-        let entry_type_str: String = row.get(10)?;
+        // SQL: id, date, reference, description, debit_account, credit_account, amount,
+        //      entry_type, related_id, related_type, created_by, created_at
+        let entry_type_str: String = row.get(7)?;
         let date_str: String = row.get(1)?;
-        let created_str: String = row.get(12)?;
+        let created_str: String = row.get(11)?;
 
         let entry_type = EntryType::from_str(&entry_type_str).unwrap_or(EntryType::Manual);
 
@@ -236,12 +238,12 @@ impl SqliteAccountingEntryRepository {
             credit_account: row.get(5)?,
             amount: row.get(6)?,
             entry_type,
-            related_id: row.get(7)?,
-            related_type: row.get(8)?,
+            related_id: row.get(8)?,
+            related_type: row.get(9)?,
+            created_by: row.get(10)?,
             created_at: DateTime::parse_from_rfc3339(&created_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
-            created_by: row.get(9)?,
         })
     }
 
@@ -255,7 +257,7 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
         let sql = "INSERT INTO accounting_entries (
                       id, date, reference, description, debit_account, credit_account, amount,
                       entry_type, related_id, related_type, created_by, created_at
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         self.pool
             .execute(

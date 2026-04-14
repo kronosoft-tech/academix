@@ -3,15 +3,15 @@
 //! Use case for accounting operations - general ledger, trial balance, income statement.
 
 use crate::application::dto::accounting::{
-    AccountCategoryDto, AccountCategoryTreeNode, AccountingEntryDto, AccountingSummary,
-    CategoryTotalDto, CreateEntryRequest, IncomeStatementDto, TrialBalanceAccountDto,
+    AccountBalanceDto, AccountCategoryDto, AccountCategoryTreeNode, AccountingEntryDto,
+    AccountingSummary, CategoryTotalDto, CreateEntryRequest, ExpenseByCategory,
+    FinancialBalanceDto, IncomeStatementDto, MonthlyDataPoint, TrialBalanceAccountDto,
     TrialBalanceDto,
 };
 use crate::application::ports::accounting::{AccountCategoryRepository, AccountingEntryRepository};
-use crate::domain::entities::accounting::{
-    AccountingEntry, CategoryType, EntryType,
-};
-use chrono::{DateTime, Utc};
+use crate::domain::entities::accounting::{AccountingEntry, CategoryType, EntryType};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use uuid::Uuid;
 
 /// Accounting service - orchestrates accounting operations
 pub struct AccountingService<R: AccountingEntryRepository, C: AccountCategoryRepository> {
@@ -42,20 +42,46 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
             return Err("Amount must be greater than 0".to_string());
         }
 
-        // Verify accounts exist
+        // Verify accounts exist - try by ID first, then by code
         let debit_acc = self
             .category_repo
-            .get_by_id(&request.debit_account)?
+            .get_by_id(&request.debit_account)
+            .ok()
+            .flatten()
+            .or_else(|| {
+                self.category_repo
+                    .get_by_code(&request.debit_account)
+                    .ok()
+                    .flatten()
+            })
             .ok_or_else(|| format!("Debit account not found: {}", request.debit_account))?;
         let credit_acc = self
             .category_repo
-            .get_by_id(&request.credit_account)?
+            .get_by_id(&request.credit_account)
+            .ok()
+            .flatten()
+            .or_else(|| {
+                self.category_repo
+                    .get_by_code(&request.credit_account)
+                    .ok()
+                    .flatten()
+            })
             .ok_or_else(|| format!("Credit account not found: {}", request.credit_account))?;
 
-        // Parse date
-        let date = DateTime::parse_from_rfc3339(&request.date)
-            .map_err(|e| format!("Invalid date: {}", e))?
-            .with_timezone(&Utc);
+        // Parse date - support both YYYY-MM-DD and RFC3339
+        let date = if request.date.contains('T') {
+            DateTime::parse_from_rfc3339(&request.date)
+                .map_err(|e| format!("Invalid date: {}", e))?
+                .with_timezone(&Utc)
+        } else {
+            // Parse YYYY-MM-DD format
+            let parsed = chrono::NaiveDate::parse_from_str(&request.date, "%Y-%m-%d")
+                .map_err(|e| format!("Invalid date format: {}", e))?;
+            // Create datetime from date parts
+            let datetime =
+                NaiveDateTime::new(parsed, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+            DateTime::<Utc>::from_naive_utc_and_offset(datetime, Utc)
+        };
 
         // Generate reference if not provided
         let reference = request.reference.unwrap_or_else(|| {
@@ -65,8 +91,12 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
                 .unwrap_or_else(|_| "AS-0001".to_string())
         });
 
+        // Generate UUID v7 for the entry
+        let ts = uuid::Timestamp::now(uuid::NoContext);
+        let entry_id = Uuid::new_v7(ts).to_string();
+
         let entry = AccountingEntry::new(
-            String::new(),
+            entry_id,
             date,
             reference,
             request.description,
@@ -321,27 +351,226 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
         let entries = self.entry_repo.list(None, None, None)?;
         let accounts = self.category_repo.list(None, true)?;
 
-        let total_debits: f64 = entries.iter().map(|e| e.amount).sum();
-        let total_credits: f64 = entries.iter().map(|e| e.amount).sum();
+        // Build account lookup map
+        let account_map: std::collections::HashMap<String, String> = accounts
+            .iter()
+            .map(|a| (a.code.clone(), a.name.clone()))
+            .collect();
+
+        // Calculate income and expenses
+        let mut total_income: f64 = 0.0;
+        let mut total_expenses: f64 = 0.0;
+        let mut expenses_by_cat: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        let mut income_by_cat: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+
+        // For monthly data (last 6 months)
+        let months = [
+            "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+        ];
+        let mut monthly_income: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        let mut monthly_expenses: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+
+        for entry in &entries {
+            // Get month from date
+            let month_name = entry.date.format("%m").to_string();
+            let month_idx: usize = month_name.parse().unwrap_or(1) - 1;
+            let month_label = months.get(month_idx).unwrap_or(&"???");
+
+            // Check credit account (income)
+            if entry.credit_account.starts_with('6') {
+                total_income += entry.amount;
+                *monthly_income.entry(month_label.to_string()).or_insert(0.0) += entry.amount;
+
+                // Track by category
+                let cat_name = account_map
+                    .get(&entry.credit_account)
+                    .cloned()
+                    .unwrap_or_else(|| entry.credit_account.clone());
+                *income_by_cat.entry(cat_name).or_insert(0.0) += entry.amount;
+            }
+            // Check debit account (expenses)
+            if entry.debit_account.starts_with('4') || entry.debit_account.starts_with('5') {
+                total_expenses += entry.amount;
+                *monthly_expenses
+                    .entry(month_label.to_string())
+                    .or_insert(0.0) += entry.amount;
+
+                // Track by category
+                let cat_name = account_map
+                    .get(&entry.debit_account)
+                    .cloned()
+                    .unwrap_or_else(|| entry.debit_account.clone());
+                *expenses_by_cat.entry(cat_name).or_insert(0.0) += entry.amount;
+            }
+        }
+
+        let balance = total_income - total_expenses;
         let entry_count = entries.len() as i64;
+
+        // Build monthly data (last 6 months)
+        let now = chrono::Utc::now();
+        let monthly_data: Vec<MonthlyDataPoint> = (0..6)
+            .rev()
+            .map(|i| {
+                let date = now - chrono::Duration::days(30 * i);
+                let idx = date.format("%m").to_string().parse::<usize>().unwrap_or(1) - 1;
+                let m = months.get(idx).unwrap_or(&"???").to_string();
+                MonthlyDataPoint {
+                    month: m.clone(),
+                    income: *monthly_income.get(&m).unwrap_or(&0.0),
+                    expenses: *monthly_expenses.get(&m).unwrap_or(&0.0),
+                }
+            })
+            .collect();
+
+        // Build expense breakdown (top 5)
+        let mut expenses_vec: Vec<(String, f64)> = expenses_by_cat.into_iter().collect();
+        expenses_vec.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        let expenses_by_category: Vec<ExpenseByCategory> = expenses_vec
+            .into_iter()
+            .take(5)
+            .map(|(name, amount)| ExpenseByCategory {
+                category_name: name,
+                amount,
+            })
+            .collect();
+
+        // Build income breakdown (top 5)
+        let mut income_vec: Vec<(String, f64)> = income_by_cat.into_iter().collect();
+        income_vec.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        let income_by_category: Vec<ExpenseByCategory> = income_vec
+            .into_iter()
+            .take(5)
+            .map(|(name, amount)| ExpenseByCategory {
+                category_name: name,
+                amount,
+            })
+            .collect();
 
         // Get recent entries (last 10)
         let recent: Vec<AccountingEntryDto> = entries
             .into_iter()
             .take(10)
-            .map(|e| {
-                let dto = AccountingEntryDto::from(e);
-                // Could add account names here if needed
-                dto
-            })
+            .map(|e| AccountingEntryDto::from(e))
             .collect();
 
         Ok(AccountingSummary {
-            total_debits,
-            total_credits,
+            total_income,
+            total_expenses,
+            net_balance: balance,
             account_count: accounts.len() as i64,
             entry_count,
             recent_entries: recent,
+            monthly_data,
+            expenses_by_category,
+            income_by_category,
+        })
+    }
+
+    /// Get financial balance (Balance Financiero) - shows Assets = Liabilities + Equity
+    pub fn get_financial_balance(&self, as_of_date: &str) -> Result<FinancialBalanceDto, String> {
+        // Get all accounts with their balances
+        let all_accounts = self.category_repo.list(None, true)?;
+
+        // Build account lookup (unused but kept for future reference)
+        let _account_map: std::collections::HashMap<String, (String, f64)> = all_accounts
+            .iter()
+            .map(|a| (a.code.clone(), (a.name.clone(), a.balance)))
+            .collect();
+
+        // Separate by account type (first digit)
+        let mut assets: Vec<AccountBalanceDto> = Vec::new();
+        let mut liabilities: Vec<AccountBalanceDto> = Vec::new();
+        let mut equity: Vec<AccountBalanceDto> = Vec::new();
+        let mut total_assets: f64 = 0.0;
+        let mut total_liabilities: f64 = 0.0;
+        let mut total_equity: f64 = 0.0;
+
+        for acc in &all_accounts {
+            let balance = acc.balance;
+            if balance == 0.0 {
+                continue; // Skip zero balances
+            }
+
+            let code = &acc.code;
+            let first_digit = code.chars().next().unwrap_or('0');
+
+            match first_digit {
+                '1' => {
+                    // Assets
+                    total_assets += balance;
+                    assets.push(AccountBalanceDto {
+                        account_code: acc.code.clone(),
+                        account_name: acc.name.clone(),
+                        balance,
+                    });
+                }
+                '2' => {
+                    // Liabilities
+                    total_liabilities += balance;
+                    liabilities.push(AccountBalanceDto {
+                        account_code: acc.code.clone(),
+                        account_name: acc.name.clone(),
+                        balance,
+                    });
+                }
+                '3' => {
+                    // Equity
+                    total_equity += balance;
+                    equity.push(AccountBalanceDto {
+                        account_code: acc.code.clone(),
+                        account_name: acc.name.clone(),
+                        balance,
+                    });
+                }
+                // Also include income/expense accounts in equity (they affect net result)
+                '4' | '5' | '6' | '7' => {
+                    // Income/Expense accounts affect equity
+                    total_equity += balance;
+                    equity.push(AccountBalanceDto {
+                        account_code: acc.code.clone(),
+                        account_name: acc.name.clone(),
+                        balance,
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        // Sort each category by balance descending
+        assets.sort_by(|a, b| {
+            b.balance
+                .partial_cmp(&a.balance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        liabilities.sort_by(|a, b| {
+            b.balance
+                .partial_cmp(&a.balance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        equity.sort_by(|a, b| {
+            b.balance
+                .partial_cmp(&a.balance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // For accounting equation: Assets = Liabilities + Equity + (Income - Expenses)
+        // Net Income = Total Income - Total Expenses (which is in net_balance from summary)
+        let net_result = total_assets - total_liabilities - total_equity;
+
+        Ok(FinancialBalanceDto {
+            as_of_date: as_of_date.to_string(),
+            assets,
+            liabilities,
+            equity,
+            total_assets,
+            total_liabilities,
+            total_equity,
+            is_balanced: net_result.abs() < 0.01, // Allow for small rounding errors
         })
     }
 }
