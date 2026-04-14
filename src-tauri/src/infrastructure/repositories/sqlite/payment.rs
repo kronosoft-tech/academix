@@ -91,6 +91,24 @@ impl PaymentRepository for SqlitePaymentRepository {
 
         let paid_date = payment.paid_at.map(|dt| dt.to_rfc3339());
 
+        // Handle due_date - if None, use current date as default
+        let due_date = payment.due_date.clone().unwrap_or_else(|| {
+            chrono::Utc::now()
+                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                .to_string()
+        });
+
+        eprintln!(
+            "[DEBUG] Saving payment: id={}, student_id={}, group_id={}, amount={}",
+            payment.id, payment.student_id, payment.group_id, payment.amount
+        );
+        eprintln!(
+            "[DEBUG] due_date={}, paid_date={:?}, status={}",
+            due_date,
+            paid_date,
+            payment.status.as_str()
+        );
+
         self.pool
             .execute(
                 sql,
@@ -99,7 +117,7 @@ impl PaymentRepository for SqlitePaymentRepository {
                     &payment.student_id,
                     &payment.group_id,
                     &payment.amount.to_string(),
-                    &payment.due_date,
+                    &due_date,
                     &paid_date,
                     &payment.status.as_str().to_string(),
                     &payment.method.as_str().to_string(),
@@ -111,6 +129,7 @@ impl PaymentRepository for SqlitePaymentRepository {
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
+        eprintln!("[DEBUG] Payment saved successfully!");
         Ok(())
     }
 

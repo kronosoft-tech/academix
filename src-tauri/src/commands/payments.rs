@@ -60,6 +60,11 @@ pub fn create_payment(
     state: State<PaymentServiceState>,
     request: CreatePaymentCommand,
 ) -> PaymentCommandResponse {
+    eprintln!(
+        "[DEBUG] create_payment called with: student_id={}, group_id={}, amount={}",
+        request.student_id, request.group_id, request.amount
+    );
+
     match state.create(CreatePaymentRequest {
         student_id: request.student_id,
         group_id: request.group_id,
@@ -68,16 +73,22 @@ pub fn create_payment(
         due_date: request.due_date.unwrap_or_default(),
         description: request.description,
     }) {
-        Ok(payment) => PaymentCommandResponse {
-            success: true,
-            data: Some(payment),
-            error: None,
-        },
-        Err(e) => PaymentCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        Ok(payment) => {
+            eprintln!("[DEBUG] Payment created successfully: {}", payment.id);
+            PaymentCommandResponse {
+                success: true,
+                data: Some(payment),
+                error: None,
+            }
+        }
+        Err(e) => {
+            eprintln!("[DEBUG] Payment creation failed: {}", e);
+            PaymentCommandResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            }
+        }
     }
 }
 
