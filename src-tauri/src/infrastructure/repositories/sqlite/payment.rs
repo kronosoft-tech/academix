@@ -91,45 +91,62 @@ impl PaymentRepository for SqlitePaymentRepository {
 
         let paid_date = payment.paid_at.map(|dt| dt.to_rfc3339());
 
-        // Handle due_date - if None, use current date as default
+        // Due date is required in the DB, but we handle None by using current date
         let due_date = payment.due_date.clone().unwrap_or_else(|| {
             chrono::Utc::now()
                 .format("%Y-%m-%dT%H:%M:%S%.3fZ")
                 .to_string()
         });
 
-        eprintln!(
-            "[DEBUG] Saving payment: id={}, student_id={}, group_id={}, amount={}",
-            payment.id, payment.student_id, payment.group_id, payment.amount
-        );
-        eprintln!(
-            "[DEBUG] due_date={}, paid_date={:?}, status={}",
-            due_date,
-            paid_date,
-            payment.status.as_str()
+        // Convert to strings explicitly
+        let amount_str = payment.amount.to_string();
+        let status_str = payment.status.as_str().to_string();
+        let method_str = payment.method.as_str().to_string();
+        let created_str = payment.created_at.to_rfc3339();
+        let updated_str = payment.updated_at.to_rfc3339();
+
+        eprintln!("[DEBUG INSERT] All string conversions done");
+        eprintln!("[DEBUG INSERT] about to execute with {} params", 12);
+
+        let result = self.pool.execute(
+            sql,
+            &[
+                &payment.id as &dyn rusqlite::ToSql,
+                &payment.student_id as &dyn rusqlite::ToSql,
+                &payment.group_id as &dyn rusqlite::ToSql,
+                &amount_str as &dyn rusqlite::ToSql,
+                &due_date as &dyn rusqlite::ToSql,
+                &paid_date as &dyn rusqlite::ToSql,
+                &status_str as &dyn rusqlite::ToSql,
+                &method_str as &dyn rusqlite::ToSql,
+                &payment.reference as &dyn rusqlite::ToSql,
+                &payment.description as &dyn rusqlite::ToSql,
+                &created_str as &dyn rusqlite::ToSql,
+                &updated_str as &dyn rusqlite::ToSql,
+            ],
         );
 
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &payment.id,
-                    &payment.student_id,
-                    &payment.group_id,
-                    &payment.amount.to_string(),
-                    &due_date,
-                    &paid_date,
-                    &payment.status.as_str().to_string(),
-                    &payment.method.as_str().to_string(),
-                    &payment.reference,
-                    &payment.description,
-                    &payment.created_at.to_rfc3339(),
-                    &payment.updated_at.to_rfc3339(),
-                ],
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        match result {
+            Ok(affected) => {
+                eprintln!("[DEBUG INSERT] Success! Affected rows: {}", affected);
+            }
+            Err(e) => {
+                eprintln!("[DEBUG INSERT] ERROR: {}", e);
+                return Err(DomainError::Validation(e.to_string()));
+            }
+        }
 
-        eprintln!("[DEBUG] Payment saved successfully!");
+        // Verify the insert actually worked - just count all payments
+        let verify_sql = "SELECT COUNT(*) FROM payments";
+        if let Ok(Some(count)) = self
+            .pool
+            .query_row::<i32, _>(verify_sql, &[], |row| row.get(0))
+        {
+            eprintln!("[DEBUG INSERT] Total payments in DB: {}", count);
+        } else {
+            eprintln!("[ERROR] Could not verify payment count");
+        }
+
         Ok(())
     }
 

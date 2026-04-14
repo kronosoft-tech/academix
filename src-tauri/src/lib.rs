@@ -61,7 +61,9 @@ fn get_db_path() -> PathBuf {
         .join("academix");
 
     std::fs::create_dir_all(&app_data).ok();
-    app_data.join("academix.db")
+    let db_path = app_data.join("academix.db");
+    eprintln!("[DB PATH] Using database at: {:?}", db_path);
+    db_path
 }
 
 /// Initialize database pool and run migrations
