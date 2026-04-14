@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useStudents } from "../hooks/useStudents";
 import { useGroups } from "../../groups/hooks/useGroups";
 import { useCourses } from "../../courses/hooks/useCourses";
@@ -9,6 +9,7 @@ import { Input } from "../../../shared/ui/components/Input";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 import { SearchableSelect } from "../../../shared/ui/components/SearchableSelect";
 import { Modal } from "../../../shared/ui/components/Modal";
+import { useStaggeredEntry } from "../../../lib/animations/hooks";
 import type { Student } from "../../../shared/types/Student";
 
 interface PaymentStatus {
@@ -51,6 +52,15 @@ export default function StudentsPage() {
     guardianPhone: "",
     courseId: "",
     groupId: "",
+  });
+
+  // Ref for staggered animation on table rows
+  const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+
+  // Stagger animation for table rows
+  useStaggeredEntry(tableBodyRef, {
+    type: "fade",
+    delay: 30,
   });
 
   const isMinor = (birthDate: string): boolean => {
@@ -320,7 +330,7 @@ export default function StudentsPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody ref={tableBodyRef} className="bg-white divide-y divide-gray-200">
               {filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">

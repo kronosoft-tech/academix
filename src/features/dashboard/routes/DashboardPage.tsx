@@ -1,9 +1,25 @@
+import { useRef } from "react";
 import { useDashboard } from "../hooks/useDashboard";
+import { useStaggeredEntry } from "../../../lib/animations/hooks";
 import { Card } from "../../../shared/ui/components/Card";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 
 export default function DashboardPage() {
   const { stats, isLoading, error } = useDashboard();
+  const statsRef = useRef<HTMLDivElement>(null);
+  const quickActionsRef = useRef<HTMLDivElement>(null);
+
+  // Stagger the stat cards on mount
+  useStaggeredEntry(statsRef, {
+    type: "fade",
+    delay: 50,
+  });
+
+  // Stagger quick actions with slide-up
+  useStaggeredEntry(quickActionsRef, {
+    type: "slide-up",
+    delay: 80,
+  });
 
   if (isLoading) {
     return (
@@ -27,7 +43,10 @@ export default function DashboardPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div 
+        ref={statsRef}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+      >
         <StatCard
           title="Estudiantes"
           value={stats?.totalStudents ?? 0}
@@ -72,7 +91,10 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div 
+        ref={quickActionsRef}
+        className="grid grid-cols-1 md:grid-cols-3 gap-4"
+      >
         <QuickActionCard
           title="Registrar Estudiante"
           description="Agregar un nuevo estudiante al sistema"

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "../../shared/hooks/useAuth";
+import { useEntranceAnimation } from "../../lib/animations/hooks";
 import DashboardPage from "../../features/dashboard/routes/DashboardPage";
 import StudentsPage from "../../features/students/routes/StudentsPage";
 import CoursesPage from "../../features/courses/routes/CoursesPage";
@@ -124,6 +125,7 @@ const icons: Record<Page, React.FC<{ className?: string }>> = {
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const navigation = allNavigation.filter((item) => {
     if (!item.allowedRoles) return true;
@@ -132,6 +134,12 @@ export default function MainLayout() {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handlePageChange = (page: Page) => {
+    if (page !== currentPage) {
+      setCurrentPage(page);
+    }
   };
 
   const roleLabels: Record<string, string> = {
@@ -158,6 +166,13 @@ export default function MainLayout() {
     }
   };
 
+  // Animate page content on change
+  useEntranceAnimation(contentRef, {
+    type: "fade",
+    duration: 200,
+    enabled: true,
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
@@ -171,7 +186,7 @@ export default function MainLayout() {
               return (
                 <button
                   key={item.name}
-                  onClick={() => setCurrentPage(item.page)}
+                  onClick={() => handlePageChange(item.page)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     currentPage === item.page
                       ? "bg-blue-50 text-blue-600"
@@ -211,7 +226,9 @@ export default function MainLayout() {
         </aside>
 
         <main className="flex-1 ml-64 p-6">
-          {renderPage()}
+          <div ref={contentRef} style={{ opacity: 0 }}>
+            {renderPage()}
+          </div>
         </main>
       </div>
     </div>

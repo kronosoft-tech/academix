@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
+import { useModalAnimation } from "../../../lib/animations/hooks";
 
 interface ModalProps {
   isOpen: boolean;
@@ -7,10 +9,32 @@ interface ModalProps {
   title?: string;
   children: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
+  /** Disable animations */
+  animate?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
-  if (!isOpen) return null;
+export function Modal({ isOpen, onClose, title, children, size = "md", animate = true }: ModalProps) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [renderModal, setRenderModal] = useState(false);
+
+  const { shouldRender, isExiting } = useModalAnimation({
+    isOpen,
+    backdropRef,
+    modalRef,
+    entranceType: "scale",
+    onExitComplete: () => {
+      setRenderModal(false);
+    },
+  });
+
+  // Start rendering after first open (for entrance animation)
+  if (isOpen && !renderModal && !isExiting) {
+    setRenderModal(true);
+  }
+
+  // Don't render if we're not open and not exiting
+  if (!shouldRender && !isOpen) return null;
 
   const sizes = {
     sm: "max-w-md",
@@ -19,21 +43,37 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
     xl: "max-w-4xl",
   };
 
+  // Initial styles for animation
+  const getInitialStyles = (isBackdrop: boolean): string => {
+    if (!animate) return "";
+    if (isBackdrop) {
+      return isExiting ? "" : "opacity-0";
+    }
+    return isExiting ? "" : "opacity-0";
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black/50 transition-opacity"
+          ref={backdropRef}
+          className={cn(
+            "fixed inset-0 bg-black/50 transition-opacity",
+            getInitialStyles(true)
+          )}
           onClick={onClose}
         />
         
         {/* Modal */}
         <div
+          ref={modalRef}
           className={cn(
             "relative w-full bg-white rounded-lg shadow-xl",
-            sizes[size]
+            sizes[size],
+            getInitialStyles(false)
           )}
+          style={{ transformOrigin: "center" }}
         >
           {title && (
             <div className="flex items-center justify-between px-6 py-4 border-b">
