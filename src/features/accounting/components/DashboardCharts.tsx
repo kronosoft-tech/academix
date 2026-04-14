@@ -89,23 +89,21 @@ const commonOptions: any = {
 interface IncomeExpensesChartProps {
   income: number;
   expenses: number;
-  costs?: number;
   className?: string;
 }
 
 export function IncomeExpensesChart({
   income,
   expenses,
-  costs = 0,
   className: _className,
 }: IncomeExpensesChartProps) {
   void _className; // unused but kept for interface compatibility
   const data = {
-    labels: ["Ingresos", "Gastos", "Costos"],
+    labels: ["Ingresos", "Gastos"],
     datasets: [
       {
-        data: [income, expenses, costs],
-        backgroundColor: [CHART_COLORS.success, CHART_COLORS.danger, CHART_COLORS.warning],
+        data: [income, expenses],
+        backgroundColor: [CHART_COLORS.success, CHART_COLORS.danger],
         borderRadius: 6,
         barThickness: 48,
       },
@@ -179,7 +177,7 @@ export function MonthlyTrendChart({ data, className }: MonthlyTrendChartProps) {
 
 // Expense Breakdown Doughnut Chart
 interface ExpenseBreakdownChartProps {
-  data: Array<{ category: string; amount: number }>;
+  data: Array<{ category_name: string; amount: number }>;
   className?: string;
 }
 
@@ -195,16 +193,16 @@ export function ExpenseBreakdownChart({ data, className }: ExpenseBreakdownChart
     CHART_COLORS.slateLight,
   ];
 
-  const chartData = {
-    labels: data.map((d) => d.category),
-    datasets: [
-      {
-        data: data.map((d) => d.amount),
-        backgroundColor: colors.slice(0, data.length),
-        borderWidth: 0,
-      },
-    ],
-  };
+   const chartData = {
+     labels: data.map((d) => d.category_name),
+     datasets: [
+       {
+         data: data.map((d) => d.amount),
+         backgroundColor: colors.slice(0, data.length),
+         borderWidth: 0,
+       },
+     ],
+   };
 
   const options = {
     responsive: true,
@@ -244,13 +242,13 @@ export function ExpenseBreakdownChart({ data, className }: ExpenseBreakdownChart
 
 // Income by Category Bar Chart
 interface IncomeByCategoryChartProps {
-  data: Array<{ category: string; amount: number }>;
+  data: Array<{ category_name: string; amount: number }>;
   className?: string;
 }
 
 export function IncomeByCategoryChart({ data, className }: IncomeByCategoryChartProps) {
   const chartData = {
-    labels: data.map((d) => d.category),
+    labels: data.map((d) => d.category_name),
     datasets: [
       {
         label: "Ingresos",

@@ -111,13 +111,55 @@ export interface IncomeStatement {
   expenses_by_category: CategoryTotal[];
 }
 
+// Monthly data for charts
+export interface MonthlyDataPoint {
+  month: string;
+  income: number;
+  expenses: number;
+}
+
+// Expense breakdown by category
+export interface ExpenseByCategory {
+  category_name: string;
+  amount: number;
+}
+
+// Income breakdown by category
+export interface IncomeByCategory {
+  category_name: string;
+  amount: number;
+}
+
 // Accounting Summary
 export interface AccountingSummary {
-  total_debits: number;
-  total_credits: number;
+  total_income: number;
+  total_expenses: number;
+  net_balance: number;
   account_count: number;
   entry_count: number;
   recent_entries: AccountingEntry[];
+  monthly_data: MonthlyDataPoint[];
+  expenses_by_category: ExpenseByCategory[];
+  income_by_category: IncomeByCategory[];
+}
+
+// Financial Balance (Balance Financiero)
+export interface FinancialBalance {
+  as_of_date: string;
+  assets: AccountBalance[];
+  liabilities: AccountBalance[];
+  equity: AccountBalance[];
+  total_assets: number;
+  total_liabilities: number;
+  total_equity: number;
+  is_balanced: boolean;
+}
+
+// Account balance for financial balance report
+export interface AccountBalance {
+  account_code: string;
+  account_name: string;
+  balance: number;
 }
 
 // Filter options for entries

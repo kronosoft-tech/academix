@@ -10,6 +10,7 @@ import type {
   TrialBalance,
   IncomeStatement,
   AccountingSummary,
+  FinancialBalance,
   CreateEntryRequest,
   EntryFilters,
   AccountFilters,
@@ -23,7 +24,7 @@ export function useAccounting() {
   const [error, setError] = useState<string | null>(null);
 
   // Create accounting entry
-  const createEntry = useCallback(async (request: CreateEntryRequest, createdBy: string) => {
+  const createEntry = useCallback(async (request: CreateEntryRequest, createdBy = "system") => {
     setLoading(true);
     setError(null);
     try {
@@ -163,10 +164,30 @@ export function useAccounting() {
     }
   }, []);
 
+  // Get financial balance
+  const getFinancialBalance = useCallback(async (asOfDate: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await invoke<FinancialBalance>("get_financial_balance", { asOfDate });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Clear error
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // Get accounts (convenience wrapper)
+  const getAccounts = useCallback(async () => {
+    return listAccounts({ active_only: true });
+  }, [listAccounts]);
 
   return {
     entries,
@@ -178,10 +199,12 @@ export function useAccounting() {
     listEntries,
     getEntry,
     listAccounts,
+    getAccounts,
     getAccountTree,
     getTrialBalance,
     getIncomeStatement,
     getSummary,
+    getFinancialBalance,
     clearError,
   };
 }
