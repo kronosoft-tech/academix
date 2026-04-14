@@ -8,12 +8,74 @@ import { Input } from "../../../shared/ui/components/Input";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 import { SearchableSelect } from "../../../shared/ui/components/SearchableSelect";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PaymentAny = any;
+
+interface PaymentRowProps {
+  payment: PaymentAny;
+  onMarkPaid: (id: string) => void;
+}
+
+function PaymentRow({ payment, onMarkPaid }: PaymentRowProps) {
+  const isPending = payment.status === "pending";
+  
+  return (
+    <tr key={payment.id} className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {payment.id.substring(0, 8)}...
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        ${payment.amount.toLocaleString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            payment.status === "completed"
+              ? "bg-green-100 text-green-800"
+              : payment.status === "pending"
+              ? "bg-yellow-100 text-yellow-800"
+              : payment.status === "failed"
+              ? "bg-red-100 text-red-800"
+              : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {payment.status === "completed"
+            ? "Pagado"
+            : payment.status === "pending"
+            ? "Pendiente"
+            : payment.status === "failed"
+            ? "Fallido"
+            : "Reembolsado"}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {payment.reference || "-"}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {payment.method || "-"}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        {isPending && (
+          <Button 
+            size="sm" 
+            variant="primary"
+            onClick={() => onMarkPaid(payment.id)}
+          >
+            Marcar Pagado
+          </Button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 export default function PaymentsPage() {
-  const { payments, isLoading, error, createPayment, refetch } = usePayments();
+  const { payments, isLoading, error, createPayment, updatePayment, refetch } = usePayments();
   const { students } = useStudents();
   const { groups } = useGroups();
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [_updatingId, setUpdatingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     studentId: "",
     groupId: "",
@@ -54,9 +116,27 @@ export default function PaymentsPage() {
       setShowForm(false);
       setFormData({ studentId: "", groupId: "", amount: 0, method: "cash" });
     } else {
-      setSubmitError(result.error || "Error al crear pago");
+      setSubmitError(result.error || "Error al crear payment");
     }
   };
+
+  const handleMarkPaid = async (paymentId: string) => {
+    setUpdatingId(paymentId);
+    const result = await updatePayment(paymentId, {
+      status: "completed",
+      reference: `PAG-${paymentId.substring(0, 8)}`,
+    });
+    
+    if (result.success) {
+      alert("✓ Pago marcado como pagado y asiento contable creado automáticamente");
+    } else {
+      alert("Error: " + (result.error || "No se pudo marcar el pago"));
+    }
+    setUpdatingId(null);
+  };
+  
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void _updatingId; // Placeholder to avoid unused warning
 
   if (isLoading && payments.length === 0) {
     return (
@@ -187,45 +267,18 @@ export default function PaymentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Método
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acción
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPayments.map((payment) => (
-                <tr key={payment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payment.id.substring(0, 8)}...
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${payment.amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        payment.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : payment.status === "pending"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : payment.status === "failed"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {payment.status === "completed"
-                        ? "Pagado"
-                        : payment.status === "pending"
-                        ? "Pendiente"
-                        : payment.status === "failed"
-                        ? "Fallido"
-                        : "Reembolsado"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.reference || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.method || "-"}
-                  </td>
-                </tr>
+                <PaymentRow 
+                  key={payment.id} 
+                  payment={payment as PaymentRowProps["payment"]} 
+                  onMarkPaid={handleMarkPaid}
+                />
               ))}
             </tbody>
           </table>
