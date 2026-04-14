@@ -50,8 +50,8 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
         }
 
         // Create session
-        let session_id = Uuid::new_v4().to_string();
-        let token = Uuid::new_v4().to_string();
+        let session_id = Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string();
+        let token = Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string();
         let expires_at = Utc::now() + Duration::hours(24);
 
         let session = Session::new(session_id, user.id.clone(), token.clone(), expires_at);

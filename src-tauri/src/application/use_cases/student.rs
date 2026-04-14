@@ -96,7 +96,7 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
         }
 
         let mut student = Student::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.user_id,
             request.first_name,
             request.last_name,

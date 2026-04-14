@@ -30,7 +30,7 @@ impl<R: CourseRepository> CourseService<R> {
         }
 
         let mut course = Course::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.name,
             request.code,
             request.credits,

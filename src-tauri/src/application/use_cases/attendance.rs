@@ -35,7 +35,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
             .map_err(|e| ApplicationError::Validation(format!("Invalid date format: {}", e)))?;
 
         let attendance = Attendance::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.student_id,
             request.group_id,
             date,

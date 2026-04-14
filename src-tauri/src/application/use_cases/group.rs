@@ -37,7 +37,7 @@ impl<R: GroupRepository> GroupService<R> {
     /// Create a new group
     pub fn create(&self, request: CreateGroupRequest) -> Result<GroupDto, ApplicationError> {
         let group = Group::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.course_id,
             request.name,
             request.professor_id,

@@ -40,7 +40,7 @@ impl<R: UserRepository> UserService<R> {
 
         // Create user entity
         let user = User::new(
-            Uuid::new_v4().to_string(),
+            Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.email,
             password_hash,
             request.name,
