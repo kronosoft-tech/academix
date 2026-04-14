@@ -1,398 +1,227 @@
 /**
  * Animation Functions using anime.js v4
  * 
- * API v4: animate(targets, options) - targets is FIRST argument
- *         easing -> ease (sin "ease" prefix!)
+ * API v4: animate(targets, { from: x, to: y })
  */
 
 import { animate, set, stagger as animeStagger } from "animejs";
 
-/** anime.js v4 Animation instance type - simplified */
 export type AnimeInstance = ReturnType<typeof animate>;
 
-/** Animation options compatible with anime.js v4 */
 export interface AnimationOptions {
-  /** Delay in milliseconds */
   delay?: number;
-  /** Duration in milliseconds */
   duration?: number;
-  /** Easing function name (sin "ease" prefix en v4!) */
   easing?: string;
-  /** Callback when animation completes */
+  ease?: string;
   complete?: () => void;
-  /** Stagger delay for multiple elements */
   stagger?: number;
 }
 
-/** Fade in elements with opacity animation */
-export function fadeIn(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-  
-  const config = {
-    opacity: [0, 1],
-    duration: options?.duration ?? 300,
-    ease: options?.easing ?? "outQuad",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Fade out elements */
-export function fadeOut(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-  
-  const config = {
-    opacity: [1, 0],
-    duration: options?.duration ?? 200,
-    ease: options?.easing ?? "inQuad",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Slide in from a direction */
-export function slideIn(
-  selector: string | Element | Element[] | null,
-  direction: "left" | "right" | "up" | "down" = "up",
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const transforms: Record<string, [number, number]> = {
-    left: [-100, 0],
-    right: [100, 0],
-    up: [50, 0],
-    down: [-50, 0],
-  };
-
-  const [start, end] = transforms[direction];
-
-  const config = {
-    opacity: [0, 1],
-    translateX: direction === "left" || direction === "right" ? [start, end] : 0,
-    translateY: direction === "up" || direction === "down" ? [start, end] : 0,
-    duration: options?.duration ?? 300,
-    ease: options?.easing ?? "outQuad",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Slide out to a direction */
-export function slideOut(
-  selector: string | Element | Element[] | null,
-  direction: "left" | "right" | "up" | "down" = "up",
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const transforms: Record<string, number> = {
-    left: -100,
-    right: 100,
-    up: -50,
-    down: 50,
-  };
-
-  const config = {
-    opacity: [1, 0],
-    translateX: direction === "left" || direction === "right" ? transforms[direction] : 0,
-    translateY: direction === "up" || direction === "down" ? transforms[direction] : 0,
-    duration: options?.duration ?? 200,
-    ease: options?.easing ?? "inQuad",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Scale in from 0 to 1 */
-export function scaleIn(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  // Set initial scale before animating
-  set(targets, { scale: 0, opacity: 0 });
-
-  const config = {
-    scale: [0, 1],
-    opacity: [0, 1],
-    duration: options?.duration ?? 250,
-    ease: "outBack",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Scale out from 1 to 0 */
-export function scaleOut(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    scale: [1, 0],
-    opacity: [1, 0],
-    duration: options?.duration ?? 200,
-    ease: "inQuad",
-    delay: options?.delay ?? 0,
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Staggered animation helper */
-export function stagger(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    opacity: [0, 1],
-    duration: options?.duration ?? 300,
-    ease: "outQuad",
-    delay: animeStagger(options?.delay ?? 50),
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Count up animation for numbers */
-export function countUp(
-  element: Element | null,
-  from: number,
-  to: number,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  if (!element) return undefined;
-
-  const obj = { value: from };
-
-  const instance = animate(obj, {
-    value: to,
-    duration: options?.duration ?? 1000,
-    ease: "outQuad",
-  });
-  
-  instance.then(() => {
-    element.textContent = String(obj.value);
-  });
-
-  return instance as AnimeInstance;
-}
-
-/** Bounce effect */
-export function bounce(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    translateY: [0, -10, 0, -5, 0],
-    duration: options?.duration ?? 500,
-    ease: "inOutSine",
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Pulse/heartbeat effect */
-export function pulse(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    scale: [1, 1.05, 1],
-    duration: options?.duration ?? 600,
-    ease: "inOutSine",
-    loop: true,
-    direction: "alternate",
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Progress bar fill animation */
-export function animateProgressBar(
-  selector: string | Element | Element[] | null,
-  percentage: number,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    width: [`0%`, `${percentage}%`],
-    duration: options?.duration ?? 800,
-    ease: "outQuad",
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Shake error effect */
-export function shake(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    translateX: [0, -5, 5, -5, 5, 0],
-    duration: options?.duration ?? 400,
-    ease: "inOutSine",
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Layout shift warning */
-export function layoutShift(
-  selector: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(selector);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    translateY: [0, -5, 5, -3, 3, 0],
-    duration: options?.duration ?? 600,
-    ease: "inOutSine",
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-/** Animate table rows with stagger */
-export function animateTableRows(
-  tableBody: string | Element | Element[] | null,
-  options?: AnimationOptions
-): AnimeInstance | undefined {
-  const targets = resolveTargets(tableBody);
-  if (targets.length === 0) return undefined;
-
-  const config = {
-    opacity: [0, 1],
-    translateX: [-20, 0],
-    duration: options?.duration ?? 300,
-    ease: "outQuad",
-    delay: animeStagger(options?.delay ?? 50),
-  };
-  
-  const instance = animate(targets, config);
-  if (options?.complete) {
-    instance.then(() => options.complete?.());
-  }
-  return instance as AnimeInstance;
-}
-
-// Aliases for backward compatibility
-export const fadeInCards = fadeIn;
-export const slideInFromLeft = (s: string | Element | Element[] | null, o?: AnimationOptions) => slideIn(s, "left", o);
-export const slideInFromRight = (s: string | Element | Element[] | null, o?: AnimationOptions) => slideIn(s, "right", o);
-
-// Helper to resolve targets
 function resolveTargets(selector: string | Element | Element[] | null): Element[] {
   if (!selector) return [];
   if (selector instanceof Element) return [selector];
   if (Array.isArray(selector)) return selector.filter((el): el is Element => el instanceof Element);
   if (typeof selector === "string") {
-    const elements = document.querySelectorAll(selector);
-    return Array.from(elements);
+    return Array.from(document.querySelectorAll(selector));
   }
   return [];
 }
 
-// Re-export as default object
+export function fadeIn(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const inst = animate(targets, {
+    opacity: { from: 0, to: 1 },
+    duration: options?.duration ?? 300,
+    ease: options?.easing ?? "outQuad",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function fadeOut(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const inst = animate(targets, {
+    opacity: { from: 1, to: 0 },
+    duration: options?.duration ?? 200,
+    ease: options?.easing ?? "inQuad",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function slideIn(selector: string | Element | Element[] | null, direction: "left" | "right" | "up" | "down" = "up", options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const transforms = {
+    left: { from: -100, to: 0 },
+    right: { from: 100, to: 0 },
+    up: { from: 30, to: 0 },
+    down: { from: -30, to: 0 },
+  }[direction];
+  
+  const inst = animate(targets, {
+    opacity: { from: 0, to: 1 },
+    translateX: direction === "left" || direction === "right" ? transforms : { from: 0, to: 0 },
+    translateY: direction === "up" || direction === "down" ? transforms : { from: 0, to: 0 },
+    duration: options?.duration ?? 300,
+    ease: options?.easing ?? "outQuad",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function slideOut(selector: string | Element | Element[] | null, direction: "left" | "right" | "up" | "down" = "up", options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const transforms = {
+    left: { from: 0, to: -100 },
+    right: { from: 0, to: 100 },
+    up: { from: 0, to: -30 },
+    down: { from: 0, to: 30 },
+  }[direction];
+  
+  const inst = animate(targets, {
+    opacity: { from: 1, to: 0 },
+    translateX: direction === "left" || direction === "right" ? transforms : { from: 0, to: 0 },
+    translateY: direction === "up" || direction === "down" ? transforms : { from: 0, to: 0 },
+    duration: options?.duration ?? 200,
+    ease: options?.easing ?? "inQuad",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function scaleIn(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  set(targets, { scale: 0, opacity: 0 });
+  
+  const inst = animate(targets, {
+    scale: { from: 0, to: 1 },
+    opacity: { from: 0, to: 1 },
+    duration: options?.duration ?? 250,
+    ease: "outBack",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function scaleOut(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const inst = animate(targets, {
+    scale: { from: 1, to: 0 },
+    opacity: { from: 1, to: 0 },
+    duration: options?.duration ?? 200,
+    ease: "inQuad",
+    delay: options?.delay ?? 0,
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function stagger(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  const inst = animate(targets, {
+    opacity: { from: 0, to: 1 },
+    duration: options?.duration ?? 300,
+    ease: "outQuad",
+    delay: animeStagger(options?.delay ?? 50),
+  });
+  
+  if (inst && options?.complete) inst.then(() => options.complete!());
+  return inst;
+}
+
+export function countUp(element: Element | null, from: number, to: number, options?: AnimationOptions): AnimeInstance | undefined {
+  if (!element) return undefined;
+  
+  const obj = { value: from };
+  const inst = animate(obj, {
+    value: to,
+    duration: options?.duration ?? 1000,
+    ease: "outQuad",
+  });
+  
+  inst.then(() => { element.textContent = String(obj.value); });
+  return inst;
+}
+
+export function bounce(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  return animate(targets, {
+    translateY: [0, -10, 0, -5, 0],
+    duration: options?.duration ?? 500,
+    ease: "inOutSine",
+  });
+}
+
+export function pulse(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  return animate(targets, {
+    scale: [1, 1.05, 1],
+    duration: options?.duration ?? 600,
+    ease: "inOutSine",
+    loop: true,
+    direction: "alternate",
+  });
+}
+
+export function shake(selector: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(selector);
+  if (targets.length === 0) return undefined;
+  
+  return animate(targets, {
+    translateX: [0, -5, 5, -5, 5, 0],
+    duration: options?.duration ?? 400,
+    ease: "inOutSine",
+  });
+}
+
+export function animateTableRows(tableBody: string | Element | Element[] | null, options?: AnimationOptions): AnimeInstance | undefined {
+  const targets = resolveTargets(tableBody);
+  if (targets.length === 0) return undefined;
+  
+  return animate(targets, {
+    opacity: { from: 0, to: 1 },
+    translateX: [-20, 0],
+    duration: options?.duration ?? 300,
+    ease: "outQuad",
+    delay: animeStagger(options?.delay ?? 50),
+  });
+}
+
+export const fadeInCards = fadeIn;
+export const slideInFromLeft = (s: string | Element | Element[] | null, o?: AnimationOptions) => slideIn(s, "left", o);
+export const slideInFromRight = (s: string | Element | Element[] | null, o?: AnimationOptions) => slideIn(s, "right", o);
+
 export const Animations = {
-  fadeIn,
-  fadeOut,
-  slideIn,
-  slideOut,
-  scaleIn,
-  scaleOut,
-  stagger,
-  countUp,
-  bounce,
-  pulse,
-  animateProgressBar,
-  shake,
-  layoutShift,
-  animateTableRows,
+  fadeIn, fadeOut, slideIn, slideOut, scaleIn, scaleOut, stagger, countUp, bounce, pulse, shake, animateTableRows,
 };
 
 export default Animations;

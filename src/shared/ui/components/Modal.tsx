@@ -43,13 +43,12 @@ export function Modal({ isOpen, onClose, title, children, size = "md", animate =
     xl: "max-w-4xl",
   };
 
-  // Initial styles for animation
-  const getInitialStyles = (isBackdrop: boolean): string => {
+  // Initial styles - start visible and let anime.js animate to final state
+  const getInitialStyles = (_isBackdrop: boolean): string => {
     if (!animate) return "";
-    if (isBackdrop) {
-      return isExiting ? "" : "opacity-0";
-    }
-    return isExiting ? "" : "opacity-0";
+    // Don't set initial opacity-0 - that causes the "white screen" issue
+    // anime.js will handle the opacity animation
+    return "";
   };
 
   return (

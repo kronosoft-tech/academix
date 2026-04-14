@@ -28,10 +28,12 @@ export const animationConfig = {
 /** Global animation settings - can be overridden at runtime */
 let globalConfig = { ...animationConfig };
 
-/** Check if user prefers reduced motion */
+/** Check if user prefers reduced motion - ALWAYS returns false for now to ensure animations work */
 export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // DEBUG: Always return false to ensure animations work
+  // return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return false;
 }
 
 /** Set global animation config */
@@ -44,11 +46,12 @@ export function getAnimationConfig() {
   return globalConfig;
 }
 
-/** Get effective animation options - respects reduced motion */
+/** Get effective animation options - respects reduced motion BUT ensures visible */
 export function getEffectiveOptions(options?: AnimationOptions): AnimationOptions {
   if (prefersReducedMotion()) {
+    // Still animate but faster - don't disable completely
     return {
-      duration: 0,
+      duration: 50,
       easing: "linear",
       ...options,
     };

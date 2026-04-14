@@ -9,7 +9,6 @@
 import { useState, useRef, useLayoutEffect, useEffect } from "react";
 import type { RefObject } from "react";
 import { fadeIn, fadeOut, scaleIn } from "../functions";
-import { set } from "animejs";
 import { prefersReducedMotion } from "../config";
 import { getAnimationConfig } from "../config";
 
@@ -57,6 +56,7 @@ export function useModalAnimation(options: UseModalAnimationOptions) {
 
   // Entrance animation - useLayoutEffect to prevent flash
   useLayoutEffect(() => {
+    console.log('[DEBUG useModalAnimation] isOpen:', isOpen, 'hasEntered:', hasEntered.current);
     if (!isOpen || hasEntered.current) return;
     if (prefersReducedMotion()) {
       // Instant appearance for reduced motion
@@ -75,41 +75,39 @@ export function useModalAnimation(options: UseModalAnimationOptions) {
     const config = getAnimationConfig();
     const effectiveDuration = duration ?? config.modalDuration;
 
-    // Animate backdrop
-    if (backdropRef?.current) {
-      // Set initial state
-      set(backdropRef.current, { opacity: 0 });
-      fadeIn(backdropRef.current, {
-        duration: effectiveDuration,
-        delay,
-        easing: "easeOutQuad",
-      });
-    }
-
-    // Animate modal content
-    if (modalRef?.current) {
-      if (entranceType === "scale") {
-        scaleIn(modalRef.current, {
+// Animate backdrop - just fade in from current state
+      if (backdropRef?.current) {
+        fadeIn(backdropRef.current, {
           duration: effectiveDuration,
-          delay: delay + 50, // Slight delay after backdrop
-          easing: "easeOutBack",
-          complete: () => {
-            hasEntered.current = true;
-            onEnterComplete?.();
-          },
-        });
-      } else {
-        fadeIn(modalRef.current, {
-          duration: effectiveDuration,
-          delay: delay + 50,
-          easing: "easeOutQuad",
-          complete: () => {
-            hasEntered.current = true;
-            onEnterComplete?.();
-          },
+          delay,
+          ease: "outQuad",
         });
       }
-    }
+
+      // Animate modal content
+      if (modalRef?.current) {
+        if (entranceType === "scale") {
+          scaleIn(modalRef.current, {
+            duration: effectiveDuration,
+            delay: delay + 50, // Slight delay after backdrop
+            easing: "outBack",
+            complete: () => {
+              hasEntered.current = true;
+              onEnterComplete?.();
+            },
+          });
+        } else {
+          fadeIn(modalRef.current, {
+            duration: effectiveDuration,
+            delay: delay + 50,
+            ease: "outQuad",
+            complete: () => {
+              hasEntered.current = true;
+              onEnterComplete?.();
+            },
+          });
+        }
+      }
 
     // If no modal ref, still mark as entered
     if (!modalRef?.current) {
