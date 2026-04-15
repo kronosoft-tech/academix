@@ -71,6 +71,9 @@ export default function StudentsPage() {
   // Calculate payment status for a student
   const calculatePaymentStatus = (studentId: string): PaymentStatus => {
     const studentPayments = payments.filter(p => p.studentId === studentId);
+    
+    console.log("[DEBUG] Student payments for", studentId, studentPayments.map(p => ({ status: p.status, amount: p.amount })));
+    
     const totalPaid = studentPayments
       .filter(p => p.status === "completed")
       .reduce((sum, p) => sum + p.amount, 0);
