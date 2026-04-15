@@ -13,6 +13,8 @@ interface BackendPaymentDto {
   method: string | null;
   reference: string | null;
   description: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface UsePaymentsReturn {
@@ -47,8 +49,8 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     paidAt: dto.paid_date ?? undefined,
     dueDate: dto.due_date ?? undefined,
     description: dto.description ?? undefined,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: dto.created_at,
+    updatedAt: dto.updated_at,
   };
 }
 
