@@ -1,19 +1,13 @@
 //! Repository Implementations - Academix MVP
 //!
-//! In-memory (solo para tests) y SQLite repository implementations.
+//! SQLite repository implementations for production persistence.
+//! In-memory implementations removed - use only sqlite/* for all data persistence.
 
-pub mod accounting;
-pub mod attendance;
-pub mod course;
-pub mod employee;
-pub mod group;
-pub mod invoice;
-pub mod payment;
-pub mod payroll;
-pub mod session;
+// Production SQLite implementations ONLY
 pub mod sqlite;
-pub mod student;
-pub mod user;
 
-// Re-export SQLite repositories (usar estos en producción)
+// Keep balance of ports/domain interfaces but don't load in-memory impls
+// The in-memory repos were only for early testing and are replaced by sqlite/ implementations
+
+// Re-export SQLite repositories for all modules
 pub use sqlite::*;

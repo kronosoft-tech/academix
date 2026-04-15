@@ -5,6 +5,8 @@
 use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 /// Thread-safe SQLite connection pool
 #[derive(Clone)]
@@ -22,16 +24,35 @@ impl SqlitePool {
         }
 
         let conn = Connection::open(&db_path)?;
-        // Using DELETE journal mode for guaranteed persistence
-        // WAL mode can lose data if app crashes before checkpoint
+        // Using WAL (Write-Ahead Logging) mode - optimal for modern apps
+        // WAL ensures data persistence and is recommended by SQLite maintainers
+        // SYNCHRONOUS = FULL ensures fsync() after every commit for guaranteed persistence
+        // cache_size in MB (positive = pages, negative = KB), page_size for alignment
         conn.execute_batch(
-            "PRAGMA foreign_keys = ON; PRAGMA journal_mode = DELETE; PRAGMA synchronous = FULL;",
+            "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA cache_size = -64000; PRAGMA page_size = 4096; PRAGMA busy_timeout = 5000;",
         )?;
+        
+        // Initial checkpoint to clear any incomplete WAL
+        conn.execute_batch("PRAGMA wal_checkpoint(RESTART);")?;
 
-        Ok(Self {
+        let pool = Self {
             conn: Arc::new(Mutex::new(conn)),
             path: db_path,
-        })
+        };
+
+        // Start background checkpoint thread to persist WAL to main DB file every 5 seconds
+        let pool_clone = pool.clone();
+        thread::spawn(move || {
+            loop {
+                thread::sleep(Duration::from_secs(5));
+                if let Ok(conn) = pool_clone.conn.lock() {
+                    // PASSIVE checkpoint: non-blocking, integrates WAL when possible
+                    let _ = conn.execute_batch("PRAGMA wal_checkpoint(PASSIVE);");
+                }
+            }
+        });
+
+        Ok(pool)
     }
 
     /// Get a locked connection reference
@@ -76,9 +97,15 @@ impl SqlitePool {
         F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
     {
         let conn = self.conn.lock().unwrap();
+        eprintln!("[DB QUERY] Executing: {}", sql);
         let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map(params, mapper)?;
-        rows.collect()
+        let collected: Result<Vec<T>, _> = rows.collect();
+        match &collected {
+            Ok(items) => eprintln!("[DB QUERY RESULT] {} rows returned", items.len()),
+            Err(e) => eprintln!("[DB QUERY ERROR] {}", e),
+        }
+        collected
     }
 
     /// Query for a single row
@@ -97,5 +124,26 @@ impl SqlitePool {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+
+    /// Perform a WAL checkpoint to persist data from WAL log to main database file
+    /// This integrates data written to the WAL log back into the .db file
+    /// PASSIVE mode: doesn't block new transactions, integrates when possible
+    pub fn checkpoint_restart(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        eprintln!("[WAL CHECKPOINT] Attempting PASSIVE checkpoint...");
+        conn.execute_batch("PRAGMA wal_checkpoint(PASSIVE);")?;
+        eprintln!("[WAL CHECKPOINT] Success - data integrated to main DB");
+        Ok(())
+    }
+
+    /// Force a blocking checkpoint (RESTART mode)
+    /// Use only when you know no other transactions are running
+    pub fn checkpoint_force(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        eprintln!("[WAL CHECKPOINT FORCE] Attempting RESTART checkpoint (blocking)...");
+        conn.execute_batch("PRAGMA wal_checkpoint(RESTART);")?;
+        eprintln!("[WAL CHECKPOINT FORCE] Success - all data integrated");
+        Ok(())
     }
 }

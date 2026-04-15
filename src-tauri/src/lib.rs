@@ -72,59 +72,70 @@ fn init_database() -> SqlitePool {
     let db_path = get_db_path();
     println!("Database path: {:?}", db_path);
 
-    let pool = SqlitePool::new(db_path).expect("Failed to create database pool");
+    let pool = SqlitePool::new(db_path.clone()).expect("Failed to create database pool");
+
+    // VERIFY FILE WAS CREATED
+    if !db_path.exists() {
+        eprintln!("[CRITICAL] DATABASE FILE DOES NOT EXIST after pool creation: {:?}", db_path);
+    } else {
+        let size = std::fs::metadata(&db_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+        println!("[DB FILE] Created: {:?} ({} bytes)", db_path, size);
+    }
 
     let conn_ref = pool.connection();
     let conn = conn_ref.lock().unwrap();
 
-    // Run initial schema migration
+    // Helper to run migration with idempotent error handling
+    macro_rules! run_migration {
+        ($conn:expr, $name:expr, $sql:expr) => {
+            match $conn.execute_batch($sql) {
+                Ok(_) => println!("Migration {} applied", $name),
+                Err(e) => {
+                    let err_str = format!("{}", e);
+                    // Only warn for idempotent errors (column already exists)
+                    if err_str.contains("duplicate column name") || err_str.contains("table students has no column") {
+                        println!("Migration {} already applied (idempotent)", $name);
+                    } else {
+                        eprintln!("WARNING running migration {}: {}", $name, e);
+                    }
+                }
+            }
+        };
+    }
+
+    // Run initial schema migration (not idempotent - creates tables)
     let migration_sql = include_str!("../migrations/001_initial_schema.sql");
     conn.execute_batch(migration_sql)
         .expect("Failed to run initial schema migration");
 
-    // Run migration 003 - add guardian and schedule fields
-    let migration_003_sql = include_str!("../migrations/003_add_guardian_and_schedule_fields.sql");
-    let _ = conn.execute_batch(migration_003_sql);
+    // Run migration 003 - add guardian and schedule fields (idempotent)
+    run_migration!(conn, "003", include_str!("../migrations/003_add_guardian_and_schedule_fields.sql"));
 
-    // Run migration 004 - add student enrollment columns
-    let migration_004_sql = include_str!("../migrations/004_add_student_enrollment_columns.sql");
-    let _ = conn.execute_batch(migration_004_sql);
+    // Run migration 004 - add student enrollment columns (idempotent)
+    run_migration!(conn, "004", include_str!("../migrations/004_add_student_enrollment_columns.sql"));
 
-    // Run migration 005 - add course price
-    let migration_005_sql = include_str!("../migrations/005_add_course_price.sql");
-    let _ = conn.execute_batch(migration_005_sql);
+    // Run migration 005 - add course price (idempotent)
+    run_migration!(conn, "005", include_str!("../migrations/005_add_course_price.sql"));
 
-    // Run migration 006 - add group schedule fields
-    let migration_006_sql = include_str!("../migrations/006_add_group_schedule_fields.sql");
-    let _ = conn.execute_batch(migration_006_sql);
+    // Run migration 006 - add group schedule fields (idempotent)
+    run_migration!(conn, "006", include_str!("../migrations/006_add_group_schedule_fields.sql"));
 
-    // Run migration 007 - add start_date column to groups
-    let migration_007_sql = include_str!("../migrations/007_add_start_date_to_groups.sql");
-    let _ = conn.execute_batch(migration_007_sql);
+    // Run migration 007 - add start_date column to groups (idempotent)
+    run_migration!(conn, "007", include_str!("../migrations/007_add_start_date_to_groups.sql"));
 
-    // Run migration 008 - fix groups table schema (add end_date, fix columns)
-    let migration_008_sql = include_str!("../migrations/008_fix_groups_table_schema.sql");
-    let _ = conn.execute_batch(migration_008_sql);
+    // Run migration 008 - fix groups table schema (add end_date) (idempotent)
+    run_migration!(conn, "008", include_str!("../migrations/008_fix_groups_table_schema.sql"));
 
-    // Run migration 009 - make payments.due_date nullable
-    let migration_009_sql = include_str!("../migrations/009_make_payments_due_date_nullable.sql");
-    let _ = conn.execute_batch(migration_009_sql);
+    // Run migration 009 - make payments.due_date nullable (idempotent)
+    run_migration!(conn, "009", include_str!("../migrations/009_make_payments_due_date_nullable.sql"));
 
-    // Run migration 010 - accounting schema
-    let migration_010_sql = include_str!("../migrations/010_accounting_schema.sql");
-    if let Err(e) = conn.execute_batch(migration_010_sql) {
-        eprintln!("ERROR running migration 010: {}", e);
-    } else {
-        println!("Migration 010 applied");
-    }
+    // Run migration 010 - accounting schema (CREATE TABLE IF NOT EXISTS - idempotent)
+    run_migration!(conn, "010", include_str!("../migrations/010_accounting_schema.sql"));
 
-    // Run migration 011 - accounting seed (PUC Colombian chart of accounts)
-    let migration_011_sql = include_str!("../migrations/011_accounting_seed.sql");
-    if let Err(e) = conn.execute_batch(migration_011_sql) {
-        eprintln!("ERROR running migration 011: {}", e);
-    } else {
-        println!("Migration 011 applied - PUC seeded");
-    }
+    // Run migration 011 - accounting seed (PUC Colombian chart of accounts) (INSERT OR IGNORE - idempotent)
+    run_migration!(conn, "011", include_str!("../migrations/011_accounting_seed.sql"));
 
     // Verify accounts exist
     let count: i32 = conn
@@ -134,9 +145,40 @@ fn init_database() -> SqlitePool {
         .unwrap_or(0);
     println!("Total account categories in DB: {}", count);
 
+    // Verify courses table structure
+    {
+        let mut stmt = conn.prepare("PRAGMA table_info(courses)").expect("Failed to check courses table");
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("Failed to query courses columns")
+            .filter_map(Result::ok)
+            .collect();
+        println!("[DB SCHEMA] Courses table columns: {:?}", columns);
+        
+        if !columns.contains(&"price".to_string()) {
+            eprintln!("[CRITICAL] courses table MISSING 'price' column!");
+        }
+        if !columns.contains(&"duration".to_string()) {
+            eprintln!("[CRITICAL] courses table MISSING 'duration' column!");
+        }
+    }
+
     println!("Database initialized successfully");
     
     drop(conn);
+    
+    // VERIFY FILE SIZE AFTER INITIALIZATION
+    if let Ok(meta) = std::fs::metadata(&db_path) {
+        println!("[DB FILE] After init: {:?} ({} bytes) - WAL: {:?} (<{} bytes)", 
+            db_path,
+            meta.len(),
+            db_path.with_extension("db-wal"),
+            std::fs::metadata(db_path.with_extension("db-wal"))
+                .map(|m| m.len())
+                .unwrap_or(0)
+        );
+    }
+    
     pool
 }
 

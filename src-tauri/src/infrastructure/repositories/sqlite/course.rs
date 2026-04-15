@@ -68,6 +68,7 @@ impl CourseRepository for SqliteCourseRepository {
     }
 
     fn save(&self, course: &Course) -> Result<(), DomainError> {
+        eprintln!("[COURSE REPO] Saving course: id={}, name={}, status={}", course.id, course.name, course.status.as_str());
         let sql = "INSERT INTO courses (id, name, description, code, credits, status, created_at, updated_at, price, duration)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -87,8 +88,12 @@ impl CourseRepository for SqliteCourseRepository {
                     &course.duration.to_string(),
                 ],
             )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+            .map_err(|e| {
+                eprintln!("[COURSE REPO ERROR] Failed to insert: {}", e);
+                DomainError::Validation(e.to_string())
+            })?;
 
+        eprintln!("[COURSE REPO] Course saved successfully");
         Ok(())
     }
 
@@ -137,13 +142,17 @@ impl CourseRepository for SqliteCourseRepository {
     }
 
     fn find_all(&self) -> Result<Vec<Course>, DomainError> {
+        eprintln!("[COURSE REPO] Finding all courses (status != 'archived')");
         let sql =
             "SELECT id, name, description, code, credits, status, created_at, updated_at, price, duration 
                    FROM courses WHERE status != 'archived' ORDER BY name";
 
-        self.pool
+        let result = self.pool
             .query(sql, &[], Self::row_to_course)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        
+        eprintln!("[COURSE REPO] Found {} courses", result.len());
+        Ok(result)
     }
 
     fn find_all_archived(&self) -> Result<Vec<Course>, DomainError> {

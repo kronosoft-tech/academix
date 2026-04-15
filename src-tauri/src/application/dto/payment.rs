@@ -52,13 +52,22 @@ pub struct PaymentStatusDto {
 /// Payment DTO
 #[derive(Debug, Serialize)]
 pub struct PaymentDto {
+    #[serde(rename = "id")]
     pub id: String,
+    #[serde(rename = "studentId")]
     pub student_id: String,
+    #[serde(rename = "groupId")]
     pub group_id: String,
+    #[serde(rename = "amount")]
     pub amount: f64,
+    #[serde(rename = "method")]
     pub method: String,
+    #[serde(rename = "status")]
     pub status: String, // Uses domain PaymentStatus (pending, paid, etc.)
+    #[serde(rename = "dueDate")]
     pub due_date: String,
+    #[serde(rename = "paidAt")]
     pub paid_at: Option<String>,
+    #[serde(rename = "description")]
     pub description: Option<String>,
 }
