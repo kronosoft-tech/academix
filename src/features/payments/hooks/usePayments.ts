@@ -12,6 +12,7 @@ interface BackendPaymentDto {
   status: string;
   method: string | null;
   reference: string | null;
+  description: string | null;
 }
 
 interface UsePaymentsReturn {
@@ -45,6 +46,7 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     reference: dto.reference ?? undefined,
     paidAt: dto.paid_date ?? undefined,
     dueDate: dto.due_date ?? undefined,
+    description: dto.description ?? undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -81,21 +83,23 @@ export function usePayments(): UsePaymentsReturn {
     fetchPayments();
   }, [fetchPayments]);
 
-   const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
-     setIsLoading(true);
-     try {
-       const response = await invoke<{
-         success: boolean;
-         data: BackendPaymentDto | null;
-         error: string | null;
-       }>("create_payment", {
-         request: {
-           student_id: data.studentId,
-           group_id: data.groupId,
-           amount: data.amount,
-           method: data.method,
-         },
-       });
+const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
+      setIsLoading(true);
+      try {
+        const response = await invoke<{
+          success: boolean;
+          data: BackendPaymentDto | null;
+          error: string | null;
+        }>("create_payment", {
+          request: {
+            student_id: data.studentId,
+            group_id: data.groupId,
+            amount: data.amount,
+            method: data.method,
+            description: data.description ?? null,
+            paid: data.paid ?? null,
+          },
+        });
 
        if (response.success) {
          console.log("[FRONTEND] Payment created successfully, refetching...");
