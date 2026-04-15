@@ -22,7 +22,11 @@ impl SqlitePool {
         }
 
         let conn = Connection::open(&db_path)?;
-        conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")?;
+        // Using DELETE journal mode for guaranteed persistence
+        // WAL mode can lose data if app crashes before checkpoint
+        conn.execute_batch(
+            "PRAGMA foreign_keys = ON; PRAGMA journal_mode = DELETE; PRAGMA synchronous = FULL;",
+        )?;
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),

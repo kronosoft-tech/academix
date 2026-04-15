@@ -8,8 +8,8 @@ pub mod domain;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AccountingService, AttendanceService, CourseService, GroupService, PaymentService,
-    StudentService, UserService,
+    AccountingService, AttendanceService, CourseService, EmployeeService, GroupService, InvoiceService,
+    PaymentService, PayrollService, StudentService, UserService,
 };
 use commands::accounting::{
     create_entry, get_account_tree, get_accounting_summary, get_entry, get_financial_balance,
@@ -47,8 +47,9 @@ use commands::users::{create_user, delete_user, get_user, list_users, update_use
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
     SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteAttendanceRepository,
-    SqliteCourseRepository, SqliteGroupRepository, SqlitePaymentRepository,
-    SqliteStudentRepository, SqliteUserRepository,
+    SqliteCourseRepository, SqliteEmployeeRepository, SqliteGroupRepository, SqliteInvoiceRepository,
+    SqliteInvoiceLineRepository, SqlitePaymentRepository, SqlitePayrollEntryRepository,
+    SqlitePayrollRepository, SqliteStudentRepository, SqliteUserRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -111,15 +112,19 @@ fn init_database() -> SqlitePool {
 
     // Run migration 010 - accounting schema
     let migration_010_sql = include_str!("../migrations/010_accounting_schema.sql");
-    conn.execute_batch(migration_010_sql)
-        .expect("Failed to run migration 010");
-    println!("Migration 010 applied");
+    if let Err(e) = conn.execute_batch(migration_010_sql) {
+        eprintln!("ERROR running migration 010: {}", e);
+    } else {
+        println!("Migration 010 applied");
+    }
 
     // Run migration 011 - accounting seed (PUC Colombian chart of accounts)
     let migration_011_sql = include_str!("../migrations/011_accounting_seed.sql");
-    conn.execute_batch(migration_011_sql)
-        .expect("Failed to run migration 011");
-    println!("Migration 011 applied - PUC seeded");
+    if let Err(e) = conn.execute_batch(migration_011_sql) {
+        eprintln!("ERROR running migration 011: {}", e);
+    } else {
+        println!("Migration 011 applied - PUC seeded");
+    }
 
     // Verify accounts exist
     let count: i32 = conn
@@ -130,6 +135,7 @@ fn init_database() -> SqlitePool {
     println!("Total account categories in DB: {}", count);
 
     println!("Database initialized successfully");
+    
     drop(conn);
     pool
 }
@@ -175,6 +181,10 @@ fn create_service_states(
     GroupService<SqliteGroupRepository>,
     PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>,
     AttendanceService<SqliteAttendanceRepository>,
+    EmployeeService<SqliteEmployeeRepository>,
+    InvoiceService<SqliteInvoiceRepository, SqliteInvoiceLineRepository>,
+    PayrollService<SqlitePayrollRepository, SqlitePayrollEntryRepository, SqliteEmployeeRepository>,
+    AccountingService<SqliteAccountingEntryRepository, SqliteAccountCategoryRepository>,
     SqliteAccountingEntryRepository,
     SqliteAccountCategoryRepository,
 ) {
@@ -184,9 +194,17 @@ fn create_service_states(
     let group_repo = SqliteGroupRepository::new(Arc::clone(&pool));
     let payment_repo = SqlitePaymentRepository::new(Arc::clone(&pool));
     let attendance_repo = SqliteAttendanceRepository::new(Arc::clone(&pool));
+    let employee_repo = SqliteEmployeeRepository::new(Arc::clone(&pool));
+    // Invoice repositories
+    let invoice_repo = SqliteInvoiceRepository::new(Arc::clone(&pool));
+    let invoice_line_repo = SqliteInvoiceLineRepository::new(Arc::clone(&pool));
+    // Payroll repositories
+    let payroll_repo = SqlitePayrollRepository::new(Arc::clone(&pool));
+    let payroll_entry_repo = SqlitePayrollEntryRepository::new(Arc::clone(&pool));
     // Accounting repositories
     let accounting_entry_repo = SqliteAccountingEntryRepository::new(Arc::clone(&pool));
     let accounting_category_repo = SqliteAccountCategoryRepository::new(Arc::clone(&pool));
+    let accounting_service = AccountingService::new(accounting_entry_repo.clone(), accounting_category_repo.clone());
 
     (
         UserService::new(user_repo),
@@ -195,6 +213,10 @@ fn create_service_states(
         GroupService::new(group_repo.clone()),
         PaymentService::new(payment_repo, group_repo, course_repo),
         AttendanceService::new(attendance_repo),
+        EmployeeService::new(employee_repo.clone()),
+        InvoiceService::new(invoice_repo, invoice_line_repo),
+        PayrollService::new(payroll_repo, payroll_entry_repo, employee_repo),
+        accounting_service,
         accounting_entry_repo,
         accounting_category_repo,
     )
@@ -218,13 +240,13 @@ pub fn run() {
         group_service,
         payment_service,
         attendance_service,
+        employee_service,
+        invoice_service,
+        payroll_service,
+        accounting_service,
         accounting_entry_repo,
         accounting_category_repo,
     ) = create_service_states(Arc::clone(&pool));
-
-    // Create accounting service
-    let accounting_service =
-        AccountingService::new(accounting_entry_repo, accounting_category_repo);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -237,7 +259,12 @@ pub fn run() {
         .manage(group_service)
         .manage(payment_service)
         .manage(attendance_service)
+        .manage(employee_service)
+        .manage(invoice_service)
+        .manage(payroll_service)
         .manage(accounting_service)
+        .manage(accounting_entry_repo)
+        .manage(accounting_category_repo)
         .invoke_handler(tauri::generate_handler![
             // Health check
             health,

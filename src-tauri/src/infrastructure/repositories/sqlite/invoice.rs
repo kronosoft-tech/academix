@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of InvoiceRepository
+#[derive(Clone)]
 pub struct SqliteInvoiceRepository {
     pool: Arc<SqlitePool>,
 }
@@ -19,12 +20,16 @@ impl SqliteInvoiceRepository {
     }
 
     fn row_to_invoice(row: &rusqlite::Row<'_>) -> rusqlite::Result<Invoice> {
+        // Column indices match SELECT query order:
+        // 0: id, 1: series, 2: number, 3: client_name, 4: client_ruc, 5: client_address,
+        // 6: emission_date, 7: due_date, 8: subtotal, 9: igv, 10: total,
+        // 11: status, 12: payment_method, 13: paid_date, 14: created_at, 15: created_by
         let status_str: String = row.get(11)?;
         let payment_method_str: Option<String> = row.get(12)?;
-        let emission_str: String = row.get(13)?;
-        let due_str: String = row.get(14)?;
-        let paid_str: Option<String> = row.get(15)?;
-        let created_str: String = row.get(16)?;
+        let emission_str: String = row.get(6)?;
+        let due_str: String = row.get(7)?;
+        let paid_str: Option<String> = row.get(13)?;
+        let created_str: String = row.get(14)?;
 
         let status = InvoiceStatus::from_str(&status_str).unwrap_or(InvoiceStatus::Pending);
         let payment_method = payment_method_str.and_then(|s| InvoicePaymentMethod::from_str(&s));
@@ -42,9 +47,9 @@ impl SqliteInvoiceRepository {
             due_date: DateTime::parse_from_rfc3339(&due_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
-            subtotal: row.get(6)?,
-            igv: row.get(7)?,
-            total: row.get(8)?,
+            subtotal: row.get(8)?,
+            igv: row.get(9)?,
+            total: row.get(10)?,
             status,
             payment_method,
             paid_date: paid_str.and_then(|s| {
@@ -55,7 +60,7 @@ impl SqliteInvoiceRepository {
             created_at: DateTime::parse_from_rfc3339(&created_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
-            created_by: row.get(9)?,
+            created_by: row.get(15)?,
         })
     }
 
@@ -265,6 +270,7 @@ impl InvoiceRepository for SqliteInvoiceRepository {
 }
 
 /// SQLite implementation of InvoiceLineRepository
+#[derive(Clone)]
 pub struct SqliteInvoiceLineRepository {
     pool: Arc<SqlitePool>,
 }
@@ -295,7 +301,7 @@ impl InvoiceLineRepository for SqliteInvoiceLineRepository {
     fn create(&self, line: InvoiceLine) -> Result<InvoiceLine, String> {
         let sql = "INSERT INTO invoice_lines (
                       id, invoice_id, description, quantity, unit_price, total, created_at
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         self.pool
             .execute(

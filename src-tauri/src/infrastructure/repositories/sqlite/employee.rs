@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of EmployeeRepository
+#[derive(Clone)]
 pub struct SqliteEmployeeRepository {
     pool: Arc<SqlitePool>,
 }
@@ -21,15 +22,21 @@ impl SqliteEmployeeRepository {
     }
 
     fn row_to_employee(row: &rusqlite::Row<'_>) -> rusqlite::Result<Employee> {
+        // Column indices match the SELECT query order:
+        // 0: id, 1: user_id, 2: document_type, 3: document_number, 4: first_name,
+        // 5: last_name, 6: email, 7: phone, 8: address, 9: position, 10: department,
+        // 11: contract_type, 12: base_salary, 13: bank_name, 14: bank_account,
+        // 15: account_type, 16: cci, 17: afp, 18: hire_date, 19: termination_date,
+        // 20: status, 21: created_at, 22: updated_at
         let document_type_str: String = row.get(2)?;
         let contract_type_str: String = row.get(11)?;
-        let account_type_str: Option<String> = row.get(18)?;
-        let afp_str: Option<String> = row.get(19)?;
-        let status_str: String = row.get(22)?;
-        let hire_date_str: String = row.get(23)?;
-        let termination_str: Option<String> = row.get(24)?;
-        let created_str: String = row.get(25)?;
-        let updated_str: String = row.get(26)?;
+        let account_type_str: Option<String> = row.get(15)?;
+        let afp_str: Option<String> = row.get(17)?;
+        let status_str: String = row.get(20)?;
+        let hire_date_str: String = row.get(18)?;
+        let termination_str: Option<String> = row.get(19)?;
+        let created_str: String = row.get(21)?;
+        let updated_str: String = row.get(22)?;
 
         let document_type = DocumentType::from_str(&document_type_str).unwrap_or(DocumentType::CC);
         let contract_type =

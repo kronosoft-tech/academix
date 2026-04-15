@@ -12,7 +12,7 @@ use crate::application::dto::{
 use crate::application::use_cases::AccountingService;
 use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
-    InMemoryAccountCategoryRepository, InMemoryAccountingEntryRepository, SqliteCourseRepository,
+    SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteCourseRepository,
     SqliteGroupRepository, SqlitePaymentRepository,
 };
 
@@ -158,7 +158,9 @@ pub fn list_payments_by_student(
 pub fn update_payment(
     state: State<PaymentServiceState>,
     id: String,
-    request: UpdatePaymentCommand,
+    request: UpdatePaymentRequest,
+    accounting_entry_state: State<SqliteAccountingEntryRepository>,
+    accounting_category_state: State<SqliteAccountCategoryRepository>,
 ) -> PaymentCommandResponse {
     let update_result = state.update(
         &id,
@@ -173,9 +175,10 @@ pub fn update_payment(
         Ok(payment) => {
             // If status is "paid", automatically create accounting entry
             if request.status.as_deref() == Some("paid") {
-                let entry_repo = InMemoryAccountingEntryRepository::new();
-                let category_repo = InMemoryAccountCategoryRepository::new();
-                let accounting_service = AccountingService::new(entry_repo, category_repo);
+                let accounting_service = AccountingService::new(
+                    accounting_entry_state.inner().clone(),
+                    accounting_category_state.inner().clone(),
+                );
 
                 // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
                 let entry_request = CreateEntryRequest {
@@ -244,6 +247,8 @@ pub fn register_payment_with_income(
     state: State<PaymentServiceState>,
     payment_id: String,
     reference: String,
+    accounting_entry_state: State<SqliteAccountingEntryRepository>,
+    accounting_category_state: State<SqliteAccountCategoryRepository>,
 ) -> PaymentCommandResponse {
     // First update payment to "paid" status
     let update_result = state.update(
@@ -258,9 +263,10 @@ pub fn register_payment_with_income(
     match update_result {
         Ok(_payment) => {
             // Now create accounting entry for the income
-            let entry_repo = InMemoryAccountingEntryRepository::new();
-            let category_repo = InMemoryAccountCategoryRepository::new();
-            let accounting_service = AccountingService::new(entry_repo, category_repo);
+            let accounting_service = AccountingService::new(
+                accounting_entry_state.inner().clone(),
+                accounting_category_state.inner().clone(),
+            );
 
             // Create entry: Debit to Cash/Bank (1105), Credit to Income (6115 - Mensualidades)
             let entry_request = CreateEntryRequest {

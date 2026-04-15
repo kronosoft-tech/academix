@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of CourseRepository
+#[derive(Clone)]
 pub struct SqliteCourseRepository {
     pool: Arc<SqlitePool>,
 }

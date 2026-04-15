@@ -10,6 +10,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of AttendanceRepository
+#[derive(Clone)]
 pub struct SqliteAttendanceRepository {
     pool: Arc<SqlitePool>,
 }

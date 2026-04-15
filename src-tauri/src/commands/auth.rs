@@ -8,18 +8,18 @@ use tauri::State;
 use crate::application::dto::{LoginRequest, UserDto};
 use crate::application::use_cases::AuthService;
 use crate::infrastructure::database::SqlitePool;
-use crate::infrastructure::repositories::{InMemorySessionRepository, SqliteUserRepository};
+use crate::infrastructure::repositories::{SqliteSessionRepository, SqliteUserRepository};
 use std::sync::Arc;
 
 /// Application state holding services
 pub struct AppState {
-    pub auth_service: AuthService<SqliteUserRepository, InMemorySessionRepository>,
+    pub auth_service: AuthService<SqliteUserRepository, SqliteSessionRepository>,
 }
 
 impl AppState {
     pub fn new(pool: Arc<SqlitePool>) -> Self {
-        let user_repo = SqliteUserRepository::new(pool);
-        let session_repo = InMemorySessionRepository::new();
+        let user_repo = SqliteUserRepository::new(Arc::clone(&pool));
+        let session_repo = SqliteSessionRepository::new(Arc::clone(&pool));
 
         Self {
             auth_service: AuthService::new(user_repo, session_repo),

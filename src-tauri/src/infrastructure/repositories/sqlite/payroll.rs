@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of PayrollRepository
+#[derive(Clone)]
 pub struct SqlitePayrollRepository {
     pool: Arc<SqlitePool>,
 }
@@ -57,7 +58,7 @@ impl PayrollRepository for SqlitePayrollRepository {
         let sql = "INSERT INTO payroll_runs (
                       id, total_gross, total_deductions, total_net,
                       status, period_start, period_end, created_at, created_by
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         self.pool
             .execute(
@@ -160,6 +161,7 @@ impl PayrollRepository for SqlitePayrollRepository {
 }
 
 /// SQLite implementation of PayrollEntryRepository
+#[derive(Clone)]
 pub struct SqlitePayrollEntryRepository {
     pool: Arc<SqlitePool>,
 }
@@ -170,8 +172,13 @@ impl SqlitePayrollEntryRepository {
     }
 
     fn row_to_payroll_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<PayrollEntry> {
-        let status_str: String = row.get(29)?;
-        let created_str: String = row.get(30)?;
+        // Column indices match SELECT query order:
+        // 0: id, 1: payroll_run_id, 2: employee_id, 3: base_salary, 4: hours_worked,
+        // 5: overtime_hours, 6: overtime_amount, 7: bonuses, 8: commissions, 9: mobility,
+        // 10: food, 11: other_income, 12: afp_deduction, 13: onp_deduction, 14: essalud,
+        // 15: itf, 16: other_deductions, 17: gross_income, 18: net_income, 19: status, 20: created_at
+        let status_str: String = row.get(19)?;
+        let created_str: String = row.get(20)?;
 
         let status =
             PayrollEntryStatus::from_str(&status_str).unwrap_or(PayrollEntryStatus::Calculated);

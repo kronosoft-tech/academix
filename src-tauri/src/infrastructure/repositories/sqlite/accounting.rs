@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 /// SQLite implementation of AccountCategoryRepository
+#[derive(Clone)]
 pub struct SqliteAccountCategoryRepository {
     pool: Arc<SqlitePool>,
 }
@@ -209,6 +210,7 @@ impl AccountCategoryRepository for SqliteAccountCategoryRepository {
 }
 
 /// SQLite implementation of AccountingEntryRepository
+#[derive(Clone)]
 pub struct SqliteAccountingEntryRepository {
     pool: Arc<SqlitePool>,
 }

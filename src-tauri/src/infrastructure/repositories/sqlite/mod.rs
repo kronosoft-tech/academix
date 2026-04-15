@@ -10,6 +10,7 @@ pub mod group;
 pub mod invoice;
 pub mod payment;
 pub mod payroll;
+pub mod session;
 pub mod student;
 pub mod user;
 
@@ -25,5 +26,6 @@ pub use invoice::SqliteInvoiceRepository;
 pub use payment::SqlitePaymentRepository;
 pub use payroll::SqlitePayrollEntryRepository;
 pub use payroll::SqlitePayrollRepository;
+pub use session::SqliteSessionRepository;
 pub use student::SqliteStudentRepository;
 pub use user::SqliteUserRepository;
