@@ -30,6 +30,8 @@ interface UsePaymentsReturn {
 }
 
 function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
+  console.log("[DEBUG] mapBackendToFrontend - input dto:", JSON.stringify(dto));
+  
   const statusMap: Record<string, Payment["status"]> = {
     pending: "pending",
     paid: "completed",
@@ -38,7 +40,7 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     refunded: "refunded",
   };
 
-  return {
+  const mapped = {
     id: dto.id,
     studentId: dto.student_id,
     groupId: dto.group_id,
@@ -52,6 +54,10 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     createdAt: dto.created_at,
     updatedAt: dto.updated_at,
   };
+  
+  console.log("[DEBUG] mapBackendToFrontend - output:", JSON.stringify(mapped));
+  
+  return mapped;
 }
 
 export function usePayments(): UsePaymentsReturn {
@@ -70,7 +76,9 @@ export function usePayments(): UsePaymentsReturn {
       }>("list_payments");
 
       if (response.success && response.data) {
+        console.log("[DEBUG] usePayments - raw backend data:", JSON.stringify(response.data, null, 2));
         setPayments(response.data.map(mapBackendToFrontend));
+        console.log("[DEBUG] usePayments - mapped to frontend:", JSON.stringify(response.data.map(mapBackendToFrontend), null, 2));
       } else {
         setError(response.error || "Failed to fetch payments");
       }
