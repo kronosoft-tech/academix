@@ -72,7 +72,9 @@ export default function StudentsPage() {
   const calculatePaymentStatus = (studentId: string): PaymentStatus => {
     const studentPayments = payments.filter(p => p.studentId === studentId);
     
-    console.log("[DEBUG] Student payments for", studentId, studentPayments.map(p => ({ status: p.status, amount: p.amount })));
+    console.log("[StudentsPage] Student ID:", studentId);
+    console.log("[StudentsPage] All payments in state:", JSON.stringify(payments.map(p => ({ id: p.id, studentId: p.studentId, status: p.status, amount: p.amount }))));
+    console.log("[StudentsPage] Filtered payments for student:", JSON.stringify(studentPayments.map(p => ({ status: p.status, amount: p.amount }))));
     
     const totalPaid = studentPayments
       .filter(p => p.status === "completed")
