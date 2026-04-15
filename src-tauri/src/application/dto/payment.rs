@@ -22,6 +22,7 @@ pub struct CreatePaymentRequest {
     pub method: Option<String>,
     pub due_date: String,
     pub description: Option<String>,
+    pub paid: Option<bool>, // If true, payment is created as "paid" immediately
 }
 
 /// Update payment status request

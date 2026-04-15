@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePayments } from "../hooks/usePayments";
 import { useStudents } from "../../students/hooks/useStudents";
 import { useGroups } from "../../groups/hooks/useGroups";
+import { useCourses } from "../../courses/hooks/useCourses";
 import { Card } from "../../../shared/ui/components/Card";
 import { Button } from "../../../shared/ui/components/Button";
 import { Input } from "../../../shared/ui/components/Input";
@@ -13,16 +14,15 @@ type PaymentAny = any;
 
 interface PaymentRowProps {
   payment: PaymentAny;
-  onMarkPaid: (id: string) => void;
 }
 
-function PaymentRow({ payment, onMarkPaid }: PaymentRowProps) {
-  const isPending = payment.status === "pending";
+function PaymentRow({ payment }: PaymentRowProps) {
+  const isPaid = payment.status === "completed";
   
   return (
     <tr key={payment.id} className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {payment.id.substring(0, 8)}...
+        {payment.reference || payment.id.substring(0, 8)}...
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         ${payment.amount.toLocaleString()}
@@ -30,7 +30,7 @@ function PaymentRow({ payment, onMarkPaid }: PaymentRowProps) {
       <td className="px-6 py-4 whitespace-nowrap">
         <span
           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            payment.status === "completed"
+            isPaid
               ? "bg-green-100 text-green-800"
               : payment.status === "pending"
               ? "bg-yellow-100 text-yellow-800"
@@ -39,7 +39,7 @@ function PaymentRow({ payment, onMarkPaid }: PaymentRowProps) {
               : "bg-gray-100 text-gray-800"
           }`}
         >
-          {payment.status === "completed"
+          {isPaid
             ? "Pagado"
             : payment.status === "pending"
             ? "Pendiente"
@@ -49,44 +49,53 @@ function PaymentRow({ payment, onMarkPaid }: PaymentRowProps) {
         </span>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {payment.reference || "-"}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {payment.method || "-"}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        {isPending && (
-          <Button 
-            size="sm" 
-            variant="primary"
-            onClick={() => onMarkPaid(payment.id)}
-          >
-            Marcar Pagado
-          </Button>
-        )}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : "-"}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {payment.description || "-"}
       </td>
     </tr>
   );
 }
 
 export default function PaymentsPage() {
-  const { payments, isLoading, error, createPayment, updatePayment, refetch } = usePayments();
+  const { payments, isLoading, error, createPayment } = usePayments();
   const { students } = useStudents();
   const { groups } = useGroups();
+  const { courses } = useCourses();
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [_updatingId, setUpdatingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     studentId: "",
     groupId: "",
     amount: 0,
     method: "cash" as "cash" | "card" | "transfer" | "online",
+    description: "",
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Get course price from selected group
+  const selectedGroup = groups.find(g => g.id === formData.groupId);
+  const selectedCourse = selectedGroup ? courses.find(c => c.id === selectedGroup.courseId) : null;
+
   const filteredPayments = payments.filter((payment) =>
-    payment.reference?.toLowerCase().includes(searchTerm.toLowerCase())
+    payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Auto-fill amount when group is selected
+  const handleGroupChange = (groupId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    const course = group ? courses.find(c => c.id === group.courseId) : null;
+    setFormData({ 
+      ...formData, 
+      groupId, 
+      amount: course?.price || 0 
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,33 +119,17 @@ export default function PaymentsPage() {
       groupId: formData.groupId,
       amount: formData.amount,
       method: formData.method,
+      description: formData.description || undefined,
+      paid: true, // Create as paid immediately
     });
 
     if (result.success) {
       setShowForm(false);
-      setFormData({ studentId: "", groupId: "", amount: 0, method: "cash" });
+      setFormData({ studentId: "", groupId: "", amount: 0, method: "cash", description: "" });
     } else {
       setSubmitError(result.error || "Error al crear payment");
     }
   };
-
-  const handleMarkPaid = async (paymentId: string) => {
-    setUpdatingId(paymentId);
-    const result = await updatePayment(paymentId, {
-      status: "completed",
-      reference: `PAG-${paymentId.substring(0, 8)}`,
-    });
-    
-    if (result.success) {
-      alert("✓ Pago marcado como pagado y asiento contable creado automáticamente");
-    } else {
-      alert("Error: " + (result.error || "No se pudo marcar el pago"));
-    }
-    setUpdatingId(null);
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void _updatingId; // Placeholder to avoid unused warning
 
   if (isLoading && payments.length === 0) {
     return (
@@ -156,14 +149,8 @@ export default function PaymentsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
-        </div>
-      )}
-
-      {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
-          {submitError}
         </div>
       )}
 
@@ -191,22 +178,29 @@ export default function PaymentsPage() {
               required
               placeholder="Buscar grupo..."
               value={formData.groupId}
-              onChange={(id) => setFormData({ ...formData, groupId: id })}
+              onChange={handleGroupChange}
               options={groups}
               searchFields={["name", "id"] as (keyof typeof groups[0])[]}
-              displayFormatter={(group) => group.name}
+              displayFormatter={(group) => {
+                const course = courses.find(c => c.id === group.courseId);
+                return `${group.name} ${course ? `($${course.price.toLocaleString()})` : ""}`;
+              }}
               getItemValue={(group) => group.id}
               notFoundMessage="No se encontraron grupos"
             />
 
-            <Input
-              label="Monto"
-              type="number"
-              placeholder="0.00"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monto {selectedCourse && `(del curso: $${selectedCourse.price.toLocaleString()})`}
+              </label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                required
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
@@ -222,8 +216,29 @@ export default function PaymentsPage() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descripción (opcional)
+              </label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Notas adicionales sobre el pago..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+              />
+            </div>
+
+            {submitError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                {submitError}
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <Button type="submit" loading={isLoading}>Registrar Pago</Button>
+              <Button type="submit" loading={isLoading}>
+                Registrar y Cobrar
+              </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
                 Cancelar
               </Button>
@@ -234,7 +249,7 @@ export default function PaymentsPage() {
 
       <div className="mb-4">
         <Input
-          placeholder="Buscar pagos..."
+          placeholder="Buscar pagos por referencia o descripción..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -253,7 +268,7 @@ export default function PaymentsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ID
+                  Referencia
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Monto
@@ -262,34 +277,24 @@ export default function PaymentsPage() {
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Referencia
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Método
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acción
+                  Fecha Pago
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Descripción
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPayments.map((payment) => (
-                <PaymentRow 
-                  key={payment.id} 
-                  payment={payment as PaymentRowProps["payment"]} 
-                  onMarkPaid={handleMarkPaid}
-                />
+                <PaymentRow key={payment.id} payment={payment} />
               ))}
             </tbody>
           </table>
         </div>
       )}
-
-      <div className="mt-4">
-        <Button variant="secondary" onClick={refetch}>
-          Actualizar
-        </Button>
-      </div>
     </div>
   );
 }

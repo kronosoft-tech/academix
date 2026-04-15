@@ -28,6 +28,7 @@ pub struct CreatePaymentCommand {
     pub method: Option<String>,
     pub due_date: Option<String>,
     pub description: Option<String>,
+    pub paid: Option<bool>, // If true, payment is created as "paid" immediately
 }
 
 /// Update payment request payload
@@ -72,6 +73,7 @@ pub fn create_payment(
         method: request.method,
         due_date: request.due_date.unwrap_or_default(),
         description: request.description,
+        paid: request.paid,
     }) {
         Ok(payment) => {
             eprintln!("[DEBUG] Payment created successfully: {}", payment.id);

@@ -12,6 +12,9 @@ export interface Group {
   status: "open" | "closed" | "completed";
   createdAt: string;
   updatedAt: string;
+  // Include course info for price lookup
+  coursePrice?: number;
+  courseName?: string;
 }
 
 export interface CreateGroupInput {

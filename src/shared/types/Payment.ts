@@ -38,6 +38,7 @@ export interface CreatePaymentInput {
   method: PaymentMethod;
   reference?: string;
   description?: string;
+  paid?: boolean; // If true, payment is created as "paid" immediately
 }
 
 export interface UpdatePaymentInput {

@@ -86,6 +86,21 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
         // Set the calculated due_date
         payment.set_due_date(due_date.clone());
 
+        // If paid=true, mark as paid immediately with auto-generated reference
+        if request.paid.unwrap_or(false) {
+            payment.mark_paid();
+            // Generate reference: PAG-YYYYMMDD-XXXXX (5 random chars from UUID)
+            let now = chrono::Utc::now();
+            let uuid_part = Uuid::new_v4()
+                .to_string()
+                .replace("-", "")
+                .chars()
+                .take(5)
+                .collect::<String>();
+            payment.reference = Some(format!("PAG-{}-{}", now.format("%Y%m%d"), uuid_part));
+            payment.description = request.description;
+        }
+
         self.payment_repository.save(&payment)?;
 
         Ok(PaymentDto {
