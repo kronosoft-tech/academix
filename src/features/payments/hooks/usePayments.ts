@@ -4,8 +4,10 @@ import type { Payment, CreatePaymentInput, UpdatePaymentInput, PaymentStatusType
 
 interface BackendPaymentDto {
   id: string;
-  student_id: string;
-  group_id: string;
+  studentId?: string;
+  student_id?: string;
+  groupId?: string;
+  group_id?: string;
   amount: number;
   due_date: string;
   paid_date: string | null;
@@ -30,8 +32,6 @@ interface UsePaymentsReturn {
 }
 
 function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
-  console.log("[DEBUG] mapBackendToFrontend - input dto:", JSON.stringify(dto));
-  
   const statusMap: Record<string, Payment["status"]> = {
     pending: "pending",
     paid: "completed",
@@ -40,10 +40,10 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     refunded: "refunded",
   };
 
-  const mapped = {
+  return {
     id: dto.id,
-    studentId: dto.student_id,
-    groupId: dto.group_id,
+    studentId: dto.studentId ?? dto.student_id ?? "",
+    groupId: dto.groupId ?? dto.group_id ?? "",
     amount: dto.amount,
     method: (dto.method as Payment["method"]) ?? "cash",
     status: statusMap[dto.status] ?? "pending",
@@ -54,10 +54,6 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     createdAt: dto.created_at,
     updatedAt: dto.updated_at,
   };
-  
-  console.log("[DEBUG] mapBackendToFrontend - output:", JSON.stringify(mapped));
-  
-  return mapped;
 }
 
 export function usePayments(): UsePaymentsReturn {

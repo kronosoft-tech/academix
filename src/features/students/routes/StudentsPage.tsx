@@ -31,7 +31,7 @@ export default function StudentsPage() {
   const { students, isLoading, error, createStudent, updateStudent, deleteStudent, refetch } = useStudents();
   const { groups } = useGroups();
   const { courses } = useCourses();
-  const { payments } = usePayments();
+  const { payments, isLoading: paymentsLoading } = usePayments();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -72,10 +72,6 @@ export default function StudentsPage() {
   const calculatePaymentStatus = (studentId: string): PaymentStatus => {
     const studentPayments = payments.filter(p => p.studentId === studentId);
     
-    console.log("[StudentsPage] Student ID:", studentId);
-    console.log("[StudentsPage] All payments in state:", JSON.stringify(payments.map(p => ({ id: p.id, studentId: p.studentId, status: p.status, amount: p.amount }))));
-    console.log("[StudentsPage] Filtered payments for student:", JSON.stringify(studentPayments.map(p => ({ status: p.status, amount: p.amount }))));
-    
     const totalPaid = studentPayments
       .filter(p => p.status === "completed")
       .reduce((sum, p) => sum + p.amount, 0);
@@ -84,31 +80,49 @@ export default function StudentsPage() {
     const course = student?.courseId ? courses.find(c => c.id === student.courseId) : null;
     const monthlyAmount = course?.price || 200000;
     
-    const monthsActive = Math.max(1, Math.ceil((Date.now() - new Date(studentPayments[0]?.createdAt || Date.now()).getTime()) / (30 * 24 * 60 * 60 * 1000)));
+    // Safe date parsing - use current date as fallback
+    const firstPaymentDate = studentPayments[0]?.createdAt 
+      ? new Date(studentPayments[0].createdAt) 
+      : null;
+    const monthsActive = firstPaymentDate && !isNaN(firstPaymentDate.getTime())
+      ? Math.max(1, Math.ceil((Date.now() - firstPaymentDate.getTime()) / (30 * 24 * 60 * 60 * 1000)))
+      : 1;
     const expectedPayment = monthlyAmount * monthsActive;
     const pendingAmount = Math.max(0, expectedPayment - totalPaid);
     
-    // Calculate days overdue
-    const lastPayment = studentPayments
-      .filter(p => p.status === "completed")
-      .sort((a, b) => new Date(b.paidAt || b.createdAt).getTime() - new Date(a.paidAt || a.createdAt).getTime())[0];
+    // Calculate days overdue - safe date parsing
+    const validCompletedPayments = studentPayments.filter(p => p.status === "completed" && (p.paidAt || p.createdAt));
+    const lastPayment = validCompletedPayments
+      .sort((a, b) => {
+        const dateA = new Date(a.paidAt || a.createdAt).getTime();
+        const dateB = new Date(b.paidAt || b.createdAt).getTime();
+        return isNaN(dateA) || isNaN(dateB) ? 0 : dateB - dateA;
+      })[0];
     
-    const daysSinceLastPayment = lastPayment 
-      ? Math.floor((Date.now() - new Date(lastPayment.paidAt || lastPayment.createdAt).getTime()) / (24 * 60 * 60 * 1000))
+    const lastPaymentDate = lastPayment 
+      ? new Date(lastPayment.paidAt || lastPayment.createdAt)
+      : null;
+    const daysSinceLastPayment = lastPaymentDate && !isNaN(lastPaymentDate.getTime())
+      ? Math.floor((Date.now() - lastPaymentDate.getTime()) / (24 * 60 * 60 * 1000))
       : 30;
     
     const daysOverdue = Math.max(0, daysSinceLastPayment - 30);
     
     // Calculate next payment date
-    const nextPaymentDate = lastPayment
-      ? new Date(new Date(lastPayment.paidAt || lastPayment.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const nextPaymentDateRaw = lastPaymentDate && !isNaN(lastPaymentDate.getTime())
+      ? new Date(lastPaymentDate.getTime() + 30 * 24 * 60 * 60 * 1000)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const nextPaymentDate = isNaN(nextPaymentDateRaw.getTime())
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      : nextPaymentDateRaw.toISOString().split("T")[0];
 
     return {
       isPaid: pendingAmount === 0,
       daysOverdue,
       nextPaymentDate,
-      lastPaymentDate: lastPayment?.paidAt?.split("T")[0] || "Sin pagos",
+      lastPaymentDate: lastPaymentDate && !isNaN(lastPaymentDate.getTime())
+        ? lastPaymentDate.toISOString().split("T")[0]
+        : "Sin pagos",
       monthlyAmount,
       totalPaid,
       pendingAmount,
@@ -326,7 +340,13 @@ export default function StudentsPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredStudents.length === 0 ? (
+              {paymentsLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    Cargando pagos...
+                  </td>
+                </tr>
+              ) : filteredStudents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     {searchTerm ? "No se encontraron estudiantes" : "No hay estudiantes registrados"}
