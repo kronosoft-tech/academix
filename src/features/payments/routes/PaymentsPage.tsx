@@ -81,10 +81,13 @@ export default function PaymentsPage() {
   const selectedGroup = groups.find(g => g.id === formData.groupId);
   const selectedCourse = selectedGroup ? courses.find(c => c.id === selectedGroup.courseId) : null;
 
-  const filteredPayments = payments.filter((payment) =>
-    payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPayments = searchTerm 
+    ? payments.filter((payment) =>
+        payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.id.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : payments; // Show all payments if no search term
 
   // Auto-fill amount when group is selected
   const handleGroupChange = (groupId: string) => {
