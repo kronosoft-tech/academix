@@ -3,26 +3,36 @@ import { usePayments } from "../hooks/usePayments";
 import { useStudents } from "../../students/hooks/useStudents";
 import { useGroups } from "../../groups/hooks/useGroups";
 import { useCourses } from "../../courses/hooks/useCourses";
+import { useAuth } from "../../../shared/hooks/useAuth";
 import { Card } from "../../../shared/ui/components/Card";
 import { Button } from "../../../shared/ui/components/Button";
 import { Input } from "../../../shared/ui/components/Input";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 import { SearchableSelect } from "../../../shared/ui/components/SearchableSelect";
+import { Modal } from "../../../shared/ui/components/Modal";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PaymentAny = any;
 
 interface PaymentRowProps {
   payment: PaymentAny;
+  students: PaymentAny[];
+  onEdit: (payment: PaymentAny) => void;
+  onDelete: (paymentId: string) => void;
+  canEdit: boolean;
 }
 
-function PaymentRow({ payment }: PaymentRowProps) {
+function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRowProps) {
   const isPaid = payment.status === "completed";
+  const student = students.find(s => s.id === payment.studentId);
   
   return (
     <tr key={payment.id} className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         {payment.reference || payment.id.substring(0, 8)}...
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {student?.name || payment.studentId.substring(0, 8)}...
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         ${payment.amount.toLocaleString()}
@@ -57,16 +67,37 @@ function PaymentRow({ payment }: PaymentRowProps) {
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {payment.description || "-"}
       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : "-"}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm">
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => onEdit(payment)}>
+              Editar
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => onDelete(payment.id)}>
+              Eliminar
+            </Button>
+          </div>
+        )}
+      </td>
     </tr>
   );
 }
 
 export default function PaymentsPage() {
-  const { payments, isLoading, error, createPayment } = usePayments();
+  const { payments, isLoading, error, createPayment, updatePayment, deletePayment } = usePayments();
   const { students } = useStudents();
   const { groups } = useGroups();
   const { courses } = useCourses();
+  const { user } = useAuth();
+  
+  const canEdit = user?.role === "admin" || user?.role === "empleado" || user?.role === "gerente";
+  
   const [showForm, setShowForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<PaymentAny>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     studentId: "",
@@ -74,6 +105,14 @@ export default function PaymentsPage() {
     amount: 0,
     method: "cash" as "cash" | "card" | "transfer" | "online",
     description: "",
+  });
+  const [editFormData, setEditFormData] = useState({
+    status: "" as "pending" | "completed" | "failed" | "refunded",
+    amount: 0,
+    method: "cash" as "cash" | "card" | "transfer" | "online",
+    reference: "",
+    description: "",
+    paidAt: "",
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -87,7 +126,7 @@ export default function PaymentsPage() {
         payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.id.toLowerCase().includes(searchTerm.toLowerCase())
       )
-    : payments; // Show all payments if no search term
+    : payments;
 
   // Auto-fill amount when group is selected
   const handleGroupChange = (groupId: string) => {
@@ -123,7 +162,7 @@ export default function PaymentsPage() {
       amount: formData.amount,
       method: formData.method,
       description: formData.description || undefined,
-      paid: true, // Create as paid immediately
+      paid: true,
     });
 
     if (result.success) {
@@ -132,6 +171,89 @@ export default function PaymentsPage() {
     } else {
       setSubmitError(result.error || "Error al crear payment");
     }
+  };
+
+  const handleEdit = (payment: PaymentAny) => {
+    setEditingPayment(payment);
+    setEditFormData({
+      status: payment.status,
+      amount: payment.amount,
+      method: payment.method || "cash",
+      reference: payment.reference || "",
+      description: payment.description || "",
+      paidAt: payment.paidAt ? payment.paidAt.split("T")[0] : "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingPayment) return;
+    
+    const updateData: any = {
+      status: editFormData.status === "completed" ? "paid" : editFormData.status,
+      reference: editFormData.reference || null,
+      description: editFormData.description || null,
+      paidAt: editFormData.status === "completed" ? (editFormData.paidAt || new Date().toISOString()) : null,
+    };
+    
+    const result = await updatePayment(editingPayment.id, updateData);
+    
+    if (result.success) {
+      setShowEditModal(false);
+      setEditingPayment(null);
+    } else {
+      setSubmitError(result.error || "Error al actualizar payment");
+    }
+  };
+
+  const handleDelete = async (paymentId: string) => {
+    if (!confirm("¿Estás seguro de eliminar este pago?")) return;
+    
+    const result = await deletePayment(paymentId);
+    if (!result.success) {
+      alert("Error: " + (result.error || "No se pudo eliminar"));
+    }
+  };
+
+  const generatePaymentReceipt = (payment: PaymentAny) => {
+    const student = students.find(s => s.id === payment.studentId);
+    const group = groups.find(g => g.id === payment.groupId);
+    const course = group ? courses.find(c => c.id === group.courseId) : null;
+    
+    const receiptContent = `
+RECIBO DE PAGO
+=============
+
+No. Referencia: ${payment.reference || "N/A"}
+Fecha: ${payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : "N/A"}
+
+ESTUDIANTE:
+Nombre: ${student?.name || "N/A"}
+Documento: ${student?.documentNumber || "N/A"}
+
+CURSO/GRUPO:
+Curso: ${course?.name || "N/A"}
+Grupo: ${group?.name || "N/A"}
+
+DETALLE DEL PAGO:
+Monto: $${payment.amount?.toLocaleString() || 0}
+Método: ${payment.method || "N/A"}
+Estado: ${payment.status === "completed" ? "PAGADO" : payment.status.toUpperCase()}
+${payment.paidAt ? `Fecha de pago: ${new Date(payment.paidAt).toLocaleDateString()}` : ""}
+${payment.description ? `Descripción: ${payment.description}` : ""}
+
+===========================
+Academix - Sistema de Gestión
+    `.trim();
+
+    // Create and download text file
+    const blob = new Blob([receiptContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `recibo-${payment.reference || payment.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading && payments.length === 0) {
@@ -161,7 +283,6 @@ export default function PaymentsPage() {
         <Card className="mb-6">
           <h2 className="text-lg font-semibold mb-4">Registrar Nuevo Pago</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Buscador de Estudiante */}
             <SearchableSelect
               label="Estudiante"
               required
@@ -175,7 +296,6 @@ export default function PaymentsPage() {
               notFoundMessage="No se encontraron estudiantes"
             />
 
-            {/* Selector de Grupo */}
             <SearchableSelect
               label="Grupo"
               required
@@ -274,6 +394,9 @@ export default function PaymentsPage() {
                   Referencia
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estudiante
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Monto
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -288,16 +411,108 @@ export default function PaymentsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Descripción
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Creado
+                </th>
+                {canEdit && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPayments.map((payment) => (
-                <PaymentRow key={payment.id} payment={payment} />
+                <PaymentRow 
+                  key={payment.id} 
+                  payment={payment} 
+                  students={students}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  canEdit={canEdit}
+                />
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Edit Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Pago">
+        <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={editFormData.status}
+                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
+              >
+                <option value="pending">Pendiente</option>
+                <option value="completed">Pagado</option>
+                <option value="failed">Fallido</option>
+                <option value="refunded">Reembolsado</option>
+              </select>
+            </div>
+            
+            <Input
+              label="Monto"
+              type="number"
+              value={editFormData.amount}
+              onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) || 0 })}
+            />
+            
+            <Input
+              label="Referencia"
+              value={editFormData.reference}
+              onChange={(e) => setEditFormData({ ...editFormData, reference: e.target.value })}
+            />
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={editFormData.method}
+                onChange={(e) => setEditFormData({ ...editFormData, method: e.target.value as any })}
+              >
+                <option value="cash">Efectivo</option>
+                <option value="card">Tarjeta</option>
+                <option value="transfer">Transferencia</option>
+                <option value="online">Pago en línea</option>
+              </select>
+            </div>
+            
+            {editFormData.status === "completed" && (
+              <Input
+                label="Fecha de pago"
+                type="date"
+                value={editFormData.paidAt}
+                onChange={(e) => setEditFormData({ ...editFormData, paidAt: e.target.value })}
+              />
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                rows={2}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleEditSubmit} loading={isLoading}>
+                Guardar Cambios
+              </Button>
+              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+                Cancelar
+              </Button>
+              <Button variant="primary" onClick={() => generatePaymentReceipt(editingPayment)}>
+                Descargar Recibo
+              </Button>
+            </div>
+          </div>
+      </Modal>
     </div>
   );
 }
