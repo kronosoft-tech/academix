@@ -26,34 +26,39 @@ function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRow
   const isPaid = payment.status === "completed";
   const student = students.find(s => s.id === payment.studentId);
   
+  // Handle case where payment data might be incomplete
+  if (!payment || !payment.id) {
+    return null;
+  }
+  
   return (
     <tr key={payment.id} className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {payment.reference || payment.id.substring(0, 8)}...
+        {payment.reference || (payment.id ? payment.id.substring(0, 8) + "..." : "-")}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {student?.name || payment.studentId.substring(0, 8)}...
+        {student?.name || (payment.studentId ? payment.studentId.substring(0, 8) + "..." : "Sin estudiante")}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${payment.amount.toLocaleString()}
+        ${(payment.amount || 0).toLocaleString()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span
           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
             isPaid
               ? "bg-green-100 text-green-800"
-              : payment.status === "pending"
+              : (payment.status === "pending")
               ? "bg-yellow-100 text-yellow-800"
-              : payment.status === "failed"
+              : (payment.status === "failed")
               ? "bg-red-100 text-red-800"
               : "bg-gray-100 text-gray-800"
           }`}
         >
           {isPaid
             ? "Pagado"
-            : payment.status === "pending"
+            : (payment.status === "pending")
             ? "Pendiente"
-            : payment.status === "failed"
+            : (payment.status === "failed")
             ? "Fallido"
             : "Reembolsado"}
         </span>
