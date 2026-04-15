@@ -9,6 +9,7 @@ use crate::application::dto::accounting::CreateEntryRequest;
 use crate::application::dto::{
     CreatePaymentRequest, PaymentDto, PaymentStatusDto, UpdatePaymentRequest,
 };
+use crate::application::ports::accounting::AccountingEntryRepository;
 use crate::application::use_cases::AccountingService;
 use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
@@ -176,38 +177,48 @@ pub fn update_payment(
     match update_result {
         Ok(payment) => {
             // If status is "paid", automatically create accounting entry
+            // Only create if there's no existing entry for this payment
             if request.status.as_deref() == Some("paid") {
                 let accounting_service = AccountingService::new(
                     accounting_entry_state.inner().clone(),
                     accounting_category_state.inner().clone(),
                 );
 
-                // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
-                let entry_request = CreateEntryRequest {
-                    date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
-                    description: format!("Pago estudiante - {}", id),
-                    debit_account: "1105".to_string(),  // Caja
-                    credit_account: "6115".to_string(), // Mensualidades
-                    amount: payment.amount,
-                    entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
-                    reference: request.reference.or(Some(format!("PAG-{}", &id[..8]))),
-                    related_id: Some(payment.id.clone()),
-                    related_type: Some("payment".to_string()),
-                };
+                // Check if an entry already exists for this payment
+                let existing_entries = accounting_entry_state
+                    .inner()
+                    .get_by_related(&payment.id, "payment")
+                    .unwrap_or_default();
 
-                match accounting_service.create_entry(entry_request, "system".to_string()) {
-                    Ok(_entry) => {
-                        // Success - payment updated and accounting entry created
-                    }
-                    Err(e) => {
-                        // Payment was updated but accounting entry failed
-                        return PaymentCommandResponse {
-                            success: true,
-                            data: Some(payment),
-                            error: Some(format!("Pago actualizado pero error contable: {}", e)),
-                        };
+                if existing_entries.is_empty() {
+                    // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
+                    let entry_request = CreateEntryRequest {
+                        date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                        description: format!("Pago estudiante - {}", id),
+                        debit_account: "1105".to_string(),  // Caja
+                        credit_account: "6115".to_string(), // Mensualidades
+                        amount: payment.amount,
+                        entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
+                        reference: request.reference.or(Some(format!("PAG-{}", &id[..8]))),
+                        related_id: Some(payment.id.clone()),
+                        related_type: Some("payment".to_string()),
+                    };
+
+                    match accounting_service.create_entry(entry_request, "system".to_string()) {
+                        Ok(_entry) => {
+                            // Success - payment updated and accounting entry created
+                        }
+                        Err(e) => {
+                            // Payment was updated but accounting entry failed
+                            return PaymentCommandResponse {
+                                success: true,
+                                data: Some(payment),
+                                error: Some(format!("Pago actualizado pero error contable: {}", e)),
+                            };
+                        }
                     }
                 }
+                // If entry already exists, skip creating a new one
             }
 
             PaymentCommandResponse {
