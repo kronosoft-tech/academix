@@ -98,13 +98,15 @@ pub fn get_payroll_run(state: State<PayrollServiceState>, id: String) -> Payroll
 #[tauri::command]
 pub fn list_payroll_runs(
     state: State<PayrollServiceState>,
+    period_start: Option<String>,
+    period_end: Option<String>,
     status: Option<String>,
 ) -> PayrollListCommandResponse {
     use crate::domain::entities::payroll::PayrollRunStatus;
 
     let status_filter = status.and_then(|s| PayrollRunStatus::from_str(&s));
 
-    match state.list_payroll_runs(status_filter) {
+    match state.list_payroll_runs(status_filter, period_start.as_deref(), period_end.as_deref()) {
         Ok(runs) => PayrollListCommandResponse {
             success: true,
             data: Some(runs),

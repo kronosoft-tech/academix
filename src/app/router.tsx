@@ -79,6 +79,27 @@ export const router = createHashRouter([
         },
       },
       {
+        path: "accounting",
+        lazy: async () => {
+          const { default: AccountingPage } = await import("../features/accounting/routes/AccountingPage");
+          return { Component: AccountingPage };
+        },
+      },
+      {
+        path: "employees",
+        lazy: async () => {
+          const { default: EmployeesPage } = await import("../features/accounting/routes/EmployeesPage");
+          return { Component: EmployeesPage };
+        },
+      },
+      {
+        path: "payroll",
+        lazy: async () => {
+          const { default: PayrollPage } = await import("../features/accounting/routes/PayrollPage");
+          return { Component: PayrollPage };
+        },
+      },
+      {
         path: "attendance",
         lazy: async () => {
           const { default: AttendancePage } = await import("../features/attendance/routes/AttendancePage");

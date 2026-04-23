@@ -12,6 +12,8 @@ use crate::infrastructure::repositories::{
     SqliteAccountCategoryRepository, SqliteAccountingEntryRepository,
 };
 
+/// Type alias for Accounting Service with SQLite repositories
+/// Note: liability_repo and equity_repo are CONCRETE types, not generic
 type AccountingServiceState =
     AccountingService<SqliteAccountingEntryRepository, SqliteAccountCategoryRepository>;
 

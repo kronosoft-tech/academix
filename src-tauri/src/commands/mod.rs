@@ -3,6 +3,7 @@
 //! This module contains the Tauri commands that bridge the frontend to the application layer.
 
 pub mod accounting;
+pub mod accounting_ext;
 pub mod attendance;
 pub mod auth;
 pub mod base;
@@ -17,6 +18,7 @@ pub mod students;
 pub mod users;
 
 pub use accounting::*;
+pub use accounting_ext::*;
 pub use attendance::*;
 pub use auth::*;
 pub use base::*;

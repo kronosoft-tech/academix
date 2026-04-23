@@ -125,6 +125,7 @@ export function useGroups(): UseGroupsReturn {
           end_time: data.endTime ?? null,
           max_students: data.maxStudents ?? null,
           status: data.status ?? null,
+          professor_id: data.professorId ?? null,
         },
       });
 

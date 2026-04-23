@@ -3,8 +3,10 @@
 //! Tauri commands for payment management.
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
 
+use chrono::Utc;
 use crate::application::dto::accounting::CreateEntryRequest;
 use crate::application::dto::{
     CreatePaymentRequest, PaymentDto, PaymentStatusDto, UpdatePaymentRequest,
@@ -15,6 +17,7 @@ use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
     SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteCourseRepository,
     SqliteGroupRepository, SqlitePaymentRepository,
+    SqliteLiabilityRepository, SqliteEquityRepository,
 };
 
 pub type PaymentServiceState =
@@ -179,9 +182,14 @@ pub fn update_payment(
             // If status is "paid", automatically create accounting entry
             // Only create if there's no existing entry for this payment
             if request.status.as_deref() == Some("paid") {
+                let pool = accounting_entry_state.inner().pool();
+                let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
+                let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
                 let accounting_service = AccountingService::new(
                     accounting_entry_state.inner().clone(),
                     accounting_category_state.inner().clone(),
+                    liability_repo,
+                    equity_repo,
                 );
 
                 // Check if an entry already exists for this payment
@@ -193,7 +201,7 @@ pub fn update_payment(
                 if existing_entries.is_empty() {
                     // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
                     let entry_request = CreateEntryRequest {
-                        date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+date: Utc::now().format("%Y-%m-%d").to_string(),
                         description: format!("Pago estudiante - {}", id),
                         debit_account: "1105".to_string(),  // Caja
                         credit_account: "6115".to_string(), // Mensualidades
@@ -235,9 +243,19 @@ pub fn update_payment(
     }
 }
 
-/// Delete payment
+/// Delete payment - also deletes related accounting entries (cascade)
 #[tauri::command]
-pub fn delete_payment(state: State<PaymentServiceState>, id: String) -> PaymentCommandResponse {
+pub fn delete_payment(
+    state: State<PaymentServiceState>,
+    id: String,
+    accounting_entry_state: State<SqliteAccountingEntryRepository>,
+) -> PaymentCommandResponse {
+    // First, delete related accounting entries (cascade delete)
+    if let Err(e) = accounting_entry_state.inner().delete_by_related(&id, "payment") {
+        eprintln!("[DEBUG] Failed to delete related accounting entries: {}", e);
+        // Continue anyway - we want to delete the payment
+    }
+
     match state.delete(&id) {
         Ok(()) => PaymentCommandResponse {
             success: true,
@@ -269,21 +287,26 @@ pub fn register_payment_with_income(
         UpdatePaymentRequest {
             status: Some("paid".to_string()),
             reference: Some(reference.clone()),
-            paid_date: Some(chrono::Utc::now().format("%Y-%m-%d").to_string()),
+            paid_date: Some(Utc::now().format("%Y-%m-%d").to_string()),
         },
     );
 
     match update_result {
         Ok(_payment) => {
             // Now create accounting entry for the income
+            let pool = accounting_entry_state.inner().pool();
+            let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
+            let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
             let accounting_service = AccountingService::new(
                 accounting_entry_state.inner().clone(),
                 accounting_category_state.inner().clone(),
+                liability_repo,
+                equity_repo,
             );
 
             // Create entry: Debit to Cash/Bank (1105), Credit to Income (6115 - Mensualidades)
             let entry_request = CreateEntryRequest {
-                date: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                date: Utc::now().format("%Y-%m-%d").to_string(),
                 description: format!("Pago {}", _payment.student_id),
                 debit_account: "1105".to_string(),  // Caja
                 credit_account: "6115".to_string(), // Mensualidades
@@ -377,5 +400,124 @@ pub fn get_all_students_payment_summary(
             data: None,
             error: Some(e.to_string()),
         },
+    }
+}
+
+/// Sync response
+#[derive(Debug, Serialize)]
+pub struct SyncPaymentsAccountingResponse {
+    pub success: bool,
+    pub synced: usize,
+    pub skipped: usize,
+    pub error: Option<String>,
+}
+
+/// Sync existing paid payments to accounting entries
+/// This migration creates accounting entries for payments that were marked as "paid"
+/// before the automatic accounting integration was enabled
+#[tauri::command]
+pub fn sync_payments_to_accounting(
+    state: State<PaymentServiceState>,
+    accounting_entry_state: State<SqliteAccountingEntryRepository>,
+    accounting_category_state: State<SqliteAccountCategoryRepository>,
+) -> SyncPaymentsAccountingResponse {
+    eprintln!("[DEBUG] Starting payment-to-accounting sync");
+
+    // Get all payments as domain entities (includes reference field)
+    let payments = match state.list_domain() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("[DEBUG] Failed to list payments: {}", e);
+            return SyncPaymentsAccountingResponse {
+                success: false,
+                synced: 0,
+                skipped: 0,
+                error: Some(e.to_string()),
+            };
+        }
+    };
+
+    let pool = accounting_entry_state.inner().pool();
+    let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
+    let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
+    let accounting_service = AccountingService::new(
+        accounting_entry_state.inner().clone(),
+        accounting_category_state.inner().clone(),
+        liability_repo,
+        equity_repo,
+    );
+
+    let mut synced = 0;
+    let mut skipped = 0;
+
+    for payment in payments {
+        // Only sync payments that are "paid"
+        if payment.status.as_str() != "paid" {
+            skipped += 1;
+            continue;
+        }
+
+        // Check if entry already exists for this payment
+        let existing = accounting_entry_state
+            .inner()
+            .get_by_related(&payment.id, "payment")
+            .unwrap_or_default();
+
+        if !existing.is_empty() {
+            eprintln!(
+                "[DEBUG] Payment {} already has accounting entry, skipping",
+                payment.id
+            );
+            skipped += 1;
+            continue;
+        }
+
+        // Get paid_at date or use current date
+        let date_str = payment
+            .paid_at
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
+
+        // Get reference or generate one
+        let reference = payment.reference.clone()
+            .or_else(|| Some(format!("PAG-{}", &payment.id[..8])));
+
+        // Create accounting entry
+        let entry_request = CreateEntryRequest {
+            date: date_str,
+            description: format!("Pago estudiante - {}", payment.student_id),
+            debit_account: "1105".to_string(),  // Caja
+            credit_account: "6115".to_string(), // Mensualidades
+            amount: payment.amount,
+            entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
+            reference,
+            related_id: Some(payment.id.clone()),
+            related_type: Some("payment".to_string()),
+        };
+
+        match accounting_service.create_entry(entry_request, "system".to_string()) {
+            Ok(_) => {
+                eprintln!("[DEBUG] Created accounting entry for payment {}", payment.id);
+                synced += 1;
+            }
+            Err(e) => {
+                eprintln!(
+                    "[DEBUG] Failed to create entry for payment {}: {}",
+                    payment.id, e
+                );
+            }
+        }
+    }
+
+    eprintln!(
+        "[DEBUG] Sync complete: {} synced, {} skipped",
+        synced, skipped
+    );
+
+    SyncPaymentsAccountingResponse {
+        success: true,
+        synced,
+        skipped,
+        error: None,
     }
 }

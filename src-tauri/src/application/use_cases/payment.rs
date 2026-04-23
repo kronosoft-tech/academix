@@ -228,6 +228,11 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
         Ok(())
     }
 
+    /// List all payments as domain entities (with all fields including reference)
+    pub fn list_domain(&self) -> Result<Vec<Payment>, ApplicationError> {
+        Ok(self.payment_repository.find_all()?)
+    }
+
     /// Calculate payment status based on due_date and payment history
     pub fn calculate_payment_status(
         &self,

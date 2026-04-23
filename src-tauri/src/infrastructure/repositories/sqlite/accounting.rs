@@ -220,6 +220,10 @@ impl SqliteAccountingEntryRepository {
         Self { pool }
     }
 
+    pub fn pool(&self) -> Arc<SqlitePool> {
+        Arc::clone(&self.pool)
+    }
+
     fn row_to_accounting_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<AccountingEntry> {
         // SQL: id, date, reference, description, debit_account, credit_account, amount,
         //      entry_type, related_id, related_type, created_by, created_at
@@ -416,6 +420,16 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
         let affected = self.pool.execute(sql, &[&id]).map_err(|e| e.to_string())?;
 
         Ok(affected > 0)
+    }
+
+    fn delete_by_related(&self, related_id: &str, related_type: &str) -> Result<(), String> {
+        let sql = "DELETE FROM accounting_entries WHERE related_id = ? AND related_type = ?";
+
+        self.pool
+            .execute(sql, &[&related_id, &related_type])
+            .map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
     fn get_total_debits(&self, date_from: &str, date_to: &str) -> Result<f64, String> {

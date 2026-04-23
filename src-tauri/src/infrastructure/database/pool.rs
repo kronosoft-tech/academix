@@ -108,6 +108,20 @@ impl SqlitePool {
         collected
     }
 
+    /// Query for multiple rows with dynamic params
+    pub fn query_with_vec<T, F>(
+        &self,
+        sql: &str,
+        params: Vec<String>,
+        mapper: F,
+    ) -> Result<Vec<T>, String>
+    where
+        F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+    {
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        self.query(sql, &params_refs, mapper).map_err(|e| e.to_string())
+    }
+
     /// Query for a single row
     pub fn query_row<T, F>(
         &self,

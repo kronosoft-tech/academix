@@ -24,13 +24,17 @@ export function usePayroll() {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<PayrollRun[]>("list_payroll_runs", {
+      const response = await invoke<{ success: boolean; data: PayrollRun[] | null; error: string | null }>("list_payroll_runs", {
         periodStart: filters?.period_start,
         periodEnd: filters?.period_end,
         status: filters?.status,
       });
-      setRuns(result);
-      return result;
+      if (response.success && response.data) {
+        setRuns(response.data);
+        return response.data;
+      } else {
+        throw new Error(response.error || "Error listing payroll runs");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
@@ -45,11 +49,15 @@ export function usePayroll() {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<PayrollRunWithEntries>("get_payroll_run", {
-        runId,
+      const response = await invoke<{ success: boolean; data: PayrollRunWithEntries | null; error: string | null }>("get_payroll_run", {
+        id: runId,
       });
-      setCurrentRun(result);
-      return result;
+      if (response.success && response.data) {
+        setCurrentRun(response.data);
+        return response.data;
+      } else {
+        throw new Error(response.error || "Error getting payroll run");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);

@@ -85,6 +85,9 @@ pub trait AccountingEntryRepository: Send + Sync {
     /// Delete accounting entry
     fn delete(&self, id: &str) -> Result<bool, String>;
 
+    /// Delete accounting entries by related entity
+    fn delete_by_related(&self, related_id: &str, related_type: &str) -> Result<(), String>;
+
     /// Get total debits in date range
     fn get_total_debits(&self, date_from: &str, date_to: &str) -> Result<f64, String>;
 

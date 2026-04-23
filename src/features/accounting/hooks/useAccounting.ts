@@ -14,12 +14,20 @@ import type {
   CreateEntryRequest,
   EntryFilters,
   AccountFilters,
+  Liability,
+  CreateLiabilityRequest,
+  Equity,
+  CreateEquityRequest,
+  FixedAsset,
+  CreateFixedAssetRequest,
 } from "../types";
 
 export function useAccounting() {
   const [entries, setEntries] = useState<AccountingEntry[]>([]);
   const [accounts, setAccounts] = useState<AccountCategory[]>([]);
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
+  const [liabilities, setLiabilities] = useState<Liability[]>([]);
+  const [equities, setEquities] = useState<Equity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -189,10 +197,110 @@ export function useAccounting() {
     return listAccounts({ active_only: true });
   }, [listAccounts]);
 
+  // === Pasivos / Liabilities ===
+  const createLiability = useCallback(async (request: CreateLiabilityRequest) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<Liability>("create_liability", { request });
+      setLiabilities(prev => [result, ...prev]);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const listLiabilities = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<Liability[]>("list_liabilities");
+      setLiabilities(result);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const payLiability = useCallback(async (id: string, amount: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<Liability>("pay_liability", { id, amount });
+      setLiabilities(prev => prev.map(l => l.id === id ? result : l));
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // === Patrimonio / Equity ===
+  const createEquity = useCallback(async (request: CreateEquityRequest) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<Equity>("create_equity", { request });
+      setEquities(prev => [result, ...prev]);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const listEquities = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<Equity[]>("list_equities");
+      setEquities(result);
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // === Fixed Assets / Activos Fijos ===
+  const createFixedAsset = useCallback(async (request: CreateFixedAssetRequest) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await invoke<FixedAsset>("create_fixed_asset", { request });
+      return result;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     entries,
     accounts,
     summary,
+    liabilities,
+    equities,
     loading,
     error,
     createEntry,
@@ -206,5 +314,14 @@ export function useAccounting() {
     getSummary,
     getFinancialBalance,
     clearError,
+    // Pasivos
+    createLiability,
+    listLiabilities,
+    payLiability,
+    // Patrimonio
+    createEquity,
+    listEquities,
+    // Activos Fijos
+    createFixedAsset,
   };
 }

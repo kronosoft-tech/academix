@@ -20,6 +20,7 @@ pub trait EmployeeRepository: Send + Sync {
         &self,
         status: Option<EmployeeStatus>,
         department: Option<&str>,
+        search: Option<&str>,
     ) -> Result<Vec<Employee>, String>;
 
     /// List employees by IDs

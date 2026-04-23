@@ -196,7 +196,7 @@ pub struct FinancialBalanceDto {
 }
 
 /// Account balance for financial balance report
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct AccountBalanceDto {
     pub account_code: String,
     pub account_name: String,

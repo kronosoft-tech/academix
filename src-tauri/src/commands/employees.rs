@@ -142,13 +142,15 @@ pub fn list_employees(
     state: State<EmployeeServiceState>,
     status: Option<String>,
     department: Option<String>,
+    search: Option<String>,
 ) -> EmployeeListCommandResponse {
     use crate::domain::entities::employee::EmployeeStatus;
 
     let status_filter = status.and_then(|s| EmployeeStatus::from_str(&s));
     let dept_filter = department.as_deref();
+    let search_filter = search.as_deref();
 
-    match state.list_employees(status_filter, dept_filter) {
+    match state.list_employees(status_filter, dept_filter, search_filter) {
         Ok(employees) => EmployeeListCommandResponse {
             success: true,
             data: Some(employees),

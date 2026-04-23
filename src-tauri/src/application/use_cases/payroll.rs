@@ -180,9 +180,30 @@ impl<R: PayrollRepository, E: PayrollEntryRepository, Emp: EmployeeRepository>
     pub fn list_payroll_runs(
         &self,
         status: Option<PayrollRunStatus>,
+        period_start: Option<&str>,
+        period_end: Option<&str>,
     ) -> Result<Vec<PayrollRunDto>, String> {
         let runs = self.payroll_repo.list(status)?;
-        Ok(runs.into_iter().map(PayrollRunDto::from).collect())
+        let runs_dto: Vec<PayrollRunDto> = runs.into_iter().map(PayrollRunDto::from).collect();
+
+        let filtered: Vec<PayrollRunDto> = if period_start.is_some() || period_end.is_some() {
+            runs_dto
+                .into_iter()
+                .filter(|r| {
+                    let matches_start = period_start
+                        .map(|start| r.period_start.as_str() >= start)
+                        .unwrap_or(true);
+                    let matches_end = period_end
+                        .map(|end| r.period_end.as_str() <= end)
+                        .unwrap_or(true);
+                    matches_start && matches_end
+                })
+                .collect()
+        } else {
+            runs_dto
+        };
+
+        Ok(filtered)
     }
 
     /// Get payroll summary for dashboard

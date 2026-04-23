@@ -26,31 +26,34 @@ export function useEmployees() {
     setLoading(true);
     setError(null);
     try {
-      const result = await invoke<EmployeeListItem[]>("list_employees", {
+      const response = await invoke<{ success: boolean; data: EmployeeListItem[] | null; error: string | null }>("list_employees", {
         status: filters?.status,
         department: filters?.department,
         search: filters?.search,
       });
-      setEmployees(result.map(item => ({
-        ...item,
-        hire_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        // Map list item to full employee
-        user_id: undefined,
-        document_type: "dni" as const,
-        first_name: item.full_name.split(" ")[0],
-        last_name: item.full_name.split(" ").slice(1).join(" "),
-        phone: undefined,
-        address: undefined,
-        bank_name: undefined,
-        bank_account: undefined,
-        account_type: undefined,
-        cci: undefined,
-        afp: undefined,
-        termination_date: undefined,
-      })));
-      return result;
+      if (response.success && response.data) {
+        setEmployees(response.data.map(item => ({
+          ...item,
+          hire_date: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user_id: undefined,
+          document_type: "dni" as const,
+          first_name: item.full_name.split(" ")[0],
+          last_name: item.full_name.split(" ").slice(1).join(" "),
+          phone: undefined,
+          address: undefined,
+          bank_name: undefined,
+          bank_account: undefined,
+          account_type: undefined,
+          cci: undefined,
+          afp: undefined,
+          termination_date: undefined,
+        })));
+        return response.data;
+      } else {
+        throw new Error(response.error || "Error listing employees");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);

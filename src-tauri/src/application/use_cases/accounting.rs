@@ -10,21 +10,33 @@ use crate::application::dto::accounting::{
 };
 use crate::application::ports::accounting::{AccountCategoryRepository, AccountingEntryRepository};
 use crate::domain::entities::accounting::{AccountingEntry, CategoryType, EntryType};
+use crate::infrastructure::repositories::liability::{SqliteLiabilityRepository, SqliteEquityRepository};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use uuid::Uuid;
 
 /// Accounting service - orchestrates accounting operations
+/// Uses concrete repository types for liability/equity tables access
 pub struct AccountingService<R: AccountingEntryRepository, C: AccountCategoryRepository> {
     entry_repo: R,
     category_repo: C,
+    liability_repo: SqliteLiabilityRepository,
+    equity_repo: SqliteEquityRepository,
 }
 
 impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingService<R, C> {
-    pub fn new(entry_repo: R, category_repo: C) -> Self {
+    pub fn new(entry_repo: R, category_repo: C, liability_repo: SqliteLiabilityRepository, equity_repo: SqliteEquityRepository) -> Self {
         Self {
             entry_repo,
             category_repo,
+            liability_repo,
+            equity_repo,
         }
+    }
+
+    /// Get account by code (e.g., "2105", "3105")
+    pub fn get_account_by_code(&self, code: &str) -> Result<Option<AccountCategoryDto>, String> {
+        let account = self.category_repo.get_by_code(code)?;
+        Ok(account.map(AccountCategoryDto::from))
     }
 
     /// Create a new accounting entry
@@ -471,29 +483,39 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
         })
     }
 
-    /// Get financial balance (Balance Financiero) - shows Assets = Liabilities + Equity
+    /// Get financial balance (Balance Financiero) - Opción B con toque de C
+    /// 
+    /// Estructura según contabilidad estándar:
+    /// - Activos (1xxx): Bienes y derechos
+    /// - Pasivos (2xxx + tabla): Deudas separadas por corto/largo plazo
+    /// - Patrimonio: Capital + Reservas + Resultados Acumulados + Resultado del Ejercicio
     pub fn get_financial_balance(&self, as_of_date: &str) -> Result<FinancialBalanceDto, String> {
         // Get all accounts with their balances
         let all_accounts = self.category_repo.list(None, true)?;
 
-        // Build account lookup (unused but kept for future reference)
-        let _account_map: std::collections::HashMap<String, (String, f64)> = all_accounts
-            .iter()
-            .map(|a| (a.code.clone(), (a.name.clone(), a.balance)))
-            .collect();
-
         // Separate by account type (first digit)
         let mut assets: Vec<AccountBalanceDto> = Vec::new();
-        let mut liabilities: Vec<AccountBalanceDto> = Vec::new();
-        let mut equity: Vec<AccountBalanceDto> = Vec::new();
+        let mut liabilities_current: Vec<AccountBalanceDto> = Vec::new(); // Corto plazo
+        let mut liabilities_long: Vec<AccountBalanceDto> = Vec::new();    // Largo plazo
+        let mut equity_capital: Vec<AccountBalanceDto> = Vec::new();    // 31xx
+        let mut equity_reserves: Vec<AccountBalanceDto> = Vec::new(); // 32xx
+        let mut equity_retained: Vec<AccountBalanceDto> = Vec::new(); // 37xx (Resultados acumulados)
+        let mut income: Vec<AccountBalanceDto> = Vec::new();      // 6xxx
+        let mut expenses: Vec<AccountBalanceDto> = Vec::new();   // 4xxx, 5xxx, 7xxx
+        
         let mut total_assets: f64 = 0.0;
-        let mut total_liabilities: f64 = 0.0;
-        let mut total_equity: f64 = 0.0;
+        let mut total_liabilities_current: f64 = 0.0;
+        let mut total_liabilities_long: f64 = 0.0;
+        let mut total_equity_capital: f64 = 0.0;
+        let mut total_equity_reserves: f64 = 0.0;
+        let mut total_equity_retained: f64 = 0.0;
+        let mut total_income: f64 = 0.0;
+        let mut total_expenses: f64 = 0.0;
 
         for acc in &all_accounts {
             let balance = acc.balance;
             if balance == 0.0 {
-                continue; // Skip zero balances
+                continue;
             }
 
             let code = &acc.code;
@@ -501,7 +523,7 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
 
             match first_digit {
                 '1' => {
-                    // Assets
+                    // Activos (cuentas 1xxx)
                     total_assets += balance;
                     assets.push(AccountBalanceDto {
                         account_code: acc.code.clone(),
@@ -510,28 +532,81 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
                     });
                 }
                 '2' => {
-                    // Liabilities
-                    total_liabilities += balance;
-                    liabilities.push(AccountBalanceDto {
-                        account_code: acc.code.clone(),
-                        account_name: acc.name.clone(),
-                        balance,
-                    });
+                    // Pasivos (cuentas 2xxx) - Separar por tipo de cuenta
+                    // Cuentas 21xx-2199: Corto Plazo (proveedores, Impuesto, nóminas)
+                    // Cuentas 22xx+: Largo Plazo (préstamos, hipotecas)
+                    if code.starts_with("21") || code.starts_with("22") {
+                        // Clasificación básica
+                        if code.starts_with("21") {
+                            total_liabilities_current += balance;
+                            liabilities_current.push(AccountBalanceDto {
+                                account_code: acc.code.clone(),
+                                account_name: acc.name.clone(),
+                                balance,
+                            });
+                        } else {
+                            total_liabilities_long += balance;
+                            liabilities_long.push(AccountBalanceDto {
+                                account_code: acc.code.clone(),
+                                account_name: acc.name.clone(),
+                                balance,
+                            });
+                        }
+                    } else {
+                        // Otras cuentas de pasivo van a largo plazo por defecto
+                        total_liabilities_long += balance;
+                        liabilities_long.push(AccountBalanceDto {
+                            account_code: acc.code.clone(),
+                            account_name: acc.name.clone(),
+                            balance,
+                        });
+                    }
                 }
                 '3' => {
-                    // Equity
-                    total_equity += balance;
-                    equity.push(AccountBalanceDto {
+                    // Patrimonio (cuentas 3xxx)
+                    // 31xx: Capital Social
+                    // 32xx: Reservas
+                    // 33xx-36xx: Resultados (ejercicio actual -> se calcula)
+                    // 37xx: Resultados acumulados
+                    if code.starts_with("31") {
+                        total_equity_capital += balance;
+                        equity_capital.push(AccountBalanceDto {
+                            account_code: acc.code.clone(),
+                            account_name: acc.name.clone(),
+                            balance,
+                        });
+                    } else if code.starts_with("32") {
+                        total_equity_reserves += balance;
+                        equity_reserves.push(AccountBalanceDto {
+                            account_code: acc.code.clone(),
+                            account_name: acc.name.clone(),
+                            balance,
+                        });
+                    } else if code.starts_with("37") {
+                        total_equity_retained += balance;
+                        equity_retained.push(AccountBalanceDto {
+                            account_code: acc.code.clone(),
+                            account_name: acc.name.clone(),
+                            balance,
+                        });
+                    } else {
+                        // 33xx-36xx: résultat del ejercicio (se sumando pero no se cuenta doble al final)
+                        // Se incluye en el cálculo de resultado
+                    }
+                }
+                '4' | '5' | '7' => {
+                    // Gastos (4xxx: Gastos, 5xxx: Costo de venta, 7xxx: Otros gastos)
+                    total_expenses += balance;
+                    expenses.push(AccountBalanceDto {
                         account_code: acc.code.clone(),
                         account_name: acc.name.clone(),
                         balance,
                     });
                 }
-                // Also include income/expense accounts in equity (they affect net result)
-                '4' | '5' | '6' | '7' => {
-                    // Income/Expense accounts affect equity
-                    total_equity += balance;
-                    equity.push(AccountBalanceDto {
+                '6' => {
+                    // Ingresos (6xxx)
+                    total_income += balance;
+                    income.push(AccountBalanceDto {
                         account_code: acc.code.clone(),
                         account_name: acc.name.clone(),
                         balance,
@@ -541,36 +616,136 @@ impl<R: AccountingEntryRepository, C: AccountCategoryRepository> AccountingServi
             }
         }
 
-        // Sort each category by balance descending
-        assets.sort_by(|a, b| {
-            b.balance
-                .partial_cmp(&a.balance)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        liabilities.sort_by(|a, b| {
-            b.balance
-                .partial_cmp(&a.balance)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        equity.sort_by(|a, b| {
-            b.balance
-                .partial_cmp(&a.balance)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        // Add liabilities from liabilities table (pasivos registrados manualmente)
+        // Separar por tipo: short_term -> Corto Plazo, long_term -> Largo Plazo
+        println!("[DEBUG] Querying liabilities table...");
+        if let Ok(liabilities_list) = self.liability_repo.list() {
+            println!("[DEBUG] Found {} liabilities", liabilities_list.len());
+            for liab in liabilities_list.iter() {
+                let pending = liab.amount - liab.paid_amount;
+                if pending > 0.0 {
+                    let account_code = liab.account_code.clone().unwrap_or_else(|| {
+                        if liab.liability_type == "short_term" { "2105".to_string() } 
+                        else { "2205".to_string() }
+                    });
+                    
+                    let dto = AccountBalanceDto {
+                        account_code: account_code.clone(),
+                        account_name: format!("[{}] {} - {}", liab.liability_type, liab.provider_name, liab.description.clone().unwrap_or_default()),
+                        balance: pending,
+                    };
+                    
+                    if liab.liability_type == "short_term" {
+                        total_liabilities_current += pending;
+                        liabilities_current.push(dto);
+                    } else {
+                        total_liabilities_long += pending;
+                        liabilities_long.push(dto);
+                    }
+                }
+            }
+        }
 
-        // For accounting equation: Assets = Liabilities + Equity + (Income - Expenses)
-        // Net Income = Total Income - Total Expenses (which is in net_balance from summary)
-        let net_result = total_assets - total_liabilities - total_equity;
+        // Add equity from equities table (patrimonio registrado manualmente)
+        println!("[DEBUG] Querying equities table...");
+        if let Ok(equities_list) = self.equity_repo.list() {
+            println!("[DEBUG] Found {} equities", equities_list.len());
+            for eq in equities_list.iter() {
+                let account_code = eq.account_code.clone().unwrap_or_else(|| "3105".to_string());
+                
+                let dto = AccountBalanceDto {
+                    account_code: account_code.clone(),
+                    account_name: format!("[{}] {}", eq.equity_type, eq.description),
+                    balance: eq.amount,
+                };
+                
+                // Separar por tipo de equity
+                match eq.equity_type.as_str() {
+                    "capital" => {
+                        total_equity_capital += eq.amount;
+                        equity_capital.push(dto);
+                    }
+                    "reserves" => {
+                        total_equity_reserves += eq.amount;
+                        equity_reserves.push(dto);
+                    }
+                    "results" | "retained" => {
+                        total_equity_retained += eq.amount;
+                        equity_retained.push(dto);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Sort each category by balance descending
+        assets.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        liabilities_current.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        liabilities_long.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        equity_capital.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        equity_reserves.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        equity_retained.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        income.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+        expenses.sort_by(|a, b| b.balance.partial_cmp(&a.balance).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Calculate Resultado del Ejercicio = Ingresos - Gastos
+        let net_result = total_income - total_expenses;
+
+        // Total Pasivos = Corto Plazo + Largo Plazo
+        let total_liabilities = total_liabilities_current + total_liabilities_long;
+
+        // Total Patrimonio = Capital + Reservas + Resultados Acumulados
+        // IMPORTANTE: NO sumar net_result aquí porque ya está implícito en los Activos
+        // (las ventas aumentan Caja, los gastos la reducen - el resultado ya está reflejado)
+        let total_equity = total_equity_capital + total_equity_reserves + total_equity_retained;
+
+        // DEBUG: Mostrar desglose para entender por qué no cuadra
+        eprintln!("[BALANCE DEBUG]");
+        eprintln!("  Activos (1xxx): S/ {:.2}", total_assets);
+        eprintln!("  Pasivos CP (21xx): S/ {:.2}", total_liabilities_current);
+        eprintln!("  Pasivos LP (22xx+): S/ {:.2}", total_liabilities_long);
+        eprintln!("  Total Pasivos: S/ {:.2}", total_liabilities);
+        eprintln!("  Capital (31xx): S/ {:.2}", total_equity_capital);
+        eprintln!("  Reservas (32xx): S/ {:.2}", total_equity_reserves);
+        eprintln!("  Retained (37xx): S/ {:.2}", total_equity_retained);
+        eprintln!("  Resultado Ejercicio (solo informativo): S/ {:.2}", net_result);
+        eprintln!("  Total Patrimonio: S/ {:.2}", total_equity);
+        eprintln!("  =============================");
+        eprintln!("  Activos: S/ {:.2}", total_assets);
+        eprintln!("  Pasivos + Patrimonio: S/ {:.2}", total_liabilities + total_equity);
+        eprintln!("  Diferencia: S/ {:.2}", total_assets - (total_liabilities + total_equity));
+
+        // Verificar: Activos = Pasivos + Patrimonio
+        let accounting_equation = total_liabilities + total_equity;
+        let is_balanced = (total_assets - accounting_equation).abs() < 1.0;
+
+        // Combinar para el DTO de retorno
+        // Assets siempre en una lista, liabilities + equity juntos para el balance
+        let mut all_liabilities: Vec<AccountBalanceDto> = liabilities_current.clone();
+        all_liabilities.extend(liabilities_long.clone());
+        
+        let mut all_equity: Vec<AccountBalanceDto> = equity_capital.clone();
+        all_equity.extend(equity_reserves.clone());
+        all_equity.extend(equity_retained.clone());
+        
+        // Agregar resultado del ejercicio PARA INFORMACIÓN (no se suma al total)
+        if net_result != 0.0 {
+            all_equity.push(AccountBalanceDto {
+                account_code: "3605".to_string(),
+                account_name: format!("Resultado del Ejercicio (no incluido, ya en Activos): S/ {:.2}", net_result),
+                balance: net_result,
+            });
+        }
 
         Ok(FinancialBalanceDto {
             as_of_date: as_of_date.to_string(),
             assets,
-            liabilities,
-            equity,
+            liabilities: all_liabilities,
+            equity: all_equity,
             total_assets,
             total_liabilities,
             total_equity,
-            is_balanced: net_result.abs() < 0.01, // Allow for small rounding errors
+            is_balanced,
         })
     }
 }

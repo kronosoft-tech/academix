@@ -176,6 +176,7 @@ impl EmployeeRepository for SqliteEmployeeRepository {
         &self,
         status: Option<EmployeeStatus>,
         department: Option<&str>,
+        search: Option<&str>,
     ) -> Result<Vec<Employee>, String> {
         let mut sql = "SELECT id, user_id, document_type, document_number, first_name, last_name,
                           email, phone, address, position, department, contract_type,
@@ -195,10 +196,19 @@ impl EmployeeRepository for SqliteEmployeeRepository {
             params.push(d.to_string());
         }
 
+        if let Some(q) = search {
+            sql.push_str(" AND (first_name LIKE ? OR last_name LIKE ? OR document_number LIKE ? OR email LIKE ?)");
+            let search_pattern = format!("%{}%", q);
+            params.push(search_pattern.clone());
+            params.push(search_pattern.clone());
+            params.push(search_pattern.clone());
+            params.push(search_pattern);
+        }
+
         sql.push_str(" ORDER BY last_name, first_name");
 
         self.pool
-            .query(&sql, &[], Self::row_to_employee)
+            .query_with_vec(&sql, params, Self::row_to_employee)
             .map_err(|e| e.to_string())
     }
 

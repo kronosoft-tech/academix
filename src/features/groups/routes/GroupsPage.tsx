@@ -81,6 +81,7 @@ export default function GroupsPage() {
       // Update existing group
       const result = await updateGroup(editingGroup.id, {
         name: formData.name,
+        professorId: formData.professorId || undefined,
         days: formData.days,
         startTime: formData.startTime,
         endTime: formData.endTime,

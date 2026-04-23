@@ -29,6 +29,7 @@ interface UsePaymentsReturn {
   refetch: () => void;
   getStudentPayments: (studentId: string) => Promise<Payment[]>;
   getStudentPaymentStatus: (studentId: string) => Promise<PaymentStatusType>;
+  syncPaymentsToAccounting: () => Promise<{ success: boolean; synced: number; skipped: number; error?: string }>;
 }
 
 function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
@@ -72,9 +73,7 @@ export function usePayments(): UsePaymentsReturn {
       }>("list_payments");
 
       if (response.success && response.data) {
-        console.log("[DEBUG] usePayments - raw backend data:", JSON.stringify(response.data, null, 2));
         setPayments(response.data.map(mapBackendToFrontend));
-        console.log("[DEBUG] usePayments - mapped to frontend:", JSON.stringify(response.data.map(mapBackendToFrontend), null, 2));
       } else {
         setError(response.error || "Failed to fetch payments");
       }
@@ -89,7 +88,16 @@ export function usePayments(): UsePaymentsReturn {
     fetchPayments();
   }, [fetchPayments]);
 
-const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
+  // Polling interval for realtime sync (every 30 seconds)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchPayments();
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchPayments]);
+
+  const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
       setIsLoading(true);
       try {
         const response = await invoke<{
@@ -107,18 +115,15 @@ const createPayment = async (data: CreatePaymentInput): Promise<{ success: boole
           },
         });
 
-       if (response.success) {
-         console.log("[FRONTEND] Payment created successfully, refetching...");
-         await fetchPayments();
-         return { success: true };
-       } else {
-         console.log("[FRONTEND] Payment creation failed:", response.error);
-         return { success: false, error: response.error || "Failed to create payment" };
-       }
-     } catch (err) {
-       console.log("[FRONTEND] Payment creation error:", err);
-       return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
-     } finally {
+if (response.success) {
+          await fetchPayments();
+          return { success: true };
+        } else {
+          return { success: false, error: response.error || "Failed to create payment" };
+        }
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
+      } finally {
        setIsLoading(false);
      }
    };
@@ -211,6 +216,38 @@ const createPayment = async (data: CreatePaymentInput): Promise<{ success: boole
     return "current";
   };
 
+  // Sync paid payments to accounting entries
+  const syncPaymentsToAccounting = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await invoke<{
+        success: boolean;
+        synced: number;
+        skipped: number;
+        error: string | null;
+      }>("sync_payments_to_accounting");
+
+      return {
+        success: response.success,
+        synced: response.synced,
+        skipped: response.skipped,
+        error: response.error || undefined,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to sync payments";
+      setError(message);
+      return {
+        success: false,
+        synced: 0,
+        skipped: 0,
+        error: message,
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     payments,
     isLoading,
@@ -221,5 +258,6 @@ const createPayment = async (data: CreatePaymentInput): Promise<{ success: boole
     refetch: fetchPayments,
     getStudentPayments,
     getStudentPaymentStatus,
+    syncPaymentsToAccounting,
   };
 }

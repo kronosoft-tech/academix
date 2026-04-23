@@ -5,6 +5,7 @@
 pub mod application;
 pub mod commands;
 pub mod domain;
+pub mod env_loader;
 pub mod infrastructure;
 
 use application::use_cases::{
@@ -14,6 +15,9 @@ use application::use_cases::{
 use commands::accounting::{
     create_entry, get_account_tree, get_accounting_summary, get_entry, get_financial_balance,
     get_income_statement, get_trial_balance, list_accounts, list_entries,
+};
+use commands::accounting_ext::{
+    create_equity, create_fixed_asset, create_liability, list_equities, list_liabilities, pay_liability,
 };
 use commands::attendance::{
     create_attendance, delete_attendance, get_attendance, get_group_attendance_stats,
@@ -37,6 +41,7 @@ use commands::invoices::{
 use commands::payments::{
     create_payment, delete_payment, get_all_students_payment_summary, get_payment,
     get_student_payment_status, list_payments, list_payments_by_student, update_payment,
+    sync_payments_to_accounting,
 };
 use commands::payroll::{get_payroll_run, get_payroll_summary, list_payroll_runs, run_payroll};
 use commands::pdf::{export_financial_balance_pdf, export_income_statement_pdf};
@@ -47,9 +52,10 @@ use commands::users::{create_user, delete_user, get_user, list_users, update_use
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
     SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteAttendanceRepository,
-    SqliteCourseRepository, SqliteEmployeeRepository, SqliteGroupRepository, SqliteInvoiceRepository,
-    SqliteInvoiceLineRepository, SqlitePaymentRepository, SqlitePayrollEntryRepository,
-    SqlitePayrollRepository, SqliteStudentRepository, SqliteUserRepository,
+    SqliteCourseRepository, SqliteEmployeeRepository, SqliteEquityRepository, SqliteGroupRepository,
+    SqliteInvoiceRepository, SqliteInvoiceLineRepository, SqliteLiabilityRepository,
+    SqlitePaymentRepository, SqlitePayrollEntryRepository, SqlitePayrollRepository,
+    SqliteStudentRepository, SqliteUserRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -137,6 +143,15 @@ fn init_database() -> SqlitePool {
     // Run migration 011 - accounting seed (PUC Colombian chart of accounts) (INSERT OR IGNORE - idempotent)
     run_migration!(conn, "011", include_str!("../migrations/011_accounting_seed.sql"));
 
+    // Run migration 012 - liabilities and equity tables (CREATE TABLE IF NOT EXISTS - idempotent)
+    run_migration!(conn, "012", include_str!("../migrations/012_liabilities_equity_schema.sql"));
+
+    // Run migration 013 - fixed assets table (idempotent)
+    run_migration!(conn, "013", include_str!("../migrations/013_fixed_assets_schema.sql"));
+
+    // Run migration 014 - fixed assets accounts (15xx, 16xx)
+    run_migration!(conn, "014", include_str!("../migrations/014_fixed_assets_accounts.sql"));
+
     // Verify accounts exist
     let count: i32 = conn
         .query_row("SELECT COUNT(*) FROM account_categories", [], |row| {
@@ -187,21 +202,69 @@ fn seed_admin_user(pool: &SqlitePool) {
     use crate::application::ports::UserRepository;
     use crate::domain::entities::user::{Role, User};
     use crate::domain::value_objects::Email;
+    use crate::env_loader::{get_env_var, is_production};
 
     let repo = SqliteUserRepository::new(Arc::new(pool.clone()));
 
+    // Load admin email from environment or use default
+    let admin_email = match get_env_var("ADMIN_EMAIL", Some("admin@academix.com")) {
+        Ok(email) => {
+            if is_production() {
+                println!("[ENV] Using ADMIN_EMAIL from environment: {}", email);
+            } else {
+                eprintln!(
+                    "[WARNING] Using default admin email. Set ADMIN_EMAIL env var for production."
+                );
+            }
+            email
+        }
+        Err(e) => {
+            eprintln!("[ERROR] Failed to get admin email: {}", e);
+            return;
+        }
+    };
+
+    // Load admin password hash from environment or use default
+    let admin_password_hash = match get_env_var(
+        "ADMIN_PASSWORD_HASH",
+        Some("$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy"),
+    ) {
+        Ok(hash) => {
+            if is_production() {
+                println!("[ENV] Using ADMIN_PASSWORD_HASH from environment");
+            } else {
+                eprintln!(
+                    "[WARNING] Using default admin password hash. Set ADMIN_PASSWORD_HASH env var for production."
+                );
+            }
+            hash
+        }
+        Err(e) => {
+            eprintln!("[ERROR] Failed to get admin password hash: {}", e);
+            return;
+        }
+    };
+
+    // Validate email format
+    let email_value = match Email::new(admin_email.clone()) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("[ERROR] Invalid admin email format: {}", e);
+            return;
+        }
+    };
+
     // Check if admin exists
-    let admin_email = Email::new("admin@academix.com").unwrap();
-    if repo.exists_by_email(&admin_email).unwrap_or(false) {
+    if repo.exists_by_email(&email_value).unwrap_or(false) {
         println!("Admin user already exists");
         return;
     }
 
-    // Create admin user (password: admin123)
+    // Create admin user
     let admin = User::new(
         "admin-1".to_string(),
-        "admin@academix.com".to_string(),
-        "$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy".to_string(),
+        admin_email,
+        admin_password_hash,
         "Luifer Admin".to_string(),
         Role::Admin,
     );
@@ -246,7 +309,14 @@ fn create_service_states(
     // Accounting repositories
     let accounting_entry_repo = SqliteAccountingEntryRepository::new(Arc::clone(&pool));
     let accounting_category_repo = SqliteAccountCategoryRepository::new(Arc::clone(&pool));
-    let accounting_service = AccountingService::new(accounting_entry_repo.clone(), accounting_category_repo.clone());
+    let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
+    let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
+    let accounting_service = AccountingService::new(
+        accounting_entry_repo.clone(),
+        accounting_category_repo.clone(),
+        liability_repo.clone(),
+        equity_repo.clone(),
+    );
 
     (
         UserService::new(user_repo),
@@ -307,6 +377,8 @@ pub fn run() {
         .manage(accounting_service)
         .manage(accounting_entry_repo)
         .manage(accounting_category_repo)
+        .manage(SqliteLiabilityRepository::new(Arc::clone(&pool)))
+        .manage(SqliteEquityRepository::new(Arc::clone(&pool)))
         .invoke_handler(tauri::generate_handler![
             // Health check
             health,
@@ -350,6 +422,7 @@ pub fn run() {
             delete_payment,
             get_student_payment_status,
             get_all_students_payment_summary,
+            sync_payments_to_accounting,
             // Attendance commands
             create_attendance,
             get_attendance,
@@ -383,6 +456,13 @@ pub fn run() {
             get_financial_balance,
             export_financial_balance_pdf,
             export_income_statement_pdf,
+            // Liability & Equity commands
+            create_liability,
+            list_liabilities,
+            pay_liability,
+            create_equity,
+            list_equities,
+            create_fixed_asset,
             // Invoice commands
             create_invoice,
             get_invoice,

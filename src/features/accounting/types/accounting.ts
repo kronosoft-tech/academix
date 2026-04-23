@@ -22,6 +22,25 @@ export const CATEGORY_TYPE = {
 
 export type CategoryType = (typeof CATEGORY_TYPE)[keyof typeof CATEGORY_TYPE];
 
+// Liability (Pasivo) Types
+export const LIABILITY_TYPE = {
+  SHORT_TERM: "short_term",     // Corto plazo (< 1 año)
+  LONG_TERM: "long_term",       // Largo plazo (> 1 año)
+  PROVISIONS: "provisions",     // Provisiones
+} as const;
+
+export type LiabilityType = (typeof LIABILITY_TYPE)[keyof typeof LIABILITY_TYPE];
+
+// Equity (Patrimonio) Types  
+export const EQUITY_TYPE = {
+  CAPITAL: "capital",           // Capital social
+  RESERVES: "reserves",         // Reservas
+  RESULTS: "results",           // Resultados
+  RETAINED: "retained",        // Resultados acumulados
+} as const;
+
+export type EquityType = (typeof EQUITY_TYPE)[keyof typeof EQUITY_TYPE];
+
 // Create Entry Request
 export interface CreateEntryRequest {
   date: string;
@@ -173,4 +192,78 @@ export interface EntryFilters {
 export interface AccountFilters {
   category_type?: CategoryType;
   active_only: boolean;
+}
+
+// Liability / Pasivo (new) - includes account_code for Balance Financiero
+export interface CreateLiabilityRequest {
+  provider_name: string;
+  document_type: string;  // factura, recibo, contrato
+  document_number: string;
+  amount: number;
+  liability_type: LiabilityType;
+  due_date: string;
+  description?: string;
+}
+
+export interface Liability {
+  id: string;
+  provider_name: string;
+  document_type: string;
+  document_number: string;
+  amount: number;
+  paid_amount: number;
+  liability_type: LiabilityType;
+  due_date: string;
+  status: "pending" | "partial" | "paid" | "overdue";
+  description?: string;
+  account_code?: string;  // Added: links to chart of accounts (2xxx)
+  created_at: string;
+  updated_at: string;
+}
+
+// Equity / Patrimonio (new) - includes account_code for Balance Financiero
+export interface CreateEquityRequest {
+  equity_type: EquityType;
+  description: string;
+  amount: number;
+  /// Account code where the money/asset went (e.g., "1105" for caja, "1110" for bancos)
+  /// Required when registering capital to keep balance balanced
+  asset_account_code?: string;
+}
+
+export interface Equity {
+  id: string;
+  equity_type: EquityType;
+  description: string;
+  amount: number;
+  account_code?: string;  // Added: links to chart of accounts (3xxx)
+  created_at: string;
+  updated_at: string;
+}
+
+// Fixed Asset Types (Activos Fijos)
+export interface CreateFixedAssetRequest {
+  name: string;
+  asset_type: string;
+  description?: string;
+  acquisition_date: string;
+  acquisition_cost: number;
+  useful_life_years: number;
+  account_code?: string;   // 15xx
+  payment_account_code?: string; // 1105 (caja), 1110 (bancos)
+}
+
+export interface FixedAsset {
+  id: string;
+  name: string;
+  asset_type: string;
+  description?: string;
+  acquisition_date: string;
+  acquisition_cost: number;
+  current_value: number;
+  useful_life_years: number;
+  account_code: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }

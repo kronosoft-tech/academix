@@ -79,8 +79,9 @@ impl<R: EmployeeRepository> EmployeeService<R> {
         &self,
         status: Option<crate::domain::entities::employee::EmployeeStatus>,
         department: Option<&str>,
+        search: Option<&str>,
     ) -> Result<Vec<EmployeeListItem>, String> {
-        let employees = self.repository.list(status, department)?;
+        let employees = self.repository.list(status, department, search)?;
         Ok(employees.into_iter().map(EmployeeListItem::from).collect())
     }
 
@@ -164,7 +165,7 @@ impl<R: EmployeeRepository> EmployeeService<R> {
 
     /// Get employee summary for dashboard
     pub fn get_summary(&self) -> Result<EmployeeSummary, String> {
-        let all_employees = self.repository.list(None, None)?;
+        let all_employees = self.repository.list(None, None, None)?;
 
         let active = all_employees.iter().filter(|e| e.is_active()).count() as i64;
         let total = all_employees.len() as i64;
