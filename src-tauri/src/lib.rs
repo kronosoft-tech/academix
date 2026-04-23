@@ -152,6 +152,9 @@ fn init_database() -> SqlitePool {
     // Run migration 014 - fixed assets accounts (15xx, 16xx)
     run_migration!(conn, "014", include_str!("../migrations/014_fixed_assets_accounts.sql"));
 
+    // Run migration 015 - pasivos accounts (21xx, 22xx)
+    run_migration!(conn, "015", include_str!("../migrations/015_pasivos_accounts.sql"));
+
     // Verify accounts exist
     let count: i32 = conn
         .query_row("SELECT COUNT(*) FROM account_categories", [], |row| {
