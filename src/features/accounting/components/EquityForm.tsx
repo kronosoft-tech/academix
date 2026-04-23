@@ -69,6 +69,20 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
+          Cuenta de Depósito (para activos fijos usa Banco) *
+        </label>
+        <select
+          value={formData.asset_account_code || "1110"}
+          onChange={(e) => setFormData({ ...formData, asset_account_code: e.target.value })}
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+        >
+          <option value="1110">1110 - Banco (recomendado para comprar activos)</option>
+          <option value="1105">1105 - Caja</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">
           Descripción *
         </label>
         <input
@@ -91,8 +105,13 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
 
       <div className="rounded-lg bg-green-50 p-3">
         <p className="text-sm text-green-700">
-          <strong>Nota:</strong> El patrimonio representa los recursos propios de la empresa.
-          Se incluye en el Balance Financiero: <strong>Activos = Pasivos + Patrimonio</strong>
+          <strong>Contabilidad:</strong> Se crea automáticamente:
+          <br />
+          <strong>DEBE</strong>: {formData.asset_account_code === "1110" ? "1110 - Banco" : "1105 - Caja"}
+          <br />
+          <strong>HABER</strong>: 3105 - Capital
+          <br />
+          <em>Usa Banco (1110) para luego comprar activos fijos</em>
         </p>
       </div>
 
