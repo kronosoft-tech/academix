@@ -83,8 +83,8 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reportes Contables</h1>
-          <p className="text-sm text-slate-500">Estados financieros y balances</p>
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Reportes Contables</h1>
+          <p className="text-sm text-[var(--color-foreground)]/60">Estados financieros y balances</p>
         </div>
       </div>
 
@@ -95,12 +95,12 @@ export default function ReportsPage() {
           className={cn(
             "rounded-lg border p-6 text-left transition-all",
             reportType === "income_statement"
-              ? "border-blue-500 bg-blue-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
+              ? "border-blue-500 bg-[var(--color-primary)]/10"
+              : "border-[var(--color-foreground)]/20 bg-[var(--color-background)] hover:border-[var(--color-foreground)]/30"
           )}
         >
-          <h3 className="font-semibold text-slate-900">Estado de Resultados</h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <h3 className="font-semibold text-[var(--color-foreground)]">Estado de Resultados</h3>
+          <p className="mt-1 text-sm text-[var(--color-foreground)]/60">
             Muestra ingresos, gastos y ganancia/pérdida del período
           </p>
         </button>
@@ -109,38 +109,38 @@ export default function ReportsPage() {
           className={cn(
             "rounded-lg border p-6 text-left transition-all",
             reportType === "financial_balance"
-              ? "border-blue-500 bg-blue-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
+              ? "border-blue-500 bg-[var(--color-primary)]/10"
+              : "border-[var(--color-foreground)]/20 bg-[var(--color-background)] hover:border-[var(--color-foreground)]/30"
           )}
         >
-          <h3 className="font-semibold text-slate-900">Balance Financiero</h3>
-          <p className="mt-1 text-sm text-slate-500">
+          <h3 className="font-semibold text-[var(--color-foreground)]">Balance Financiero</h3>
+          <p className="mt-1 text-sm text-[var(--color-foreground)]/60">
             Muestra activos, pasivos y patrimonio
           </p>
         </button>
       </div>
 
       {/* Period Selector */}
-      <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4">
-        <span className="text-sm font-medium text-slate-700">Período:</span>
+      <div className="flex items-center gap-4 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
+        <span className="text-sm font-medium text-[var(--color-foreground)]">Período:</span>
         <input
           type="date"
           value={period.start}
           onChange={(e) => setPeriod((p) => ({ ...p, start: e.target.value }))}
-          className="rounded-md border border-slate-300 px-3 py-1 text-sm"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-3 py-1 text-sm"
         />
-        <span className="text-slate-400">-</span>
+        <span className="text-[var(--color-foreground)]/40">-</span>
         <input
           type="date"
           value={period.end}
           onChange={(e) => setPeriod((p) => ({ ...p, end: e.target.value }))}
-          className="rounded-md border border-slate-300 px-3 py-1 text-sm"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-3 py-1 text-sm"
         />
         <button
           onClick={handleGenerateReport}
           disabled={loading}
           className={cn(
-            "ml-auto rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700",
+            "ml-auto rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]",
             loading && "cursor-not-allowed opacity-50"
           )}
         >
@@ -150,9 +150,9 @@ export default function ReportsPage() {
 
       {/* Preview Section */}
       {incomeStatement && reportType === "income_statement" && (
-        <div ref={modalRef} className="rounded-lg border border-slate-200 bg-white p-6">
+        <div ref={modalRef} className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
               Estado de Resultados - {incomeStatement.period_start} a {incomeStatement.period_end}
             </h2>
             <button
@@ -195,23 +195,23 @@ export default function ReportsPage() {
 
           {/* Income by Category */}
           <div className="mb-6">
-            <h3 className="mb-3 font-semibold text-slate-900">Ingresos por Categoría (6xxx)</h3>
+            <h3 className="mb-3 font-semibold text-[var(--color-foreground)]">Ingresos por Categoría (6xxx)</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[var(--color-foreground)]/5">
                   <tr>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Categoría
                     </th>
-                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Monto
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {incomeStatement.income_by_category.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm text-slate-900">{cat.category_name}</td>
+                    <tr key={idx} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{cat.category_name}</td>
                       <td className="px-4 py-2 text-right text-sm text-green-600">
                         {formatCurrency(cat.total)}
                       </td>
@@ -219,7 +219,7 @@ export default function ReportsPage() {
                   ))}
                   {incomeStatement.income_by_category.length === 0 && (
                     <tr>
-                      <td colSpan={2} className="px-4 py-4 text-center text-sm text-slate-500">
+                      <td colSpan={2} className="px-4 py-4 text-center text-sm text-[var(--color-foreground)]/60">
                         No hay ingresos registrados
                       </td>
                     </tr>
@@ -231,23 +231,23 @@ export default function ReportsPage() {
 
           {/* Expenses by Category */}
           <div className="mb-6">
-            <h3 className="mb-3 font-semibold text-slate-900">Gastos por Categoría (4xxx)</h3>
+            <h3 className="mb-3 font-semibold text-[var(--color-foreground)]">Gastos por Categoría (4xxx)</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[var(--color-foreground)]/5">
                   <tr>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Categoría
                     </th>
-                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Monto
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {incomeStatement.expenses_by_category.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm text-slate-900">{cat.category_name}</td>
+                    <tr key={idx} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{cat.category_name}</td>
                       <td className="px-4 py-2 text-right text-sm text-red-600">
                         {formatCurrency(cat.total)}
                       </td>
@@ -255,7 +255,7 @@ export default function ReportsPage() {
                   ))}
                   {incomeStatement.expenses_by_category.length === 0 && (
                     <tr>
-                      <td colSpan={2} className="px-4 py-4 text-center text-sm text-slate-500">
+                      <td colSpan={2} className="px-4 py-4 text-center text-sm text-[var(--color-foreground)]/60">
                         No hay gastos registrados
                       </td>
                     </tr>
@@ -268,9 +268,9 @@ export default function ReportsPage() {
       )}
 
       {financialBalance && reportType === "financial_balance" && (
-        <div ref={modalRef} className="rounded-lg border border-slate-200 bg-white p-6">
+        <div ref={modalRef} className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
               Balance Financiero - {financialBalance.as_of_date}
             </h2>
             <button
@@ -283,9 +283,9 @@ export default function ReportsPage() {
 
           {/* Summary */}
           <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-lg bg-blue-50 p-4">
-              <p className="text-sm text-blue-700">Total Activos</p>
-              <p className="text-xl font-bold text-blue-700">
+            <div className="rounded-lg bg-[var(--color-primary)]/10 p-4">
+              <p className="text-sm text-[var(--color-primary)]">Total Activos</p>
+              <p className="text-xl font-bold text-[var(--color-primary)]">
                 {formatCurrency(financialBalance.total_assets)}
               </p>
             </div>
@@ -305,35 +305,35 @@ export default function ReportsPage() {
 
           {/* Assets */}
           <div className="mb-6">
-            <h3 className="mb-3 font-semibold text-slate-900">Activos (1xxx)</h3>
+            <h3 className="mb-3 font-semibold text-[var(--color-foreground)]">Activos (1xxx)</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[var(--color-foreground)]/5">
                   <tr>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Código
                     </th>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Cuenta
                     </th>
-                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Saldo
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {financialBalance.assets.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm font-mono text-slate-600">{cat.account_code}</td>
-                      <td className="px-4 py-2 text-sm text-slate-900">{cat.account_name}</td>
-                      <td className="px-4 py-2 text-right text-sm text-blue-600">
+                    <tr key={idx} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-2 text-sm font-mono text-[var(--color-foreground)]/80">{cat.account_code}</td>
+                      <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{cat.account_name}</td>
+                      <td className="px-4 py-2 text-right text-sm text-[var(--color-primary)]">
                         {formatCurrency(cat.balance)}
                       </td>
                     </tr>
                   ))}
                   {financialBalance.assets.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-slate-500">
+                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-[var(--color-foreground)]/60">
                         No hay activos registrados
                       </td>
                     </tr>
@@ -345,27 +345,27 @@ export default function ReportsPage() {
 
           {/* Liabilities */}
           <div className="mb-6">
-            <h3 className="mb-3 font-semibold text-slate-900">Pasivos (2xxx)</h3>
+            <h3 className="mb-3 font-semibold text-[var(--color-foreground)]">Pasivos (2xxx)</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[var(--color-foreground)]/5">
                   <tr>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Código
                     </th>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Cuenta
                     </th>
-                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Saldo
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {financialBalance.liabilities.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm font-mono text-slate-600">{cat.account_code}</td>
-                      <td className="px-4 py-2 text-sm text-slate-900">{cat.account_name}</td>
+                    <tr key={idx} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-2 text-sm font-mono text-[var(--color-foreground)]/80">{cat.account_code}</td>
+                      <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{cat.account_name}</td>
                       <td className="px-4 py-2 text-right text-sm text-red-600">
                         {formatCurrency(cat.balance)}
                       </td>
@@ -373,7 +373,7 @@ export default function ReportsPage() {
                   ))}
                   {financialBalance.liabilities.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-slate-500">
+                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-[var(--color-foreground)]/60">
                         No hay pasivos registrados
                       </td>
                     </tr>
@@ -385,27 +385,27 @@ export default function ReportsPage() {
 
           {/* Equity */}
           <div>
-            <h3 className="mb-3 font-semibold text-slate-900">Patrimonio (3xxx) +Resultado</h3>
+            <h3 className="mb-3 font-semibold text-[var(--color-foreground)]">Patrimonio (3xxx) +Resultado</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50">
+                <thead className="bg-[var(--color-foreground)]/5">
                   <tr>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Código
                     </th>
-                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Cuenta
                     </th>
-                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                    <th className="h-8 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                       Saldo
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {financialBalance.equity.map((cat, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm font-mono text-slate-600">{cat.account_code}</td>
-                      <td className="px-4 py-2 text-sm text-slate-900">{cat.account_name}</td>
+                    <tr key={idx} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-2 text-sm font-mono text-[var(--color-foreground)]/80">{cat.account_code}</td>
+                      <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{cat.account_name}</td>
                       <td className="px-4 py-2 text-right text-sm text-green-600">
                         {formatCurrency(cat.balance)}
                       </td>
@@ -413,7 +413,7 @@ export default function ReportsPage() {
                   ))}
                   {financialBalance.equity.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-slate-500">
+                      <td colSpan={3} className="px-4 py-4 text-center text-sm text-[var(--color-foreground)]/60">
                         No hay patrimonio registrado
                       </td>
                     </tr>
@@ -424,11 +424,11 @@ export default function ReportsPage() {
           </div>
 
           {/* Balance Verification */}
-          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm text-slate-600">
+          <div className="mt-6 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-foreground)]/5 p-4">
+            <p className="text-sm text-[var(--color-foreground)]/80">
               <span className="font-semibold">Verificación:</span> Activos = Pasivos + Patrimonio
             </p>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-[var(--color-foreground)]/80">
               {formatCurrency(financialBalance.total_assets)} = {formatCurrency(financialBalance.total_liabilities)} + {formatCurrency(financialBalance.total_equity)}
             </p>
             <p className={cn("text-sm font-semibold", financialBalance.is_balanced ? "text-green-600" : "text-red-600")}>
@@ -440,9 +440,9 @@ export default function ReportsPage() {
 
       {/* Empty State */}
       {!incomeStatement && !financialBalance && (
-        <div className="rounded-lg border border-dashed border-slate-300 p-12 text-center">
+        <div className="rounded-lg border border-dashed border-[var(--color-foreground)]/30 p-12 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-slate-400"
+            className="mx-auto h-12 w-12 text-[var(--color-foreground)]/40"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -454,8 +454,8 @@ export default function ReportsPage() {
               d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <h3 className="mt-4 text-sm font-medium text-slate-900">Sin reporte generado</h3>
-          <p className="mt-2 text-sm text-slate-500">
+          <h3 className="mt-4 text-sm font-medium text-[var(--color-foreground)]">Sin reporte generado</h3>
+          <p className="mt-2 text-sm text-[var(--color-foreground)]/60">
             Selecciona un tipo de reporte y un período para generar
           </p>
         </div>

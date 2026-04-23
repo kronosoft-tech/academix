@@ -43,8 +43,8 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Academix</h1>
-        <p className="text-gray-500 mt-1">Ingresa a tu cuenta</p>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Academix</h1>
+        <p className="text-[var(--color-foreground)]/60 mt-1">Ingresa a tu cuenta</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input

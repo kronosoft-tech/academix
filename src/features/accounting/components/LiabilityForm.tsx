@@ -33,11 +33,11 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Registrar Pasivo / Deuda</h3>
+      <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Registrar Pasivo / Deuda</h3>
       
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Proveedor / Acreedor *
           </label>
           <input
@@ -45,19 +45,19 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
             value={formData.provider_name || ""}
             onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
             placeholder="Ej: Banco BCP, Proveedor XYZ"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Tipo de Documento
           </label>
           <select
             value={formData.document_type || "factura"}
             onChange={(e) => setFormData({ ...formData, document_type: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <option value="factura">Factura</option>
             <option value="recibo">Recibo</option>
@@ -68,20 +68,20 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             N° Documento
           </label>
           <input
             type="text"
             value={formData.document_number || ""}
             onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
             placeholder="F001-12345"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Monto (S/) *
           </label>
           <input
@@ -91,18 +91,18 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
             value={formData.amount || ""}
             onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Tipo de Pasivo *
           </label>
           <select
             value={formData.liability_type || "short_term"}
             onChange={(e) => setFormData({ ...formData, liability_type: e.target.value as LiabilityType })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <option value="short_term">Corto Plazo (&lt; 1 año)</option>
             <option value="long_term">Largo Plazo (&gt; 1 año)</option>
@@ -111,13 +111,13 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Es para *
           </label>
           <select
             value={formData.for_type || "expense"}
             onChange={(e) => setFormData({ ...formData, for_type: e.target.value as "expense" | "asset" })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <option value="expense">Gasto/Servicio (cuenta 4xxx)</option>
             <option value="asset">Activo Fijo (cuenta 16xxx)</option>
@@ -125,13 +125,13 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Cuenta Contable (Débito) *
           </label>
           <select
             value={formData.debit_account_code || (formData.for_type === "asset" ? "1635" : "4105")}
             onChange={(e) => setFormData({ ...formData, debit_account_code: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             {formData.for_type === "asset" ? (
               <optgroup label="16xx - Activos Fijos">
@@ -155,7 +155,7 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Fecha Vencimiento *
           </label>
           <input
@@ -163,20 +163,20 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
             value={formData.due_date || ""}
             onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
+        <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
           Descripción / Notas
         </label>
         <textarea
           value={formData.description || ""}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={2}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           placeholder="Descripción adicional..."
         />
       </div>
@@ -195,7 +195,7 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
         >
           Cancelar
         </button>

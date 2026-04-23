@@ -43,11 +43,11 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Registrar Activo Fijo</h3>
+      <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Registrar Activo Fijo</h3>
       
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Nombre del Activo *
           </label>
           <input
@@ -55,19 +55,19 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
             value={formData.name || ""}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
             placeholder="Ej: Laptop Dell, Escritorio, Camioneta"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Tipo de Activo *
           </label>
           <select
             value={formData.asset_type || "equipment"}
             onChange={(e) => setFormData({ ...formData, asset_type: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <optgroup label="16xx - Propiedad, Planta y Equipo">
               <option value="land">Terreno (1605)</option>
@@ -99,7 +99,7 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Fecha de Adquisición *
           </label>
           <input
@@ -107,12 +107,12 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
             value={formData.acquisition_date || ""}
             onChange={(e) => setFormData({ ...formData, acquisition_date: e.target.value })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Costo de Adquisición (S/) *
           </label>
           <input
@@ -122,18 +122,18 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
             value={formData.acquisition_cost || ""}
             onChange={(e) => setFormData({ ...formData, acquisition_cost: parseFloat(e.target.value) })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Cuenta de Pago
           </label>
           <select
             value={formData.payment_account_code || "1105"}
             onChange={(e) => setFormData({ ...formData, payment_account_code: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <option value="1105">1105 - Caja</option>
             <option value="1110">1110 - Bancos</option>
@@ -141,13 +141,13 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Cuenta Contable (Activo) *
           </label>
           <select
             value={formData.account_code || "1635"}
             onChange={(e) => setFormData({ ...formData, account_code: e.target.value })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <optgroup label="16xx - Propiedad, Planta y Equipo">
               <option value="1605">1605 - Terrenos</option>
@@ -180,20 +180,20 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
+        <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
           Descripción / Notas
         </label>
         <textarea
           value={formData.description || ""}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={2}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           placeholder="Detalles adicionales..."
         />
       </div>
 
-      <div className="rounded-lg bg-blue-50 p-3">
-        <p className="text-sm text-blue-700">
+      <div className="rounded-lg bg-[var(--color-primary)]/10 p-3">
+        <p className="text-sm text-[var(--color-primary)]">
           <strong>Nota:</strong> El activo fijo seRegistrar contablemente:
           <br />
           <strong>DEBE</strong>: Cuenta de Activo Fijo (16xx) - Ej: 1615 Muebles
@@ -206,7 +206,7 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
         >
           Cancelar
         </button>
@@ -214,7 +214,7 @@ export function FixedAssetForm({ onSubmit, onCancel }: Props) {
           type="submit"
           disabled={submitting}
           className={cn(
-            "rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700",
+            "rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]",
             submitting && "cursor-not-allowed opacity-50"
           )}
         >

@@ -287,7 +287,7 @@ export default function StudentsPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Estudiantes</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Estudiantes</h1>
         <Button onClick={() => handleOpenForm()}>Nuevo Estudiante</Button>
       </div>
 
@@ -314,41 +314,41 @@ export default function StudentsPage() {
       <Card>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-[var(--color-foreground)]/5">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   ID
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Nombre
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Documento
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Teléfono
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
               {paymentsLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
                     Cargando pagos...
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
                     {searchTerm ? "No se encontraron estudiantes" : "No hay estudiantes registrados"}
                   </td>
                 </tr>
@@ -356,20 +356,20 @@ export default function StudentsPage() {
                 filteredStudents.map((student) => {
                   const paymentStatus = calculatePaymentStatus(student.id);
                   return (
-                    <tr key={student.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                    <tr key={student.id} className="hover:bg-[var(--color-foreground)]/5">
+                      <td className="px-4 py-3 text-sm text-[var(--color-foreground)]/60">
                         {student.id.substring(0, 8)}...
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 text-sm font-medium text-[var(--color-foreground)]">
                         {student.name}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-[var(--color-foreground)]/60">
                         {student.documentType.toUpperCase()} {student.documentNumber}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-[var(--color-foreground)]/60">
                         {student.email || "-"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-[var(--color-foreground)]/60">
                         {student.phone || "-"}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -424,7 +424,7 @@ export default function StudentsPage() {
       {/* Form Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-[var(--color-background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">
               {editingStudent ? "Editar Estudiante" : "Nuevo Estudiante"}
             </h2>
@@ -438,13 +438,13 @@ export default function StudentsPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                     Tipo de documento
                   </label>
                   <select
                     value={formData.documentType}
                     onChange={(e) => setFormData({ ...formData, documentType: e.target.value as typeof formData.documentType })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
                     required
                   >
                     <option value="cc">Cédula de ciudadanía</option>
@@ -498,7 +498,7 @@ export default function StudentsPage() {
               )}
 
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Información del acudiente</h4>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)] mb-3">Información del acudiente</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label="Nombre del acudiente"
@@ -578,34 +578,34 @@ export default function StudentsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">ID</h4>
-                <p className="text-sm text-gray-900 font-mono">{selectedStudent.id}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">ID</h4>
+                <p className="text-sm text-[var(--color-foreground)] font-mono">{selectedStudent.id}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Nombre</h4>
-                <p className="text-sm text-gray-900">{selectedStudent.name}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Nombre</h4>
+                <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.name}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Documento</h4>
-                <p className="text-sm text-gray-900">
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Documento</h4>
+                <p className="text-sm text-[var(--color-foreground)]">
                   {selectedStudent.documentType.toUpperCase()} {selectedStudent.documentNumber}
                 </p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Email</h4>
-                <p className="text-sm text-gray-900">{selectedStudent.email || "-"}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Email</h4>
+                <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.email || "-"}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Teléfono</h4>
-                <p className="text-sm text-gray-900">{selectedStudent.phone || "-"}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Teléfono</h4>
+                <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.phone || "-"}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Dirección</h4>
-                <p className="text-sm text-gray-900">{selectedStudent.address || "-"}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Dirección</h4>
+                <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.address || "-"}</p>
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Fecha de nacimiento</h4>
-                <p className="text-sm text-gray-900">{formatDate(selectedStudent.birthDate)}</p>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60">Fecha de nacimiento</h4>
+                <p className="text-sm text-[var(--color-foreground)]">{formatDate(selectedStudent.birthDate)}</p>
               </div>
               {selectedStudent.birthDate && isMinor(selectedStudent.birthDate) && (
                 <div>
@@ -618,24 +618,24 @@ export default function StudentsPage() {
 
             {(selectedStudent.guardianName || selectedStudent.guardianDocument || selectedStudent.guardianPhone) && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Información del acudiente</h4>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-2">Información del acudiente</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {selectedStudent.guardianName && (
                     <div>
-                      <h4 className="text-xs text-gray-400">Nombre</h4>
-                      <p className="text-sm text-gray-900">{selectedStudent.guardianName}</p>
+                      <h4 className="text-xs text-[var(--color-foreground)]/40">Nombre</h4>
+                      <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.guardianName}</p>
                     </div>
                   )}
                   {selectedStudent.guardianDocument && (
                     <div>
-                      <h4 className="text-xs text-gray-400">Documento</h4>
-                      <p className="text-sm text-gray-900">{selectedStudent.guardianDocument}</p>
+                      <h4 className="text-xs text-[var(--color-foreground)]/40">Documento</h4>
+                      <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.guardianDocument}</p>
                     </div>
                   )}
                   {selectedStudent.guardianPhone && (
                     <div>
-                      <h4 className="text-xs text-gray-400">Teléfono</h4>
-                      <p className="text-sm text-gray-900">{selectedStudent.guardianPhone}</p>
+                      <h4 className="text-xs text-[var(--color-foreground)]/40">Teléfono</h4>
+                      <p className="text-sm text-[var(--color-foreground)]">{selectedStudent.guardianPhone}</p>
                     </div>
                   )}
                 </div>
@@ -645,23 +645,23 @@ export default function StudentsPage() {
             {/* Enrollment Info */}
             {(selectedStudent.courseId || selectedStudent.groupId) && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">Inscripción</h4>
+                <h4 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-2">Inscripción</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {selectedStudent.courseId && (
                     <div>
-                      <h4 className="text-xs text-gray-400">Curso</h4>
-                      <p className="text-sm text-gray-900">{selectedStudentCourse?.name || selectedStudent.courseId}</p>
+                      <h4 className="text-xs text-[var(--color-foreground)]/40">Curso</h4>
+                      <p className="text-sm text-[var(--color-foreground)]">{selectedStudentCourse?.name || selectedStudent.courseId}</p>
                     </div>
                   )}
                   {selectedStudent.groupId && (
                     <div>
-                      <h4 className="text-xs text-gray-400">Grupo</h4>
-                      <p className="text-sm text-gray-900">
+                      <h4 className="text-xs text-[var(--color-foreground)]/40">Grupo</h4>
+                      <p className="text-sm text-[var(--color-foreground)]">
                         {selectedStudentGroup?.name || selectedStudent.groupId}
                         {selectedStudentCourse && (
-                          <span className="text-gray-500 ml-1">- {selectedStudentCourse.name}</span>
+                          <span className="text-[var(--color-foreground)]/60 ml-1">- {selectedStudentCourse.name}</span>
                         )}
-                        <span className="text-gray-500 ml-1">
+                        <span className="text-[var(--color-foreground)]/60 ml-1">
                           ({selectedStudentGroup?.currentStudents || 0}/{selectedStudentGroup?.maxStudents || 0} estudiantes)
                         </span>
                       </p>
@@ -672,10 +672,10 @@ export default function StudentsPage() {
             )}
 
             <div className="border-t pt-4">
-              <h4 className="text-sm font-medium text-gray-500 mb-3">Estado de pagos</h4>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-3">Estado de pagos</h4>
+              <div className="bg-[var(--color-foreground)]/5 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Estado:</span>
+                  <span className="text-sm text-[var(--color-foreground)]/80">Estado:</span>
                   {studentPaymentStatus.isPaid ? (
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                       ✓ Paz y salvo
@@ -692,21 +692,21 @@ export default function StudentsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Último pago:</span>
-                    <p className="text-gray-900">{studentPaymentStatus.lastPaymentDate}</p>
+                    <span className="text-[var(--color-foreground)]/60">Último pago:</span>
+                    <p className="text-[var(--color-foreground)]">{studentPaymentStatus.lastPaymentDate}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Próximo pago:</span>
-                    <p className="text-gray-900">{studentPaymentStatus.nextPaymentDate}</p>
+                    <span className="text-[var(--color-foreground)]/60">Próximo pago:</span>
+                    <p className="text-[var(--color-foreground)]">{studentPaymentStatus.nextPaymentDate}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Total pagado:</span>
-                    <p className="text-gray-900 font-medium">${studentPaymentStatus.totalPaid.toLocaleString()}</p>
+                    <span className="text-[var(--color-foreground)]/60">Total pagado:</span>
+                    <p className="text-[var(--color-foreground)] font-medium">${studentPaymentStatus.totalPaid.toLocaleString()}</p>
                   </div>
                   {!studentPaymentStatus.isPaid && (
                     <div>
-                      <span className="text-gray-500">Pendiente:</span>
-                      <p className="text-gray-900 font-medium text-red-600">${studentPaymentStatus.pendingAmount.toLocaleString()}</p>
+                      <span className="text-[var(--color-foreground)]/60">Pendiente:</span>
+                      <p className="text-[var(--color-foreground)] font-medium text-red-600">${studentPaymentStatus.pendingAmount.toLocaleString()}</p>
                     </div>
                   )}
                 </div>

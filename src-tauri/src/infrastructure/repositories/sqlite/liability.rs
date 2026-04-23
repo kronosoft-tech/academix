@@ -154,14 +154,14 @@ impl SqliteLiabilityRepository {
         Ok(liabilities)
     }
 
-    pub fn get_total_by_type(&self, liability_type: &str) -> Result<f64, String> {
+pub fn get_total_by_type(&self, liability_type: &str) -> Result<f64, String> {
         let sql = "SELECT COALESCE(SUM(amount - paid_amount), 0) FROM liabilities WHERE liability_type = ? AND status != 'paid'";
         
         let conn_ref = self.pool.connection();
         let conn = conn_ref.lock().unwrap();
         
-let total: f64 = conn
-            .query_row(sql, [], |row| {
+        let total: f64 = conn
+            .query_row(sql, [liability_type], |row| {
                 row.get(0)
             })
             .map_err(|e| e.to_string())?;

@@ -32,14 +32,14 @@ function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRow
   }
   
   return (
-    <tr key={payment.id} className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+    <tr key={payment.id} className="hover:bg-[var(--color-foreground)]/5">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
         {payment.reference || (payment.id ? payment.id.substring(0, 8) + "..." : "-")}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
         {student?.name || (payment.studentId ? payment.studentId.substring(0, 8) + "..." : "Sin estudiante")}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
         ${(payment.amount || 0).toLocaleString()}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
@@ -51,7 +51,7 @@ function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRow
               ? "bg-yellow-100 text-yellow-800"
               : (payment.status === "failed")
               ? "bg-red-100 text-red-800"
-              : "bg-gray-100 text-gray-800"
+              : "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]"
           }`}
         >
           {isPaid
@@ -63,16 +63,16 @@ function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRow
             : "Reembolsado"}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
         {payment.method || "-"}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
         {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : "-"}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
         {payment.description || "-"}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
         {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : "-"}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -272,7 +272,7 @@ Academix - Sistema de Gestión
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Pagos</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Pagos</h1>
         <Button onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancelar" : "Nuevo Pago"}
         </Button>
@@ -318,7 +318,7 @@ Academix - Sistema de Gestión
             />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Monto {selectedCourse && `(del curso: $${selectedCourse.price.toLocaleString()})`}
               </label>
               <Input
@@ -331,9 +331,9 @@ Academix - Sistema de Gestión
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Método de Pago</label>
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Método de Pago</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={formData.method}
                 onChange={(e) => setFormData({ ...formData, method: e.target.value as typeof formData.method })}
               >
@@ -345,11 +345,11 @@ Academix - Sistema de Gestión
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Descripción (opcional)
               </label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Notas adicionales sobre el pago..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -385,7 +385,7 @@ Academix - Sistema de Gestión
 
       {filteredPayments.length === 0 ? (
         <Card className="text-center py-12">
-          <p className="text-gray-500">No hay pagos registrados</p>
+          <p className="text-[var(--color-foreground)]/60">No hay pagos registrados</p>
           <Button className="mt-4" onClick={() => setShowForm(true)}>
             Registrar Primer Pago
           </Button>
@@ -393,40 +393,40 @@ Academix - Sistema de Gestión
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-[var(--color-foreground)]/5">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Referencia
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estudiante
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Monto
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Método
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Fecha Pago
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Descripción
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Creado
                 </th>
                 {canEdit && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                     Acciones
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
               {filteredPayments.map((payment) => (
                 <PaymentRow 
                   key={payment.id} 
@@ -446,9 +446,9 @@ Academix - Sistema de Gestión
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Pago">
         <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Estado</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
                 value={editFormData.status}
                 onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
               >
@@ -473,9 +473,9 @@ Academix - Sistema de Gestión
             />
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Método</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
                 value={editFormData.method}
                 onChange={(e) => setEditFormData({ ...editFormData, method: e.target.value as any })}
               >
@@ -496,9 +496,9 @@ Academix - Sistema de Gestión
             )}
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Descripción</label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
                 value={editFormData.description}
                 onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
                 rows={2}

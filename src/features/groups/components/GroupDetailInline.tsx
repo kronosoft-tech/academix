@@ -52,12 +52,12 @@ export default function GroupDetailInline({
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={onBack} className="p-2 hover:bg-[var(--color-foreground)]/10 rounded-lg">
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-2xl font-bold">{group.name}</h1>
-            <p className="text-gray-500">
+            <p className="text-[var(--color-foreground)]/60">
               {group.days && group.days.length > 0
                 ? `${group.days.join(", ")}${group.startTime ? ` - ${group.startTime}` : ""}${
                     group.endTime ? ` a ${group.endTime}` : ""
@@ -73,22 +73,22 @@ export default function GroupDetailInline({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Curso</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Curso</p>
           <p className="font-semibold">{course?.name || "-"}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Profesor</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Profesor</p>
           <p className="font-semibold">{professorName}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Cupo</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Cupo</p>
           <p className="font-semibold">
             {group.currentStudents || 0} / {group.maxStudents}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Estado</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Estado</p>
           <p className="font-semibold capitalize">
             {group.status === "open"
               ? "Activo"
@@ -106,8 +106,8 @@ export default function GroupDetailInline({
             onClick={() => setAttendanceView("stats")}
             className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
               attendanceView === "stats"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                ? "text-[var(--color-primary)] border-b-2 border-blue-600"
+                : "text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
             }`}
           >
             <BarChart3Icon className="w-4 h-4" />
@@ -117,8 +117,8 @@ export default function GroupDetailInline({
             onClick={() => setAttendanceView("daily")}
             className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors ${
               attendanceView === "daily"
-                ? "text-blue-600 border-b-2 border-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                ? "text-[var(--color-primary)] border-b-2 border-blue-600"
+                : "text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
             }`}
           >
             <ClipboardListIcon className="w-4 h-4" />

@@ -32,17 +32,17 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Registrar Patrimonio</h3>
+      <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Registrar Patrimonio</h3>
       
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Tipo de Patrimonio *
           </label>
           <select
             value={formData.equity_type || "capital"}
             onChange={(e) => setFormData({ ...formData, equity_type: e.target.value as EquityType })}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           >
             <option value="capital">Capital Social (3105)</option>
             <option value="reserves">Reservas (3305)</option>
@@ -52,7 +52,7 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Monto (S/) *
           </label>
           <input
@@ -62,19 +62,19 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
             value={formData.amount || ""}
             onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
+        <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
           Cuenta de Depósito (para activos fijos usa Banco) *
         </label>
         <select
           value={formData.asset_account_code || "1110"}
           onChange={(e) => setFormData({ ...formData, asset_account_code: e.target.value })}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
         >
           <option value="1110">1110 - Banco (recomendado para comprar activos)</option>
           <option value="1105">1105 - Caja</option>
@@ -82,7 +82,7 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">
+        <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
           Descripción *
         </label>
         <input
@@ -90,7 +90,7 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
           value={formData.description || ""}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           required
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           placeholder={
             formData.equity_type === "capital"
               ? "Ej: Aporte inicial de socios"
@@ -119,7 +119,7 @@ export function EquityForm({ onSubmit, onCancel }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
         >
           Cancelar
         </button>

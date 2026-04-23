@@ -29,7 +29,7 @@ export default function CourseDetailPage() {
           <ArrowLeftIcon className="w-4 h-4 mr-2" />
           Volver a Cursos
         </Button>
-        <div className="text-center py-12 text-gray-500">Curso no encontrado</div>
+        <div className="text-center py-12 text-[var(--color-foreground)]/60">Curso no encontrado</div>
       </div>
     );
   }
@@ -42,35 +42,35 @@ export default function CourseDetailPage() {
       </Button>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{course.name}</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">{course.name}</h1>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Código</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Código</p>
           <p className="font-semibold">{course.code}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Precio</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Precio</p>
           <p className="font-semibold">${course.price?.toLocaleString()}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Duración</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Duración</p>
           <p className="font-semibold">{course.duration} horas</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-sm text-gray-500">Grupos</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
+          <p className="text-sm text-[var(--color-foreground)]/60">Grupos</p>
           <p className="font-semibold">{courseGroups.length}</p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow mb-8">
+      <div className="bg-[var(--color-background)] p-6 rounded-lg shadow mb-8">
         <h3 className="font-semibold mb-2">Descripción</h3>
-        <p className="text-gray-600">{course.description || "Sin descripción"}</p>
+        <p className="text-[var(--color-foreground)]/80">{course.description || "Sin descripción"}</p>
       </div>
 
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">Grupos del Curso</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Grupos del Curso</h2>
       </div>
 
       {groupsLoading ? (
@@ -78,7 +78,7 @@ export default function CourseDetailPage() {
           <Spinner size="lg" />
         </div>
       ) : courseGroups.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow text-center text-gray-500">
+        <div className="bg-[var(--color-background)] p-6 rounded-lg shadow text-center text-[var(--color-foreground)]/60">
           No hay grupos registrados para este curso
         </div>
       ) : (
@@ -86,15 +86,15 @@ export default function CourseDetailPage() {
           {courseGroups.map((group) => (
             <div
               key={group.id}
-              className="bg-white p-4 rounded-lg shadow border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-[var(--color-background)] p-4 rounded-lg shadow border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => navigate(`/groups/${group.id}`)}
             >
               <h4 className="font-semibold">{group.name}</h4>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-[var(--color-foreground)]/60 mt-1">
                 Horario: {group.schedule || "No definido"}
               </p>
               <div className="flex justify-between items-center mt-3 text-sm">
-                <span className="text-gray-500">
+                <span className="text-[var(--color-foreground)]/60">
                   {group.currentStudents || 0}/{group.maxStudents || 20} estudiantes
                 </span>
                 <span

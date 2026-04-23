@@ -81,7 +81,7 @@ export function PaymentsTable({
         label: "Atrasado",
       },
       ahead: {
-        class: "bg-blue-100 text-blue-800",
+        class: "bg-[var(--color-primary)]/20 text-[var(--color-primary)]",
         label: "Adelantado",
       },
     };
@@ -95,7 +95,7 @@ export function PaymentsTable({
 
   const getDaysDelayed = (daysDelayed: number) => {
     if (daysDelayed < 0) {
-      return <span className="text-blue-600">-{Math.abs(daysDelayed)} días</span>;
+      return <span className="text-[var(--color-primary)]">-{Math.abs(daysDelayed)} días</span>;
     } else if (daysDelayed === 0) {
       return <span className="text-green-600">Hoy</span>;
     } else {
@@ -107,7 +107,7 @@ export function PaymentsTable({
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-gray-500">Cargando...</p>
+        <p className="mt-2 text-[var(--color-foreground)]/60">Cargando...</p>
       </div>
     );
   }
@@ -115,7 +115,7 @@ export function PaymentsTable({
   if (filteredAndSortedSummaries.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">
+        <p className="text-[var(--color-foreground)]/60">
           {searchTerm ? "No se encontraron resultados" : "No hay estudiantes con pagos registrados"}
         </p>
       </div>
@@ -134,44 +134,44 @@ export function PaymentsTable({
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-[var(--color-foreground)]/5">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("studentId")}>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider cursor-pointer hover:bg-[var(--color-foreground)]/10" onClick={() => handleSort("studentId")}>
                 ID Estudiante{getSortIndicator("studentId")}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("studentName")}>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider cursor-pointer hover:bg-[var(--color-foreground)]/10" onClick={() => handleSort("studentName")}>
                 Nombre{getSortIndicator("studentName")}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("groupName")}>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider cursor-pointer hover:bg-[var(--color-foreground)]/10" onClick={() => handleSort("groupName")}>
                 Grupo{getSortIndicator("groupName")}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("status")}>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider cursor-pointer hover:bg-[var(--color-foreground)]/10" onClick={() => handleSort("status")}>
                 Estado{getSortIndicator("status")}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort("daysDelayed")}>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider cursor-pointer hover:bg-[var(--color-foreground)]/10" onClick={() => handleSort("daysDelayed")}>
                 Días de atraso{getSortIndicator("daysDelayed")}
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                 Fecha Vencimiento
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
             {filteredAndSortedSummaries.map((summary) => (
               <tr
                 key={summary.studentId}
-                className="hover:bg-gray-50"
+                className="hover:bg-[var(--color-foreground)]/5"
               >
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
                   {summary.studentId.substring(0, 8)}...
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[var(--color-foreground)]">
                   {summary.studentName}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
                   {summary.groupName}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -180,13 +180,13 @@ export function PaymentsTable({
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   {getDaysDelayed(summary.daysDelayed)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
                   {summary.dueDate ? new Date(summary.dueDate).toLocaleDateString("es-CO") : "-"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
                     onClick={() => onStudentClick(summary.studentId)}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    className="text-[var(--color-primary)] hover:text-[var(--color-primary)] text-sm font-medium"
                   >
                     Ver Detalles
                   </button>

@@ -23,7 +23,7 @@ export function Table<T extends object>({
 }: TableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className={cn("text-center py-8 text-gray-500", className)}>
+      <div className={cn("text-center py-8 text-[var(--color-foreground)]/60", className)}>
         {emptyMessage}
       </div>
     );
@@ -31,14 +31,14 @@ export function Table<T extends object>({
 
   return (
     <div className={cn("overflow-x-auto", className)}>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full divide-y divide-[var(--color-foreground)]/20">
+        <thead className="bg-[var(--color-secondary)]/5">
           <tr>
             {columns.map((column) => (
               <th
                 key={String(column.key)}
                 className={cn(
-                  "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
+                  "px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider",
                   column.className
                 )}
               >
@@ -47,13 +47,13 @@ export function Table<T extends object>({
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-[var(--color-background)] divide-y divide-[var(--color-foreground)]/10">
           {data.map((item, index) => (
-            <tr key={index} className="hover:bg-gray-50">
+            <tr key={index} className="hover:bg-[var(--color-secondary)]/5">
               {columns.map((column) => (
                 <td
                   key={String(column.key)}
-                  className={cn("px-6 py-4 whitespace-nowrap text-sm", column.className)}
+                  className={cn("px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]", column.className)}
                 >
                   {column.render
                     ? column.render(item)

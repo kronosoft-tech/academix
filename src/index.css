@@ -1,9 +1,55 @@
 @import "tailwindcss";
 
+@property --color-primary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3b82f6;
+}
+
+@property --color-secondary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #64748b;
+}
+
+@property --color-tertiary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f59e0b;
+}
+
+@property --color-background {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+
+@property --color-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #1e293b;
+}
+
 @theme {
-  --color-primary: #3b82f6;
-  --color-secondary: #64748b;
+  --color-primary: var(--color-primary, #3b82f6);
+  --color-secondary: var(--color-secondary, #64748b);
+  --color-tertiary: var(--color-tertiary, #f59e0b);
+  --color-background: var(--color-background, #ffffff);
+  --color-foreground: var(--color-foreground, #1e293b);
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
 }
+
+/* Global application of theme colors */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Theme utilities */
+.text-fg { color: var(--color-foreground); }
+.text-fg-muted { color: color-mix(in srgb, var(--color-foreground) 60%, transparent); }
+.bg-bg { background-color: var(--color-background); }
+.bg-bg-subtle { background-color: color-mix(in srgb, var(--color-foreground) 5%, var(--color-background)); }
+.border-default { border-color: color-mix(in srgb, var(--color-foreground) 20%, transparent); }

@@ -104,11 +104,11 @@ export function ExpenseForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className={cn("space-y-4 rounded-lg border border-slate-200 bg-white p-6", className)}
+      className={cn("space-y-4 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}
     >
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-slate-900">Registrar Gasto</h3>
-        <p className="text-sm text-slate-500">
+        <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Registrar Gasto</h3>
+        <p className="text-sm text-[var(--color-foreground)]/60">
           Registra un gasto de la empresa
         </p>
       </div>
@@ -116,7 +116,7 @@ export function ExpenseForm({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Date */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Fecha
           </label>
           <input
@@ -125,19 +125,19 @@ export function ExpenseForm({
             value={formData.date}
             onChange={handleChange}
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         {/* Expense Type Selector */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Tipo de Gasto
           </label>
           <select
             value={expenseType}
             onChange={(e) => setExpenseType(e.target.value as ExpenseType)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {EXPENSE_TYPES.map((type) => (
               <option key={type.value} value={type.value}>
@@ -150,7 +150,7 @@ export function ExpenseForm({
         {/* Custom Description - only for "otros" */}
         {showCustomDescription && (
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-slate-700">
+            <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
               Especificar Otro Gasto *
             </label>
             <input
@@ -159,14 +159,14 @@ export function ExpenseForm({
               onChange={(e) => setCustomDescription(e.target.value)}
               placeholder="Ej: Propaganda, seguro, etc."
               required={showCustomDescription}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         )}
 
         {/* Reference */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Referencia
           </label>
           <input
@@ -175,13 +175,13 @@ export function ExpenseForm({
             value={formData.reference}
             onChange={handleChange}
             placeholder="EGR-0001"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         {/* Description */}
         <div className="md:col-span-2">
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Descripción *
           </label>
           <input
@@ -191,13 +191,13 @@ export function ExpenseForm({
             onChange={handleChange}
             placeholder="Ej: Pago de nómina enero"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
         {/* Amount */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Monto (COP) *
           </label>
           <input
@@ -209,7 +209,7 @@ export function ExpenseForm({
             step="0.01"
             min="0"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -228,7 +228,7 @@ export function ExpenseForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
           >
             Cancelar
           </button>

@@ -19,7 +19,7 @@ function StatBar({ label, count, percentage, color, bgColor }: StatBarProps) {
   return (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className="text-sm font-medium text-[var(--color-foreground)]">{label}</span>
         <span className="text-sm font-bold" style={{ color }}>
           {percentage.toFixed(1)}%
         </span>
@@ -30,7 +30,7 @@ function StatBar({ label, count, percentage, color, bgColor }: StatBarProps) {
           style={{ width: `${Math.max(percentage, 0)}%` }}
         />
       </div>
-      <span className="text-xs text-gray-500 mt-0.5">
+      <span className="text-xs text-[var(--color-foreground)]/60 mt-0.5">
         {count} registros
       </span>
     </div>
@@ -80,7 +80,7 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
 
   if (!stats) {
     return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-600">
+      <div className="bg-[var(--color-foreground)]/5 border border-[var(--color-foreground)]/20 rounded-lg p-4 text-[var(--color-foreground)]/80">
         No hay datos de asistencia para este grupo.
       </div>
     );
@@ -88,26 +88,26 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
 
   if (stats.totalRecords === 0) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <div className="bg-[var(--color-primary)]/10 border border-blue-200 rounded-lg p-6">
         <div className="flex items-center gap-3 mb-2">
-          <CalendarIcon className="w-6 h-6 text-blue-600" />
-          <h3 className="text-lg font-semibold text-blue-900">Control de Asistencia Grupal</h3>
+          <CalendarIcon className="w-6 h-6 text-[var(--color-primary)]" />
+          <h3 className="text-lg font-semibold text-[var(--color-primary)]">Control de Asistencia Grupal</h3>
         </div>
-        <p className="text-blue-700">
+        <p className="text-[var(--color-primary)]">
           No hay registros de asistencia aún. Comienza a pasar lista para ver las estadísticas.
         </p>
         <div className="mt-4 grid grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-gray-400">0</p>
-            <p className="text-sm text-gray-500">Estudiantes</p>
+          <div className="bg-[var(--color-background)] rounded-lg p-4 text-center">
+            <p className="text-2xl font-bold text-[var(--color-foreground)]/40">0</p>
+            <p className="text-sm text-[var(--color-foreground)]/60">Estudiantes</p>
           </div>
-          <div className="bg-white rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-gray-400">0</p>
-            <p className="text-sm text-gray-500">Sesiones</p>
+          <div className="bg-[var(--color-background)] rounded-lg p-4 text-center">
+            <p className="text-2xl font-bold text-[var(--color-foreground)]/40">0</p>
+            <p className="text-sm text-[var(--color-foreground)]/60">Sesiones</p>
           </div>
-          <div className="bg-white rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-gray-400">0</p>
-            <p className="text-sm text-gray-500">Registros</p>
+          <div className="bg-[var(--color-background)] rounded-lg p-4 text-center">
+            <p className="text-2xl font-bold text-[var(--color-foreground)]/40">0</p>
+            <p className="text-sm text-[var(--color-foreground)]/60">Registros</p>
           </div>
         </div>
       </div>
@@ -115,10 +115,10 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-[var(--color-background)] rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <TrendingUpIcon className="w-6 h-6 text-blue-600" />
+          <TrendingUpIcon className="w-6 h-6 text-[var(--color-primary)]" />
           <h3 className="text-lg font-semibold">Estadísticas de Asistencia Grupal</h3>
         </div>
       </div>
@@ -127,10 +127,10 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
           <div className="flex items-center gap-2 mb-1">
-            <UsersIcon className="w-4 h-4 text-blue-600" />
-            <p className="text-sm text-blue-600 font-medium">Estudiantes</p>
+            <UsersIcon className="w-4 h-4 text-[var(--color-primary)]" />
+            <p className="text-sm text-[var(--color-primary)] font-medium">Estudiantes</p>
           </div>
-          <p className="text-2xl font-bold text-blue-900">{stats.totalStudents}</p>
+          <p className="text-2xl font-bold text-[var(--color-primary)]">{stats.totalStudents}</p>
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
           <div className="flex items-center gap-2 mb-1">
@@ -139,25 +139,25 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
           </div>
           <p className="text-2xl font-bold text-purple-900">{stats.totalSessions}</p>
         </div>
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-[var(--color-foreground)]/20">
           <div className="flex items-center gap-2 mb-1">
-            <TrendingUpIcon className="w-4 h-4 text-gray-600" />
-            <p className="text-sm text-gray-600 font-medium">Total Registros</p>
+            <TrendingUpIcon className="w-4 h-4 text-[var(--color-foreground)]/80" />
+            <p className="text-sm text-[var(--color-foreground)]/80 font-medium">Total Registros</p>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalRecords}</p>
+          <p className="text-2xl font-bold text-[var(--color-foreground)]">{stats.totalRecords}</p>
         </div>
       </div>
 
       {/* Attendance percentage bars */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-4">
-        <h4 className="text-sm font-semibold text-gray-700 mb-4">Distribución de Asistencia</h4>
+      <div className="bg-[var(--color-foreground)]/5 rounded-lg p-4 mb-4">
+        <h4 className="text-sm font-semibold text-[var(--color-foreground)] mb-4">Distribución de Asistencia</h4>
         
         <StatBar
           label="Presente"
           count={stats.presentCount}
           percentage={stats.presentPercentage}
           color="text-green-600"
-          bgColor="bg-gray-200"
+          bgColor="bg-[var(--color-foreground)]/20"
         />
         
         <StatBar
@@ -165,7 +165,7 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
           count={stats.absentCount}
           percentage={stats.absentPercentage}
           color="text-red-600"
-          bgColor="bg-gray-200"
+          bgColor="bg-[var(--color-foreground)]/20"
         />
         
         <StatBar
@@ -173,20 +173,20 @@ export default function GroupAttendanceStatsView({ groupId, totalStudents }: Pro
           count={stats.lateCount}
           percentage={stats.latePercentage}
           color="text-yellow-600"
-          bgColor="bg-gray-200"
+          bgColor="bg-[var(--color-foreground)]/20"
         />
         
         <StatBar
           label="Justificado"
           count={stats.excusedCount}
           percentage={stats.excusedPercentage}
-          color="text-blue-600"
-          bgColor="bg-gray-200"
+          color="text-[var(--color-primary)]"
+          bgColor="bg-[var(--color-foreground)]/20"
         />
       </div>
 
       {/* Quick summary */}
-      <div className="flex items-center justify-between text-sm text-gray-600 pt-4 border-t">
+      <div className="flex items-center justify-between text-sm text-[var(--color-foreground)]/80 pt-4 border-t">
         <span>
           Asistencia efectiva (Presente + Tarde):{" "}
           <strong className="text-green-600">

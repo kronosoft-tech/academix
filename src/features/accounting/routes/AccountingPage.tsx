@@ -150,71 +150,79 @@ const margin = summary && summary.total_income > 0
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Contabilidad</h1>
-          <p className="text-sm text-slate-500">Resumen financiero y libros contables</p>
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Contabilidad</h1>
+          <p className="text-sm text-[var(--color-foreground)]/60">Resumen financiero y libros contables</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSyncPayments}
-            disabled={syncing}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-          >
-            {syncing ? "Sincronizando..." : "Sincronizar Pagos"}
-          </button>
-          <button
-            onClick={() => setModalType("expense")}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          >
-            + Gasto
-          </button>
-          <button
-            onClick={() => setModalType("income")}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-          >
-            + Ingreso
-          </button>
-          <button
-            onClick={() => setModalType("liability")}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
-          >
-            + Pasivo
-          </button>
-          <button
-            onClick={() => setModalType("equity")}
-            className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
-          >
-            + Patrimonio
-          </button>
-          <button
-            onClick={() => setModalType("fixed_asset")}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            + Activo Fijo
-          </button>
-          <button
-            onClick={handleExportReport}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Exportar
-          </button>
+        <div className="relative">
+          <details className="group">
+            <summary className="cursor-pointer list-none rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+              Acciones ▾
+            </summary>
+            <div className="absolute right-0 z-50 mt-1 w-56 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] py-1 shadow-lg">
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); handleSyncPayments(); }}
+                disabled={syncing}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10 disabled:opacity-50"
+              >
+                {syncing ? "Sincronizando..." : "Sincronizar Pagos"}
+              </button>
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); setModalType("expense"); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                + Gasto
+              </button>
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); setModalType("income"); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                + Ingreso
+              </button>
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); setModalType("liability"); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                + Pasivo
+              </button>
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); setModalType("equity"); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                + Patrimonio
+              </button>
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); setModalType("fixed_asset"); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                + Activo Fijo
+              </button>
+              <hr className="my-1 border-[var(--color-foreground)]/20" />
+              <button
+                onClick={() => { document.querySelector("details")?.removeAttribute("open"); handleExportReport(); }}
+                className="w-full px-4 py-2 text-left text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
+              >
+                Exportar PDF
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
       {/* Period Selector */}
-      <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4">
-        <span className="text-sm font-medium text-slate-700">Período:</span>
+      <div className="flex items-center gap-4 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
+        <span className="text-sm font-medium text-[var(--color-foreground)]">Período:</span>
         <input
           type="date"
           value={period.start}
           onChange={(e) => setPeriod((p: { start: string; end: string }) => ({ ...p, start: e.target.value }))}
-          className="rounded-md border border-slate-300 px-3 py-1 text-sm"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-3 py-1 text-sm"
         />
-        <span className="text-slate-400">-</span>
+        <span className="text-[var(--color-foreground)]/40">-</span>
         <input
           type="date"
           value={period.end}
           onChange={(e) => setPeriod((p: { start: string; end: string }) => ({ ...p, end: e.target.value }))}
-          className="rounded-md border border-slate-300 px-3 py-1 text-sm"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-3 py-1 text-sm"
         />
       </div>
 
@@ -229,49 +237,49 @@ const margin = summary && summary.total_income > 0
            </>
          ) : (
            <>
-             <div className="stat-card rounded-lg border border-slate-200 bg-white p-6">
-               <p className="text-sm text-slate-500">Total Ingresos</p>
-               <p id="total-income" className="mt-1 text-2xl font-bold text-slate-900">
+             <div className="stat-card rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+               <p className="text-sm text-[var(--color-foreground)]/60">Total Ingresos</p>
+               <p id="total-income" className="mt-1 text-2xl font-bold text-[var(--color-foreground)]">
                  S/ {summary?.total_income?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
                </p>
                <button
-                 className="absolute top-2 right-2 text-xs text-blue-500 hover:text-blue-700"
+                 className="absolute top-2 right-2 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary)]"
                  title="Total de dinero que ha entrado por ingresos (cuentas 6xxx)"
                >
                  ?
                </button>
              </div>
-             <div className="stat-card rounded-lg border border-slate-200 bg-white p-6">
-               <p className="text-sm text-slate-500">Total Gastos</p>
-               <p id="total-expenses" className="mt-1 text-2xl font-bold text-slate-900">
+             <div className="stat-card rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+               <p className="text-sm text-[var(--color-foreground)]/60">Total Gastos</p>
+               <p id="total-expenses" className="mt-1 text-2xl font-bold text-[var(--color-foreground)]">
                  S/ {summary?.total_expenses?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
                </p>
                <button
-                 className="absolute top-2 right-2 text-xs text-blue-500 hover:text-blue-700"
+                 className="absolute top-2 right-2 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary)]"
                  title="Total de dinero gastado en el periodo (cuentas 4xxx y 5xxx)"
                >
                  ?
                </button>
              </div>
-             <div className="stat-card rounded-lg border border-slate-200 bg-white p-6">
-               <p className="text-sm text-slate-500">Balance Neto</p>
-               <p id="net-balance" className="mt-1 text-2xl font-bold text-slate-900">
+             <div className="stat-card rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+               <p className="text-sm text-[var(--color-foreground)]/60">Balance Neto</p>
+               <p id="net-balance" className="mt-1 text-2xl font-bold text-[var(--color-foreground)]">
                  S/ {summary?.net_balance?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
                </p>
                <button
-                 className="absolute top-2 right-2 text-xs text-blue-500 hover:text-blue-700"
+                 className="absolute top-2 right-2 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary)]"
                  title="Ingresos - Gastos (positivo = ganancia, negativo = pérdida)"
                >
                  ?
                </button>
              </div>
-             <div className="stat-card rounded-lg border border-slate-200 bg-white p-6">
-               <p className="text-sm text-slate-500">Cuentas Activas</p>
-               <p className="mt-1 text-2xl font-bold text-slate-900">
+             <div className="stat-card rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+               <p className="text-sm text-[var(--color-foreground)]/60">Cuentas Activas</p>
+               <p className="mt-1 text-2xl font-bold text-[var(--color-foreground)]">
                  {summary?.account_count ?? 0}
                </p>
                <button
-                 className="absolute top-2 right-2 text-xs text-blue-500 hover:text-blue-700"
+                 className="absolute top-2 right-2 text-xs text-[var(--color-primary)] hover:text-[var(--color-primary)]"
                  title="Cantidad de cuentas contables activas del Plan Único de Cuentas"
                >
                  ?
@@ -296,44 +304,44 @@ const margin = summary && summary.total_income > 0
       </div>
 
       {/* Recent Entries Table */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Asientos Recientes</h2>
+      <div className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+        <h2 className="mb-4 text-lg font-semibold text-[var(--color-foreground)]">Asientos Recientes</h2>
         <div className="overflow-x-auto">
           <table id="recent-entries" className="w-full">
-            <thead className="bg-slate-50">
+            <thead className="bg-[var(--color-foreground)]/5">
               <tr>
-                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                   Fecha
                 </th>
-                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                   Referencia
                 </th>
-                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-slate-500">
+                <th className="h-10 px-4 text-left text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                   Descripción
                 </th>
-                <th className="h-10 px-4 text-right text-xs font-medium uppercase text-slate-500">
+                <th className="h-10 px-4 text-right text-xs font-medium uppercase text-[var(--color-foreground)]/60">
                   Monto
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {summary?.recent_entries?.slice(0, 5).map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-900">
+                <tr key={entry.id} className="hover:bg-[var(--color-foreground)]/5">
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-[var(--color-foreground)]">
                     {new Date(entry.date).toLocaleDateString("es-PE")}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-slate-600">
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-mono text-[var(--color-foreground)]/80">
                     {entry.reference}
                   </td>
-                  <td className="px-4 py-3 text-sm text-slate-900">{entry.description}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-slate-900">
+                  <td className="px-4 py-3 text-sm text-[var(--color-foreground)]">{entry.description}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-[var(--color-foreground)]">
                     S/ {entry.amount.toFixed(2)}
                   </td>
                 </tr>
               ))}
               {(!summary?.recent_entries || summary.recent_entries.length === 0) && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={4} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
                     No hay asientos recientes
                   </td>
                 </tr>
@@ -346,7 +354,7 @@ const margin = summary && summary.total_income > 0
       {/* Income Modal */}
       {modalType === "income" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg bg-[var(--color-background)] p-6 shadow-xl">
             <IncomeForm
               onSubmit={handleCreateEntry}
               onCancel={() => setModalType(null)}
@@ -358,7 +366,7 @@ const margin = summary && summary.total_income > 0
       {/* Expense Modal */}
       {modalType === "expense" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg bg-[var(--color-background)] p-6 shadow-xl">
             <ExpenseForm
               onSubmit={handleCreateEntry}
               onCancel={() => setModalType(null)}
@@ -370,10 +378,10 @@ const margin = summary && summary.total_income > 0
       {/* Liability Modal (Pasivos) */}
       {modalType === "liability" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg bg-[var(--color-background)] p-6 shadow-xl">
             <button
               onClick={() => setModalType(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-4 text-[var(--color-foreground)]/40 hover:text-[var(--color-foreground)]/80"
             >
               ✕
             </button>
@@ -388,10 +396,10 @@ const margin = summary && summary.total_income > 0
       {/* Equity Modal (Patrimonio) */}
       {modalType === "equity" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg bg-[var(--color-background)] p-6 shadow-xl">
             <button
               onClick={() => setModalType(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-4 text-[var(--color-foreground)]/40 hover:text-[var(--color-foreground)]/80"
             >
               ✕
             </button>
@@ -406,10 +414,10 @@ const margin = summary && summary.total_income > 0
       {/* Fixed Asset Modal (Activo Fijo) */}
       {modalType === "fixed_asset" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg bg-[var(--color-background)] p-6 shadow-xl">
             <button
               onClick={() => setModalType(null)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+              className="absolute right-4 top-4 text-[var(--color-foreground)]/40 hover:text-[var(--color-foreground)]/80"
             >
               ✕
             </button>
@@ -438,14 +446,14 @@ const margin = summary && summary.total_income > 0
               </thead>
               <tbody className="divide-y divide-orange-100">
                 {liabilities.map((l) => (
-                  <tr key={l.id} className="bg-white">
-                    <td className="px-4 py-2 text-sm text-slate-900">{l.provider_name}</td>
-                    <td className="px-4 py-2 text-sm text-slate-600">{l.document_number}</td>
+                  <tr key={l.id} className="bg-[var(--color-background)]">
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">{l.provider_name}</td>
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]/80">{l.document_number}</td>
                     <td className="px-4 py-2 text-right text-sm font-medium text-red-600">S/ {l.amount.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-sm text-slate-600">
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]/80">
                       {l.liability_type === "short_term" ? "Corto Plazo" : l.liability_type === "long_term" ? "Largo Plazo" : "Provisiones"}
                     </td>
-                    <td className="px-4 py-2 text-sm text-slate-600">{l.due_date}</td>
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]/80">{l.due_date}</td>
                   </tr>
                 ))}
               </tbody>
@@ -469,11 +477,11 @@ const margin = summary && summary.total_income > 0
               </thead>
               <tbody className="divide-y divide-purple-100">
                 {equities.map((e) => (
-                  <tr key={e.id} className="bg-white">
-                    <td className="px-4 py-2 text-sm text-slate-900">
+                  <tr key={e.id} className="bg-[var(--color-background)]">
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]">
                       {e.equity_type === "capital" ? "Capital Social" : e.equity_type === "reserves" ? "Reservas" : e.equity_type === "results" ? "Resultados" : "Resultados Acumulados"}
                     </td>
-                    <td className="px-4 py-2 text-sm text-slate-600">{e.description}</td>
+                    <td className="px-4 py-2 text-sm text-[var(--color-foreground)]/80">{e.description}</td>
                     <td className="px-4 py-2 text-right text-sm font-medium text-green-600">S/ {e.amount.toFixed(2)}</td>
                   </tr>
                 ))}

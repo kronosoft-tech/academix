@@ -66,16 +66,16 @@ export function StudentPaymentModal({ studentId, studentName, onClose }: Student
     const classes = {
       current: "bg-green-100 text-green-800",
       delinquent: "bg-red-100 text-red-800",
-      ahead: "bg-blue-100 text-blue-800",
+      ahead: "bg-[var(--color-primary)]/20 text-[var(--color-primary)]",
     };
-    return classes[status] || "bg-gray-100 text-gray-800";
+    return classes[status] || "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]";
   };
 
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6">
-          <p className="text-gray-600">Cargando...</p>
+        <div className="bg-[var(--color-background)] rounded-lg p-6">
+          <p className="text-[var(--color-foreground)]/80">Cargando...</p>
         </div>
       </div>
     );
@@ -84,7 +84,7 @@ export function StudentPaymentModal({ studentId, studentName, onClose }: Student
   if (error) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6">
+        <div className="bg-[var(--color-background)] rounded-lg p-6">
           <p className="text-red-600">{error}</p>
           <Button onClick={onClose} className="mt-4">Cerrar</Button>
         </div>
@@ -94,15 +94,15 @@ export function StudentPaymentModal({ studentId, studentName, onClose }: Student
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--color-background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-[var(--color-foreground)]">
               Pagos de {studentName}
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-[var(--color-foreground)]/40 hover:text-[var(--color-foreground)]/80"
             >
               ✕
             </button>
@@ -120,13 +120,13 @@ export function StudentPaymentModal({ studentId, studentName, onClose }: Student
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <Card className="p-4">
-                  <p className="text-sm text-gray-500">Total Pagado</p>
+                  <p className="text-sm text-[var(--color-foreground)]/60">Total Pagado</p>
                   <p className="text-2xl font-bold text-green-600">
                     ${totalPaid.toLocaleString("es-CO")}
                   </p>
                 </Card>
                 <Card className="p-4">
-                  <p className="text-sm text-gray-500">Total Pendiente</p>
+                  <p className="text-sm text-[var(--color-foreground)]/60">Total Pendiente</p>
                   <p className="text-2xl font-bold text-orange-600">
                     ${totalPending.toLocaleString("es-CO")}
                   </p>
@@ -135,29 +135,29 @@ export function StudentPaymentModal({ studentId, studentName, onClose }: Student
 
               {/* Payment History */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-[var(--color-foreground)] mb-4">
                   Historial de Pagos
                 </h3>
                 {detail.payments.length === 0 ? (
-                  <p className="text-gray-500">No hay pagos registrados</p>
+                  <p className="text-[var(--color-foreground)]/60">No hay pagos registrados</p>
                 ) : (
                   <div className="space-y-3">
                     {detail.payments.map((payment) => (
                       <div
                         key={payment.id}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                        className="flex justify-between items-center p-3 bg-[var(--color-foreground)]/5 rounded-lg"
                       >
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-[var(--color-foreground)]">
                             ${payment.amount.toLocaleString("es-CO")}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-[var(--color-foreground)]/60">
                             {payment.method} - {payment.status}
                           </p>
                         </div>
                         <div className="text-right">
                           {payment.paidAt && (
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-[var(--color-foreground)]/60">
                               Pagado: {new Date(payment.paidAt).toLocaleDateString("es-CO")}
                             </p>
                           )}

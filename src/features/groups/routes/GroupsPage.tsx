@@ -144,7 +144,7 @@ export default function GroupsPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Grupos</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Grupos</h1>
         <Button onClick={() => { setShowForm(!showForm); if (showForm) setEditingGroup(null); }}>
           {showForm ? "Cancelar" : "Nuevo Grupo"}
         </Button>
@@ -176,14 +176,14 @@ export default function GroupsPage() {
 
             {/* Selector de Curso */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Curso <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.courseId}
                 onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Selecciona un curso</option>
                 {courses.map((course) => (
@@ -196,14 +196,14 @@ export default function GroupsPage() {
 
             {/* Selector de Profesor */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Profesor <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.professorId}
                 onChange={(e) => setFormData({ ...formData, professorId: e.target.value })}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Selecciona un profesor</option>
                 {professors.map((prof) => (
@@ -216,7 +216,7 @@ export default function GroupsPage() {
 
             {/* Días de clase */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-2">
                 Días de clase
               </label>
               <div className="flex flex-wrap gap-2">
@@ -231,7 +231,7 @@ export default function GroupsPage() {
                           : formData.days.filter((d) => d !== day);
                         setFormData({ ...formData, days: newDays });
                       }}
-                      className="rounded text-blue-600"
+                      className="rounded text-[var(--color-primary)]"
                     />
                     <span className="text-sm">{day}</span>
                   </label>
@@ -284,7 +284,7 @@ export default function GroupsPage() {
 
       {filteredGroups.length === 0 ? (
         <Card className="text-center py-12">
-          <p className="text-gray-500">No hay grupos registrados</p>
+          <p className="text-[var(--color-foreground)]/60">No hay grupos registrados</p>
           <Button className="mt-4" onClick={() => setShowForm(true)}>
             Crear Primer Grupo
           </Button>
@@ -301,17 +301,17 @@ export default function GroupsPage() {
               >
                 <Card>
                 <div className="flex justify-between items-start">
-                  <h3 className="font-semibold text-gray-900">{group.name}</h3>
+                  <h3 className="font-semibold text-[var(--color-foreground)]">{group.name}</h3>
                   <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleEditGroup(group)}
-                      className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                      className="p-1.5 text-[var(--color-foreground)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteGroup(group.id, group.name)}
-                      className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                      className="p-1.5 text-[var(--color-foreground)]/60 hover:text-red-600 hover:bg-red-50 rounded"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -329,7 +329,7 @@ export default function GroupsPage() {
                   </span>
                 </div>
                 {group.days && group.days.length > 0 && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-[var(--color-foreground)]/60 mt-1">
                     {group.days.join(", ")}
                     {group.startTime && ` - ${group.startTime}`}
                     {group.endTime && ` a ${group.endTime}`}
@@ -341,7 +341,7 @@ export default function GroupsPage() {
                       group.status === "open"
                         ? "bg-green-100 text-green-800"
                         : group.status === "completed"
-                        ? "bg-gray-100 text-gray-800"
+                        ? "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]"
                         : "bg-red-100 text-red-800"
                     }`}
                   >

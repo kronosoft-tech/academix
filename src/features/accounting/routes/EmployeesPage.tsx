@@ -55,12 +55,12 @@ export default function EmployeesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Empleados</h1>
-          <p className="text-sm text-slate-500">Gestión de personal y nóminas</p>
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Empleados</h1>
+          <p className="text-sm text-[var(--color-foreground)]/60">Gestión de personal y nóminas</p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]"
         >
           {showForm ? "Cancelar" : "Nuevo Empleado"}
         </button>
@@ -77,19 +77,19 @@ export default function EmployeesPage() {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="rounded-lg border border-slate-200 bg-white p-6"
+          className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6"
         >
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Nuevo Empleado</h3>
+          <h3 className="mb-4 text-lg font-semibold text-[var(--color-foreground)]">Nuevo Empleado</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Tipo Documento
               </label>
               <select
                 value={formData.document_type || ""}
                 onChange={(e) => setFormData({ ...formData, document_type: e.target.value as any })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               >
                 <option value="">Seleccionar...</option>
                 <option value="dni">DNI</option>
@@ -98,7 +98,7 @@ export default function EmployeesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Número Documento
               </label>
               <input
@@ -106,11 +106,11 @@ export default function EmployeesPage() {
                 value={formData.document_number || ""}
                 onChange={(e) => setFormData({ ...formData, document_number: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Nombres
               </label>
               <input
@@ -118,11 +118,11 @@ export default function EmployeesPage() {
                 value={formData.first_name || ""}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Apellidos
               </label>
               <input
@@ -130,11 +130,11 @@ export default function EmployeesPage() {
                 value={formData.last_name || ""}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Correo
               </label>
               <input
@@ -142,22 +142,22 @@ export default function EmployeesPage() {
                 value={formData.email || ""}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Teléfono
               </label>
               <input
                 type="tel"
                 value={formData.phone || ""}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Cargo
               </label>
               <input
@@ -165,11 +165,11 @@ export default function EmployeesPage() {
                 value={formData.position || ""}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Departamento
               </label>
               <input
@@ -177,18 +177,18 @@ export default function EmployeesPage() {
                 value={formData.department || ""}
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Tipo Contrato
               </label>
               <select
                 value={formData.contract_type || ""}
                 onChange={(e) => setFormData({ ...formData, contract_type: e.target.value as any })}
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               >
                 <option value="">Seleccionar...</option>
                 <option value="full_time">Tiempo Completo</option>
@@ -198,7 +198,7 @@ export default function EmployeesPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Salario Base (S/)
               </label>
               <input
@@ -208,7 +208,7 @@ export default function EmployeesPage() {
                 required
                 step="0.01"
                 min="0"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function EmployeesPage() {
               type="submit"
               disabled={loading}
               className={cn(
-                "rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700",
+                "rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]",
                 loading && "cursor-not-allowed opacity-50"
               )}
             >
@@ -228,25 +228,25 @@ export default function EmployeesPage() {
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-4 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
         <form onSubmit={handleSearch} className="flex flex-1 items-center gap-2">
           <input
             type="text"
             placeholder="Buscar por nombre o documento..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="flex-1 rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
           />
           <button
             type="submit"
-            className="rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+            className="rounded-md bg-[var(--color-foreground)]/10 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-slate-200"
           >
             Buscar
           </button>
         </form>
         <select
           onChange={(e) => listEmployees({ status: e.target.value })}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
         >
           {statusFilters.map((f) => (
             <option key={f.value} value={f.value}>

@@ -77,37 +77,37 @@ export default function GroupDetailPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--color-foreground)]/10 rounded-lg">
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-2xl font-bold">{group.name}</h1>
-            <p className="text-gray-500">{group.schedule || "Horario no definido"}</p>
+            <p className="text-[var(--color-foreground)]/60">{group.schedule || "Horario no definido"}</p>
           </div>
         </div>
         <Button onClick={handleEdit}>Editar Grupo</Button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <p className="text-sm text-gray-500">Curso</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow border">
+          <p className="text-sm text-[var(--color-foreground)]/60">Curso</p>
           <p className="font-semibold">{course?.name || "-"}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <p className="text-sm text-gray-500">Profesor</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow border">
+          <p className="text-sm text-[var(--color-foreground)]/60">Profesor</p>
           <p className="font-semibold">{professor?.name || "No asignado"}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <p className="text-sm text-gray-500">Cupo</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow border">
+          <p className="text-sm text-[var(--color-foreground)]/60">Cupo</p>
           <p className="font-semibold">{group.currentStudents || 0} / {group.maxStudents}</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow border">
-          <p className="text-sm text-gray-500">Estado</p>
+        <div className="bg-[var(--color-background)] p-4 rounded-lg shadow border">
+          <p className="text-sm text-[var(--color-foreground)]/60">Estado</p>
           <p className="font-semibold capitalize">{group.status === "open" ? "Activo" : group.status === "completed" ? "Completado" : "Cerrado"}</p>
         </div>
       </div>
       
-      <div className="bg-white rounded-lg shadow border p-6">
+      <div className="bg-[var(--color-background)] rounded-lg shadow border p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Control de Asistencia</h2>
           <div className="flex items-center gap-4">
@@ -124,11 +124,11 @@ export default function GroupDetailPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b">
-              <th className="text-left py-3 px-4 font-medium text-gray-600">Estudiante</th>
-              <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Presente</th>
-              <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Ausente</th>
-              <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Tarde</th>
-              <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Justif.</th>
+              <th className="text-left py-3 px-4 font-medium text-[var(--color-foreground)]/80">Estudiante</th>
+              <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Presente</th>
+              <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Ausente</th>
+              <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Tarde</th>
+              <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Justif.</th>
             </tr>
           </thead>
           <tbody>
@@ -136,7 +136,7 @@ export default function GroupDetailPage() {
               const key = `${student.id}-${selectedDate}`;
               const record = attendance[key] || { present: false, absent: false, late: false, justified: false };
               return (
-                <tr key={student.id} className="border-b hover:bg-gray-50">
+                <tr key={student.id} className="border-b hover:bg-[var(--color-foreground)]/5">
                   <td className="py-3 px-4">{student.name}</td>
                   <td className="text-center">
                     <input
@@ -167,7 +167,7 @@ export default function GroupDetailPage() {
                       type="checkbox"
                       checked={record.justified}
                       onChange={() => toggleAttendance(student.id, 'justified')}
-                      className="rounded text-blue-600 w-5 h-5"
+                      className="rounded text-[var(--color-primary)] w-5 h-5"
                     />
                   </td>
                 </tr>
@@ -177,7 +177,7 @@ export default function GroupDetailPage() {
         </table>
         
         {groupStudents.length === 0 && (
-          <p className="text-center text-gray-500 py-8">No hay estudiantes en este grupo.</p>
+          <p className="text-center text-[var(--color-foreground)]/60 py-8">No hay estudiantes en este grupo.</p>
         )}
       </div>
     </div>

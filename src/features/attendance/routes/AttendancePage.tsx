@@ -68,7 +68,7 @@ export default function AttendancePage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Asistencia</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Asistencia</h1>
         <div className="flex gap-2">
           <Button onClick={() => setShowForm(!showForm)}>
             {showForm ? "Cancelar" : "Nueva Asistencia"}
@@ -129,11 +129,11 @@ export default function AttendancePage() {
             />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Estado
               </label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof formData.status })}
               >
@@ -163,7 +163,7 @@ export default function AttendancePage() {
 
       {attendance.length === 0 ? (
         <Card className="text-center py-12">
-          <p className="text-gray-500">No hay registros de asistencia</p>
+          <p className="text-[var(--color-foreground)]/60">No hay registros de asistencia</p>
           <Button className="mt-4" onClick={() => setShowForm(true)}>
             Registrar Primera Asistencia
           </Button>
@@ -171,35 +171,35 @@ export default function AttendancePage() {
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-[var(--color-foreground)]/5">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Fecha
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estudiante
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Grupo
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Notas
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
               {attendance.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <tr key={record.id} className="hover:bg-[var(--color-foreground)]/5">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
                     {record.date}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
                     {record.studentId.substring(0, 8)}...
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
                     {record.groupId.substring(0, 8)}...
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -211,7 +211,7 @@ export default function AttendancePage() {
                           ? "bg-red-100 text-red-800"
                           : record.status === "late"
                           ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
+                          : "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]"
                       }`}
                     >
                       {record.status === "present"
@@ -223,7 +223,7 @@ export default function AttendancePage() {
                         : "Justificado"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
                     {record.notes || "-"}
                   </td>
                 </tr>

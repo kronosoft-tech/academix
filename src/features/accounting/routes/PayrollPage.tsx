@@ -84,12 +84,12 @@ export default function PayrollPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Nómina</h1>
-          <p className="text-sm text-slate-500">Gestión de planillas y payroll</p>
+          <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Nómina</h1>
+          <p className="text-sm text-[var(--color-foreground)]/60">Gestión de planillas y payroll</p>
         </div>
         <button
           onClick={() => setShowRunForm(!showRunForm)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]"
         >
           {showRunForm ? "Cancelar" : "Ejecutar Nómina"}
         </button>
@@ -106,12 +106,12 @@ export default function PayrollPage() {
       {showRunForm && (
         <form
           onSubmit={handleRunPayroll}
-          className="rounded-lg border border-slate-200 bg-white p-6"
+          className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6"
         >
-          <h3 className="mb-4 text-lg font-semibold text-slate-900">Ejecutar Nómina</h3>
+          <h3 className="mb-4 text-lg font-semibold text-[var(--color-foreground)]">Ejecutar Nómina</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Fecha Inicio
               </label>
               <input
@@ -121,11 +121,11 @@ export default function PayrollPage() {
                   setRunFormData({ ...runFormData, period_start: e.target.value })
                 }
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
+              <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
                 Fecha Fin
               </label>
               <input
@@ -135,7 +135,7 @@ export default function PayrollPage() {
                   setRunFormData({ ...runFormData, period_end: e.target.value })
                 }
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function PayrollPage() {
             <button
               type="button"
               onClick={() => setShowRunForm(false)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
             >
               Cancelar
             </button>
@@ -151,7 +151,7 @@ export default function PayrollPage() {
               type="submit"
               disabled={loading}
               className={cn(
-                "rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700",
+                "rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]",
                 loading && "cursor-not-allowed opacity-50"
               )}
             >
@@ -173,14 +173,14 @@ export default function PayrollPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div
             ref={modalRef}
-            className="max-h-[90vh] w-full max-w-6xl overflow-auto rounded-lg bg-white p-6"
+            className="max-h-[90vh] w-full max-w-6xl overflow-auto rounded-lg bg-[var(--color-background)] p-6"
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold text-[var(--color-foreground)]">
                   Detalle de Nómina - {currentRun.run.period_display}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[var(--color-foreground)]/60">
                   Estado: {currentRun.run.status} | Creado:{" "}
                   {new Date(currentRun.run.created_at).toLocaleDateString("es-PE")}
                 </p>
@@ -189,7 +189,7 @@ export default function PayrollPage() {
                 onClick={() => {
                   handleExportRun();
                 }}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-primary)]"
               >
                 Exportar PDF
               </button>
@@ -197,20 +197,20 @@ export default function PayrollPage() {
 
             {/* Summary Cards */}
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <p className="text-sm text-slate-500">Total Bruto</p>
-                <p className="text-xl font-bold text-slate-900">
+              <div className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
+                <p className="text-sm text-[var(--color-foreground)]/60">Total Bruto</p>
+                <p className="text-xl font-bold text-[var(--color-foreground)]">
                   S/ {currentRun.run.total_gross.toFixed(2)}
                 </p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <p className="text-sm text-slate-500">Total Deducciones</p>
+              <div className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
+                <p className="text-sm text-[var(--color-foreground)]/60">Total Deducciones</p>
                 <p className="text-xl font-bold text-red-600">
                   - S/ {currentRun.run.total_deductions.toFixed(2)}
                 </p>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <p className="text-sm text-slate-500">Total Neto</p>
+              <div className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-4">
+                <p className="text-sm text-[var(--color-foreground)]/60">Total Neto</p>
                 <p className="text-xl font-bold text-green-600">
                   S/ {currentRun.run.total_net.toFixed(2)}
                 </p>
@@ -226,13 +226,13 @@ export default function PayrollPage() {
             />
 
             {/* Entries Table */}
-            <h3 className="mb-4 text-lg font-semibold text-slate-900">Detalle por Empleado</h3>
+            <h3 className="mb-4 text-lg font-semibold text-[var(--color-foreground)]">Detalle por Empleado</h3>
             <PayrollEntriesTable entries={currentRun.entries} />
 
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => getRunWithEntries("")}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-[var(--color-foreground)]/30 px-4 py-2 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-foreground)]/5"
               >
                 Cerrar
               </button>

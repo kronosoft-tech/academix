@@ -89,7 +89,7 @@ export function StudentForm({ student, onSubmit, onCancel, isLoading }: StudentF
           onChange={(e) => handleChange("birthDate", e.target.value)}
         />
         <div className="border-t pt-4 mt-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Información del acudiente</h4>
+          <h4 className="text-sm font-medium text-[var(--color-foreground)] mb-3">Información del acudiente</h4>
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="Nombre del acudiente"

@@ -70,7 +70,7 @@ function ToastItem({
   const typeStyles = {
     success: "bg-green-50 border-green-500 text-green-800",
     error: "bg-red-50 border-red-500 text-red-800",
-    info: "bg-blue-50 border-blue-500 text-blue-800",
+    info: "bg-[var(--color-primary)]/10 border-blue-500 text-[var(--color-primary)]",
     warning: "bg-yellow-50 border-yellow-500 text-yellow-800",
   };
 

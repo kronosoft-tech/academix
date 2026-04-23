@@ -25,7 +25,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-6">Dashboard</h1>
 
       <div 
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
@@ -73,7 +73,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
+      <h2 className="text-lg font-semibold text-[var(--color-foreground)] mb-4">Acciones Rápidas</h2>
       <div 
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
@@ -121,18 +121,18 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, color }: StatCardProps) {
   const colorStyles = {
-    blue: "bg-blue-50 text-blue-600",
-    green: "bg-green-50 text-green-600",
-    purple: "bg-purple-50 text-purple-600",
-    orange: "bg-orange-50 text-orange-600",
+    blue: "bg-[var(--color-primary)]/10 text-[var(--color-tertiary)]",
+    green: "bg-[var(--color-secondary)]/10 text-[var(--color-tertiary)]",
+    purple: "bg-[var(--color-tertiary)]/10 text-[var(--color-tertiary)]",
+    orange: "bg-[var(--color-tertiary)]/10 text-[var(--color-tertiary)]",
   };
 
   return (
     <Card className="flex items-center gap-4">
       <div className={`p-3 rounded-lg ${colorStyles[color]}`}>{icon}</div>
       <div>
-        <p className="text-sm text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-sm text-[var(--color-foreground)]/60">{title}</p>
+        <p className="text-2xl font-bold text-[var(--color-foreground)]">{value}</p>
       </div>
     </Card>
   );
@@ -149,13 +149,13 @@ function QuickActionCard({ title, description, href, icon }: QuickActionCardProp
   return (
     <a
       href={href}
-      className="block p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
+      className="block p-4 bg-[var(--color-background)] border border-[var(--color-foreground)]/20 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">{icon}</div>
+        <div className="p-2 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-lg">{icon}</div>
         <div>
-          <p className="font-medium text-gray-900">{title}</p>
-          <p className="text-sm text-gray-500">{description}</p>
+          <p className="font-medium text-[var(--color-foreground)]">{title}</p>
+          <p className="text-sm text-[var(--color-foreground)]/60">{description}</p>
         </div>
       </div>
     </a>

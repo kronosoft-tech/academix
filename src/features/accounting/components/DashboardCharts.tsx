@@ -127,8 +127,8 @@ export function IncomeExpensesChart({
   };
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Ingresos vs Gastos</h3>
+    <div className="rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6">
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Ingresos vs Gastos</h3>
       <div className="h-64">
         <Bar data={data} options={options} />
       </div>
@@ -166,8 +166,8 @@ export function MonthlyTrendChart({ data, className }: MonthlyTrendChartProps) {
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Tendencia Mensual</h3>
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Tendencia Mensual</h3>
       <div className="h-64">
         <Line data={chartData} options={commonOptions} />
       </div>
@@ -231,8 +231,8 @@ export function ExpenseBreakdownChart({ data, className }: ExpenseBreakdownChart
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Desglose de Gastos</h3>
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Desglose de Gastos</h3>
       <div className="h-64">
         <Doughnut data={chartData} options={options} />
       </div>
@@ -279,8 +279,8 @@ export function IncomeByCategoryChart({ data, className }: IncomeByCategoryChart
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Ingresos por Categoría</h3>
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Ingresos por Categoría</h3>
       <div className="h-64">
         <Bar data={chartData} options={options} />
       </div>
@@ -324,8 +324,8 @@ export function ProfitMarginChart({ margin, className }: ProfitMarginChartProps)
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Margen de Ganancia</h3>
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Margen de Ganancia</h3>
       <div className="relative h-40">
         <Doughnut data={data} options={options} />
         <div className="absolute inset-0 flex items-center justify-center">
@@ -339,7 +339,7 @@ export function ProfitMarginChart({ margin, className }: ProfitMarginChartProps)
           </span>
         </div>
       </div>
-      <p className="mt-2 text-center text-xs text-slate-500">
+      <p className="mt-2 text-center text-xs text-[var(--color-foreground)]/60">
         {isProfitable ? "Rentable" : "No rentable"}
       </p>
     </div>
@@ -390,8 +390,8 @@ export function PayrollSummaryChart({
   };
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 bg-white p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-slate-900">Resumen de Nómina</h3>
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Resumen de Nómina</h3>
       <div className="h-64">
         <Bar data={data} options={options} />
       </div>

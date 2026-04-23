@@ -116,10 +116,10 @@ export default function DailyAttendanceForm({ groupId, students, onRefresh }: Pr
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-[var(--color-background)] rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
-          <CalendarIcon className="w-5 h-5 text-blue-600" />
+          <CalendarIcon className="w-5 h-5 text-[var(--color-primary)]" />
           <h3 className="text-lg font-semibold">Pasar Lista</h3>
         </div>
         <div className="flex items-center gap-4">
@@ -150,19 +150,19 @@ export default function DailyAttendanceForm({ groupId, students, onRefresh }: Pr
 
       <table className="w-full">
         <thead>
-          <tr className="border-b bg-gray-50">
-            <th className="text-left py-3 px-4 font-medium text-gray-600 w-12">#</th>
-            <th className="text-left py-3 px-4 font-medium text-gray-600">Estudiante</th>
-            <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Presente</th>
-            <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Ausente</th>
-            <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Tarde</th>
-            <th className="text-center py-3 px-2 font-medium text-gray-600 w-20">Justif.</th>
+          <tr className="border-b bg-[var(--color-foreground)]/5">
+            <th className="text-left py-3 px-4 font-medium text-[var(--color-foreground)]/80 w-12">#</th>
+            <th className="text-left py-3 px-4 font-medium text-[var(--color-foreground)]/80">Estudiante</th>
+            <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Presente</th>
+            <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Ausente</th>
+            <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Tarde</th>
+            <th className="text-center py-3 px-2 font-medium text-[var(--color-foreground)]/80 w-20">Justif.</th>
           </tr>
         </thead>
         <tbody>
           {sortedStudents.length === 0 ? (
             <tr>
-              <td colSpan={6} className="text-center text-gray-500 py-8">
+              <td colSpan={6} className="text-center text-[var(--color-foreground)]/60 py-8">
                 No hay estudiantes inscritos en este grupo
               </td>
             </tr>
@@ -170,8 +170,8 @@ export default function DailyAttendanceForm({ groupId, students, onRefresh }: Pr
             sortedStudents.map((student, index) => {
               const currentStatus = studentAttendance.get(student.id)?.status || "none";
               return (
-                <tr key={student.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4 text-gray-500 text-sm">{index + 1}</td>
+                <tr key={student.id} className="border-b hover:bg-[var(--color-foreground)]/5">
+                  <td className="py-3 px-4 text-[var(--color-foreground)]/60 text-sm">{index + 1}</td>
                   <td className="py-3 px-4">{student.name}</td>
                   <td className="text-center">
                     <input
@@ -206,7 +206,7 @@ export default function DailyAttendanceForm({ groupId, students, onRefresh }: Pr
                       name={`attendance-${student.id}`}
                       checked={currentStatus === "excused"}
                       onChange={() => handleAttendanceChange(student.id, "excused")}
-                      className="rounded text-blue-600 w-5 h-5 cursor-pointer"
+                      className="rounded text-[var(--color-primary)] w-5 h-5 cursor-pointer"
                     />
                   </td>
                 </tr>

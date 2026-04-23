@@ -89,21 +89,21 @@ export function SearchableSelect<T>({
   return (
     <div className="relative" ref={dropdownRef}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
       )}
       
       {/* Selected value display */}
       {selectedItem && !searchTerm && (
-        <div className="flex items-center justify-between px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-          <span className="text-gray-900 truncate">
+        <div className="flex items-center justify-between px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg bg-[var(--color-foreground)]/5">
+          <span className="text-[var(--color-foreground)] truncate">
             {displayFormatter(selectedItem)}
           </span>
           <button
             type="button"
             onClick={handleClear}
-            className="ml-2 text-gray-400 hover:text-gray-600"
+            className="ml-2 text-[var(--color-foreground)]/40 hover:text-[var(--color-foreground)]/80"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -125,22 +125,22 @@ export function SearchableSelect<T>({
             }}
             onFocus={() => setIsOpen(true)}
             placeholder={selectedItem ? displayFormatter(selectedItem) : placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required={required}
           />
           
           {/* Search icon */}
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[var(--color-foreground)]/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
 
           {/* Dropdown */}
           {isOpen && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-10 w-full mt-1 bg-[var(--color-background)] border border-[var(--color-foreground)]/20 rounded-lg shadow-lg max-h-60 overflow-auto">
               {filteredOptions.length === 0 ? (
-                <div className="px-4 py-3 text-gray-500 text-sm">
+                <div className="px-4 py-3 text-[var(--color-foreground)]/60 text-sm">
                   {notFoundMessage}
                 </div>
               ) : (
@@ -159,15 +159,15 @@ export function SearchableSelect<T>({
                       <li
                         key={itemValue || index}
                         onClick={() => handleSelect(item)}
-                        className={`px-4 py-3 cursor-pointer hover:bg-blue-50 ${
-                          isSelected ? "bg-blue-100 text-blue-900" : ""
+                        className={`px-4 py-3 cursor-pointer hover:bg-[var(--color-primary)]/10 ${
+                          isSelected ? "bg-[var(--color-primary)]/20 text-[var(--color-primary)]" : ""
                         }`}
                       >
                         <div
                           dangerouslySetInnerHTML={{ __html: highlightedText }}
                         />
                         {itemValue && (
-                          <div className="text-xs text-gray-400 mt-0.5">
+                          <div className="text-xs text-[var(--color-foreground)]/40 mt-0.5">
                             ID: {itemValue.substring(0, 8)}...
                           </div>
                         )}
