@@ -194,7 +194,7 @@ export interface AccountFilters {
   active_only: boolean;
 }
 
-// Liability / Pasivo (new) - includes account_code for Balance Financiero
+// Liability / Pasivo (new)
 export interface CreateLiabilityRequest {
   provider_name: string;
   document_type: string;  // factura, recibo, contrato
@@ -203,6 +203,12 @@ export interface CreateLiabilityRequest {
   liability_type: LiabilityType;
   due_date: string;
   description?: string;
+  /// What is this liability for?
+  /// "expense" for services/supplies (goes to expense account 4xxx)
+  /// "asset" for equipment/purchases (goes to fixed asset account 16xx)
+  for_type?: "expense" | "asset";
+  /// Account to debit - expense (4xxx) or asset (16xxx)
+  debit_account_code?: string;
 }
 
 export interface Liability {

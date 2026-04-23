@@ -112,6 +112,50 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
 
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
+            Es para *
+          </label>
+          <select
+            value={formData.for_type || "expense"}
+            onChange={(e) => setFormData({ ...formData, for_type: e.target.value as "expense" | "asset" })}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="expense">Gasto/Servicio (cuenta 4xxx)</option>
+            <option value="asset">Activo Fijo (cuenta 16xxx)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Cuenta Contable (Débito) *
+          </label>
+          <select
+            value={formData.debit_account_code || (formData.for_type === "asset" ? "1635" : "4105")}
+            onChange={(e) => setFormData({ ...formData, debit_account_code: e.target.value })}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          >
+            {formData.for_type === "asset" ? (
+              <optgroup label="16xx - Activos Fijos">
+                <option value="1605">1605 - Terrenos</option>
+                <option value="1610">1610 - Edificios</option>
+                <option value="1615">1615 - Muebles</option>
+                <option value="1620">1620 - Equipo Oficina</option>
+                <option value="1625">1625 - Computación</option>
+                <option value="1635">1635 - Maquinaria</option>
+                <option value="1640">1640 - Vehículos</option>
+              </optgroup>
+            ) : (
+              <optgroup label="4xxx - Gastos">
+                <option value="4105">4105 - Gastos Generales</option>
+                <option value="4205">4205 - Servicios</option>
+                <option value="4305">4305 - Sueldos</option>
+                <option value="5105">5105 - Costos de Ventas</option>
+              </optgroup>
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
             Fecha Vencimiento *
           </label>
           <input
@@ -135,6 +179,16 @@ export function LiabilityForm({ onSubmit, onCancel }: Props) {
           className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           placeholder="Descripción adicional..."
         />
+      </div>
+
+      <div className="rounded-lg bg-orange-50 p-3">
+        <p className="text-sm text-orange-700">
+          <strong>Contabilidad:</strong> Al registrar se crea automáticamente:
+          <br />
+          <strong>DEBE</strong>: {formData.for_type === "asset" ? "Activo (16xx)" : "Gasto (4xxx)"} - {formData.debit_account_code}
+          <br />
+          <strong>HABER</strong>: Pasivo (21xx)
+        </p>
       </div>
 
       <div className="flex justify-end gap-3 pt-4">

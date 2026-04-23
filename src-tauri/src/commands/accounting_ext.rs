@@ -17,15 +17,24 @@ pub type LiabilityServiceState = SqliteLiabilityRepository;
 pub type EquityServiceState = SqliteEquityRepository;
 
 /// Create liability request (registrar deuda/pasivo)
+/// When registering a liability, user specifies what it's for:
+/// - "expense": Debit 4xxx (expense), Credit 21xx (liability)
+/// - "asset": Debit 16xx (fixed asset), Credit 21xx (liability)
 #[derive(Debug, Deserialize)]
 pub struct CreateLiabilityCommand {
     pub provider_name: String,
     pub document_type: String,
     pub document_number: String,
     pub amount: f64,
-    pub liability_type: String,
+    pub liability_type: String,  // short_term, long_term, provisions
     pub due_date: String,
     pub description: Option<String>,
+    /// What is this liability for?
+    /// "expense" for services/supplies (goes to expense account)
+    /// "asset" for equipment/purchases (goes to fixed asset account)
+    pub for_type: Option<String>, // "expense" | "asset"
+    /// Account to debit (expense account 4xxx or asset account 16xx)
+    pub debit_account_code: Option<String>,
 }
 
 /// Liability response (includes account_code for Balance Financiero)
@@ -69,22 +78,36 @@ pub struct EquityDto {
     pub updated_at: String,
 }
 
-/// Create a new liability (registrar deuda)
+/// Create a new liability (registrar deuda/pasivo)
+/// Automatically creates accounting entry:
+/// - For expense: Debe 4xxx (Gasto) / Haber 21xx (Pasivo)
+/// - For asset: Debe 16xx (Activo) / Haber 21xx (Pasivo)
 #[tauri::command]
 pub fn create_liability(
-    state: State<LiabilityServiceState>,
+    liability_state: State<LiabilityServiceState>,
+    accounting_state: State<AccountingServiceState>,
     request: CreateLiabilityCommand,
 ) -> Result<LiabilityDto, String> {
     let now = Utc::now().to_rfc3339();
     let id = Uuid::new_v4().to_string();
 
-    // Determine account code based on liability type
-    let account_code = match request.liability_type.as_str() {
+    // Determine account code for the liability (passive)
+    let liability_account = match request.liability_type.as_str() {
         "short_term" => "2105",
         "long_term" => "2205",
         "provisions" => "2810",
         _ => "2105",
     };
+
+    // Determine what to debit based on for_type
+    let for_type = request.for_type.as_deref().unwrap_or("expense");
+    let debit_account = request.debit_account_code.clone().unwrap_or_else(|| {
+        if for_type == "asset" {
+            "1635".to_string() // Default to Machinery
+        } else {
+            "4105".to_string() // Default to Gastos Generales
+        }
+    });
 
     // Build entity using the repository's internal types
     use crate::infrastructure::repositories::liability::Liability;
@@ -100,15 +123,40 @@ pub fn create_liability(
         due_date: request.due_date.clone(),
         status: "pending".to_string(),
         description: request.description.clone(),
-        account_code: Some(account_code.to_string()),
+        account_code: Some(liability_account.to_string()),
         created_at: now.clone(),
         updated_at: now.clone(),
     };
 
-    // Save to database using repository from state
-    state.create(&entity)?;
+    // Save to database
+    liability_state.create(&entity)?;
+    eprintln!("[LIABILITY] Created: {} - S/{} (type: {})", entity.provider_name, entity.amount, for_type);
 
-    eprintln!("[DEBUG] Created liability: {} - S/ {} (account: {})", entity.provider_name, entity.amount, account_code);
+    // AUTOMATIC ACCOUNTING ENTRY
+    // If for_type is "expense": Debit 4xxx (expense), Credit 21xx (liability)
+    // If for_type is "asset": Debit 16xx (fixed asset), Credit 21xx (liability)
+    let entry_request = crate::application::dto::accounting::CreateEntryRequest {
+        date: now.clone(),
+        description: format!("Pasivo {}: {}", for_type, request.description.as_deref().unwrap_or("")),
+        debit_account: debit_account.clone(),  // DEBE: Gasto o Activo
+        credit_account: liability_account.to_string(), // HABER: Pasivo
+        amount: request.amount,
+        entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
+        reference: Some(format!("PAS-{}", &id[..8])),
+        related_id: Some(id.clone()),
+        related_type: Some("liability".to_string()),
+    };
+
+    match accounting_state.create_entry(entry_request, "system".to_string()) {
+        Ok(_) => {
+            eprintln!("[LIABILITY] Auto-entry: Debit {} / Credit {} = S/ {}", 
+                debit_account, liability_account, request.amount);
+        }
+        Err(e) => {
+            eprintln!("[LIABILITY] ERROR creating entry: {}", e);
+            return Err(format!("Error al crear entrada contable: {}", e));
+        }
+    }
 
     Ok(LiabilityDto {
         id,
@@ -121,7 +169,7 @@ pub fn create_liability(
         due_date: request.due_date,
         status: "pending".to_string(),
         description: request.description,
-        account_code: Some(account_code.to_string()),
+        account_code: Some(liability_account.to_string()),
         created_at: now.clone(),
         updated_at: now.clone(),
     })
@@ -347,7 +395,7 @@ pub fn create_fixed_asset(
     let result = accounting_state.create_entry(entry_request, "system".to_string());
     
     match result {
-        Ok(entry) => {
+        Ok(_) => {
             eprintln!("[FIXED ASSET] SUCCESS: Debit {} (S/ {}) / Credit {} (S/ {})", 
                 account_code, request.acquisition_cost, payment_account, request.acquisition_cost);
         }
