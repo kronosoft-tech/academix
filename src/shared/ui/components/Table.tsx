@@ -13,6 +13,7 @@ interface TableProps<T> {
   columns: Column<T>[];
   emptyMessage?: string;
   className?: string;
+  getKey?: (item: T) => string | number;
 }
 
 export function Table<T extends object>({
@@ -20,6 +21,7 @@ export function Table<T extends object>({
   columns,
   emptyMessage = "No data available",
   className,
+  getKey,
 }: TableProps<T>) {
   if (data.length === 0) {
     return (
@@ -48,20 +50,23 @@ export function Table<T extends object>({
           </tr>
         </thead>
         <tbody className="bg-[var(--color-background)] divide-y divide-[var(--color-foreground)]/10">
-          {data.map((item, index) => (
-            <tr key={index} className="hover:bg-[var(--color-secondary)]/5">
-              {columns.map((column) => (
-                <td
-                  key={String(column.key)}
-                  className={cn("px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]", column.className)}
-                >
-                  {column.render
-                    ? column.render(item)
-                    : String(item[column.key as keyof T] ?? "")}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {data.map((item, index) => {
+            const key = getKey ? getKey(item) : (item as { id?: string | number }).id ?? index;
+            return (
+              <tr key={key} className="hover:bg-[var(--color-secondary)]/5">
+                {columns.map((column) => (
+                  <td
+                    key={String(column.key)}
+                    className={cn("px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]", column.className)}
+                  >
+                    {column.render
+                      ? column.render(item)
+                      : String(item[column.key as keyof T] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

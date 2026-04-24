@@ -27,6 +27,7 @@ export function StudentForm({ student, onSubmit, onCancel, isLoading }: StudentF
     address: student?.address || "",
     birthDate: student?.birthDate || "",
     guardianName: student?.guardianName || "",
+    guardianDocument: student?.guardianDocument || "",
     guardianPhone: student?.guardianPhone || "",
   });
 
@@ -96,6 +97,13 @@ export function StudentForm({ student, onSubmit, onCancel, isLoading }: StudentF
               value={formData.guardianName || ""}
               onChange={(e) => handleChange("guardianName", e.target.value)}
             />
+            <Input
+              label="Documento del acudiente"
+              value={formData.guardianDocument || ""}
+              onChange={(e) => handleChange("guardianDocument", e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4 mt-4">
             <Input
               label="Teléfono del acudiente"
               type="tel"

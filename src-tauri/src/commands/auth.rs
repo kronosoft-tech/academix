@@ -56,32 +56,24 @@ pub struct CommandLoginResponse {
 /// Login command
 #[tauri::command]
 pub fn login(state: State<AppState>, request: CommandLoginRequest) -> CommandLoginResponse {
-    let email = request.email.clone();
-    println!("[DEBUG] login called with email: {}", email);
     match state.auth_service.login(LoginRequest {
         email: request.email,
         password: request.password,
     }) {
-        Ok(response) => {
-            println!("[DEBUG] login success for: {}", email);
-            CommandLoginResponse {
-                success: true,
-                token: Some(response.token),
-                user: Some(response.user),
-                expires_at: Some(response.expires_at),
-                error: None,
-            }
-        }
-        Err(e) => {
-            println!("[DEBUG] login error: {} for email: {}", e, email);
-            CommandLoginResponse {
-                success: false,
-                token: None,
-                user: None,
-                expires_at: None,
-                error: Some(e.to_string()),
-            }
-        }
+        Ok(response) => CommandLoginResponse {
+            success: true,
+            token: Some(response.token),
+            user: Some(response.user),
+            expires_at: Some(response.expires_at),
+            error: None,
+        },
+        Err(e) => CommandLoginResponse {
+            success: false,
+            token: None,
+            user: None,
+            expires_at: None,
+            error: Some(e.to_string()),
+        },
     }
 }
 

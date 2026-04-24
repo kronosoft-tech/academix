@@ -68,7 +68,6 @@ pub fn create_student(
     state: State<StudentServiceState>,
     request: CreateStudentCommand,
 ) -> StudentCommandResponse {
-    println!("[DEBUG] create_student called: {:?}", request);
     match state.create(CreateStudentRequest {
         user_id: request.user_id,
         first_name: request.first_name,
@@ -85,22 +84,16 @@ pub fn create_student(
         course_id: request.course_id,
         group_id: request.group_id,
     }) {
-        Ok(student) => {
-            println!("[DEBUG] create_student success");
-            StudentCommandResponse {
-                success: true,
-                data: Some(student),
-                error: None,
-            }
-        }
-        Err(e) => {
-            println!("[DEBUG] create_student error: {}", e);
-            StudentCommandResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            }
-        }
+        Ok(student) => StudentCommandResponse {
+            success: true,
+            data: Some(student),
+            error: None,
+        },
+        Err(e) => StudentCommandResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
     }
 }
 
@@ -124,24 +117,17 @@ pub fn get_student(state: State<StudentServiceState>, id: String) -> StudentComm
 /// List all students
 #[tauri::command]
 pub fn list_students(state: State<StudentServiceState>) -> StudentListCommandResponse {
-    println!("[DEBUG] list_students called");
     match state.list() {
-        Ok(students) => {
-            println!("[DEBUG] list_students returned {} students", students.len());
-            StudentListCommandResponse {
-                success: true,
-                data: Some(students),
-                error: None,
-            }
-        }
-        Err(e) => {
-            println!("[DEBUG] list_students error: {}", e);
-            StudentListCommandResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            }
-        }
+        Ok(students) => StudentListCommandResponse {
+            success: true,
+            data: Some(students),
+            error: None,
+        },
+        Err(e) => StudentListCommandResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
     }
 }
 
@@ -152,7 +138,6 @@ pub fn update_student(
     id: String,
     request: UpdateStudentCommand,
 ) -> StudentCommandResponse {
-    println!("[DEBUG] update_student called: {:?}", request);
     match state.update(
         &id,
         UpdateStudentRequest {
@@ -169,22 +154,16 @@ pub fn update_student(
             group_id: request.group_id,
         },
     ) {
-        Ok(student) => {
-            println!("[DEBUG] update_student success");
-            StudentCommandResponse {
-                success: true,
-                data: Some(student),
-                error: None,
-            }
-        }
-        Err(e) => {
-            println!("[DEBUG] update_student error: {}", e);
-            StudentCommandResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            }
-        }
+        Ok(student) => StudentCommandResponse {
+            success: true,
+            data: Some(student),
+            error: None,
+        },
+        Err(e) => StudentCommandResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
     }
 }
 

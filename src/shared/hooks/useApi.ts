@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface ApiState<T> {
@@ -19,6 +19,10 @@ export function useApi<T>(command: string, options?: UseApiOptions) {
     isLoading: false,
   });
 
+  // Use ref to avoid stale closure for callbacks
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   const execute = useCallback(
     async (params?: Record<string, unknown>) => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -26,16 +30,16 @@ export function useApi<T>(command: string, options?: UseApiOptions) {
       try {
         const result = await invoke<T>(command, params);
         setState({ data: result, error: null, isLoading: false });
-        options?.onSuccess?.(result);
+        optionsRef.current?.onSuccess?.(result);
         return result;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         setState({ data: null, error: errorMessage, isLoading: false });
-        options?.onError?.(errorMessage);
+        optionsRef.current?.onError?.(errorMessage);
         throw err;
       }
     },
-    [command, options]
+    [command]
   );
 
   const reset = useCallback(() => {
