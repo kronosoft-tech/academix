@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { useAuth } from "./shared/hooks/useAuth";
+import { AuthProvider, useAuth } from "./shared/hooks/useAuth";
 import LoginPage from "./features/auth/routes/LoginPage";
 import MainLayout from "./app/layouts/MainLayout";
 import { Spinner } from "./shared/ui/components/Spinner";
 import { initTheme } from "./theme/theme";
 
-export default function App() {
+function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
@@ -25,4 +25,12 @@ export default function App() {
   }
 
   return <MainLayout />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }

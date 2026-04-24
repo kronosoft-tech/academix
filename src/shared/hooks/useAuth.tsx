@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
 type UserRole = "admin" | "gerente" | "empleado" | "profesor";
 
@@ -17,6 +17,11 @@ interface AuthState {
   token: string | null;
 }
 
+interface AuthContextValue extends AuthState {
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+}
+
 const AUTH_STORAGE_KEY = "academix_auth";
 
 function getStoredAuth(): AuthState {
@@ -24,7 +29,6 @@ function getStoredAuth(): AuthState {
     const stored = localStorage.getItem(AUTH_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Validate we have required fields
       if (parsed.user && parsed.token && parsed.isAuthenticated) {
         return { ...parsed, isLoading: false };
       }
@@ -32,7 +36,6 @@ function getStoredAuth(): AuthState {
   } catch {
     // Ignore errors
   }
-  // No valid session - don't show loading forever
   return { user: null, isAuthenticated: false, isLoading: false, token: null };
 }
 
@@ -48,23 +51,15 @@ function setStoredAuth(state: AuthState): void {
   }
 }
 
-let authState: AuthState = getStoredAuth();
-const listeners: Set<(state: AuthState) => void> = new Set();
+// Create context with undefined default to force usage check
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function notifyListeners(): void {
-  listeners.forEach((listener) => listener(authState));
+interface AuthProviderProps {
+  children: ReactNode;
 }
 
-export function useAuth() {
-  const [state, setState] = useState<AuthState>(authState);
-
-  useEffect(() => {
-    const listener = (newState: AuthState) => setState(newState);
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
-  }, []);
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [state, setState] = useState<AuthState>(getStoredAuth);
 
   const login = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
@@ -79,31 +74,31 @@ export function useAuth() {
       });
 
       if (response.success && response.token && response.user) {
-        authState = {
+        const newState = {
           user: response.user,
           token: response.token,
           isAuthenticated: true,
           isLoading: false,
         };
-        setStoredAuth(authState);
-        notifyListeners();
+        setStoredAuth(newState);
+        setState(newState);
         return { success: true };
       } else {
-        authState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-        setStoredAuth(authState);
-        notifyListeners();
+        const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
+        setStoredAuth(newState);
+        setState(newState);
         return { success: false, error: response.error || "Login failed" };
       }
     } catch (error) {
-      authState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-      setStoredAuth(authState);
-      notifyListeners();
+      const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
+      setStoredAuth(newState);
+      setState(newState);
       return { success: false, error: error instanceof Error ? error.message : "Login failed" };
     }
   }, []);
 
   const logout = useCallback(async () => {
-    const currentToken = authState.token;
+    const currentToken = state.token;
     if (currentToken) {
       try {
         await invoke("logout", { request: { token: currentToken } });
@@ -111,17 +106,22 @@ export function useAuth() {
         // Ignore logout errors
       }
     }
-    authState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-    setStoredAuth(authState);
-    notifyListeners();
-  }, []);
+    const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
+    setStoredAuth(newState);
+    setState(newState);
+  }, [state.token]);
 
-  return {
-    user: state.user,
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    token: state.token,
-    login,
-    logout,
-  };
+  return (
+    <AuthContext.Provider value={{ ...state, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
