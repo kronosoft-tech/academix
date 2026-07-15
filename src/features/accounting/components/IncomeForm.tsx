@@ -1,100 +1,65 @@
-// IncomeForm Component
-// Simple form for recording income entries with category selector
+// IncomeForm Component - Simplified
+// Form for recording income entries
 
 import { useState, useCallback } from "react";
 import { cn } from "../../../lib/utils";
-import type { CreateEntryRequest } from "../types";
+import { INCOME_CATEGORY } from "../types";
+import type { IncomeCategory } from "../types";
 
 interface IncomeFormProps {
-  onSubmit: (entry: CreateEntryRequest) => Promise<void>;
+  onSubmit: (data: { date: string; category: string; description: string; amount: number }) => Promise<void>;
   onCancel?: () => void;
   className?: string;
 }
 
-// Income type mapping to accounting accounts (PUC)
-// Debit: 1105 (Caja) - where money comes in
-// Credit: varies by income type
-const INCOME_TYPES = [
-  { value: "mensualidades", label: "Mensualidades", creditAccount: "6115" },
-  { value: "cursos_especiales", label: "Cursos Especiales", creditAccount: "6120" },
-  { value: "uniformes", label: "Venta de Insumos/Uniformes", creditAccount: "6130" },
-  { value: "arrendamientos", label: "Arrendamientos", creditAccount: "6215" },
-  { value: "otros", label: "Otros Ingresos", creditAccount: "6220" },
+const INCOME_CATEGORIES = [
+  { value: INCOME_CATEGORY.TUITION, label: "Matrícula" },
+  { value: INCOME_CATEGORY.OTHER, label: "Otros" },
 ] as const;
 
-type IncomeType = (typeof INCOME_TYPES)[number]["value"];
-
-export function IncomeForm({
-  onSubmit,
-  onCancel,
-  className,
-}: IncomeFormProps) {
+export function IncomeForm({ onSubmit, onCancel, className }: IncomeFormProps) {
   const [loading, setLoading] = useState(false);
-  const [incomeType, setIncomeType] = useState<IncomeType>("mensualidades");
-  const [customDescription, setCustomDescription] = useState("");
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split("T")[0],
+    category: "tuition" as IncomeCategory,
     description: "",
     amount: "",
-    reference: "",
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const getCreditAccount = (): string => {
-    const selected = INCOME_TYPES.find((t) => t.value === incomeType);
-    return selected?.creditAccount || "6115";
-  };
-
-  const getIncomeLabel = (): string => {
-    const selected = INCOME_TYPES.find((t) => t.value === incomeType);
-    return selected?.label || "Mensualidades";
-  };
-
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!formData.description || !formData.amount) {
+      if (!formData.description || !formData.amount || parseFloat(formData.amount) <= 0) {
         return;
       }
 
       setLoading(true);
       try {
-        // Get credit account based on income type
-        const creditAccount = getCreditAccount();
-
         await onSubmit({
           date: formData.date,
+          category: formData.category,
           description: formData.description,
           amount: parseFloat(formData.amount),
-          debit_account: "1105", // Caja
-          credit_account: creditAccount,
-          entry_type: "manual",
-          reference: formData.reference || `ING-${Date.now()}`,
         });
-        // Reset form
         setFormData({
           date: new Date().toISOString().split("T")[0],
+          category: "tuition",
           description: "",
           amount: "",
-          reference: "",
         });
-        setIncomeType("mensualidades");
-        setCustomDescription("");
       } finally {
         setLoading(false);
       }
     },
-    [formData, incomeType, customDescription, onSubmit]
+    [formData, onSubmit]
   );
-
-  // Show custom description input only for "otros"
-  const showCustomDescription = incomeType === "otros";
 
   return (
     <form
@@ -102,14 +67,10 @@ export function IncomeForm({
       className={cn("space-y-4 rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}
     >
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Registrar Ingreso</h3>
-        <p className="text-sm text-[var(--color-foreground)]/60">
-          Registra ingresos por diferentes conceptos
-        </p>
+        <h3 className="text-lg font-semibold text-[var(--color-foreground)]">Nuevo Ingreso</h3>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Date */}
         <div>
           <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
             Fecha
@@ -124,98 +85,55 @@ export function IncomeForm({
           />
         </div>
 
-        {/* Income Type Selector */}
         <div>
           <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-            Tipo de Ingreso
+            Categoría
           </label>
           <select
-            value={incomeType}
-            onChange={(e) => setIncomeType(e.target.value as IncomeType)}
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
             className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            {INCOME_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
+            {INCOME_CATEGORIES.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Custom Description - only for "otros" */}
-        {showCustomDescription && (
-          <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-              Especificar Otherro Ingreso *
-            </label>
-            <input
-              type="text"
-              value={customDescription}
-              onChange={(e) => setCustomDescription(e.target.value)}
-              placeholder="Ej: Donación, venta de activo, etc."
-              required={showCustomDescription}
-              className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-        )}
-
-        {/* Reference */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-            Referencia
-          </label>
-          <input
-            type="text"
-            name="reference"
-            value={formData.reference}
-            onChange={handleChange}
-            placeholder="ING-0001"
-            className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Description */}
         <div className="md:col-span-2">
           <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-            Descripción *
+            Descripción
           </label>
           <input
             type="text"
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="Ej: Mensualidad Enero - Juan Pérez"
+            placeholder="Ej: Mensualidad - Juan Pérez"
             required
             className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
 
-        {/* Amount */}
         <div>
           <label className="mb-1 block text-sm font-medium text-[var(--color-foreground)]">
-            Monto (COP) *
+            Monto (S/)
           </label>
           <input
             type="number"
             name="amount"
             value={formData.amount}
             onChange={handleChange}
-            placeholder="0"
+            placeholder="0.00"
             step="0.01"
-            min="0"
+            min="0.01"
             required
             className="w-full rounded-md border border-[var(--color-foreground)]/30 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
-      </div>
-
-      {/* Info box - showing automatic accounts */}
-      <div className="rounded-md bg-[var(--color-primary)]/10 p-3 text-sm text-[var(--color-primary)]">
-        <p className="font-medium">Cuentas contables automáticas:</p>
-        <ul className="mt-1 list-inside list-disc">
-          <li>Débitos (entrada): 1105 - Caja</li>
-          <li>Créditos (ingreso): {getCreditAccount()} - {getIncomeLabel()}</li>
-        </ul>
       </div>
 
       <div className="flex justify-end gap-3 pt-4">
@@ -236,7 +154,7 @@ export function IncomeForm({
             loading && "cursor-not-allowed opacity-50"
           )}
         >
-          {loading ? "Guardando..." : "Registrar Ingreso"}
+          {loading ? "Guardando..." : "Guardar"}
         </button>
       </div>
     </form>
