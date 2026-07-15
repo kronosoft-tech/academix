@@ -7,6 +7,8 @@ import type { Student } from "../../../shared/types/Student";
 import { Button } from "../../../shared/ui/components/Button";
 import GroupAttendanceStatsView from "./GroupAttendanceStatsView";
 import DailyAttendanceForm from "./DailyAttendanceForm";
+import AtRiskStudentsWidget from "./AtRiskStudentsWidget";
+import { useAttendanceThreshold } from "../../students/hooks/useAttendanceThreshold";
 
 interface Props {
   groupId: string;
@@ -33,6 +35,7 @@ export default function GroupDetailInline({
   const course = courses.find((c) => c.id === group?.courseId);
   const professor = users.find((u) => u.id === group?.professorId);
   const [attendanceView, setAttendanceView] = useState<AttendanceView>("stats");
+  const { threshold } = useAttendanceThreshold();
 
   const professorName = professor?.name || "No asignado";
 
@@ -135,11 +138,14 @@ export default function GroupDetailInline({
             totalStudents={groupStudents.length}
           />
         ) : (
-          <DailyAttendanceForm
-            groupId={groupId}
-            students={groupStudents}
-            onRefresh={() => {}}
-          />
+          <div>
+            <AtRiskStudentsWidget groupId={groupId} threshold={threshold} />
+            <DailyAttendanceForm
+              groupId={groupId}
+              students={groupStudents}
+              onRefresh={() => {}}
+            />
+          </div>
         )}
       </div>
     </div>
