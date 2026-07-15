@@ -1,5 +1,3 @@
-// Accounting Module Hooks - Phase 6 Export
+// Accounting Module Hooks
 
 export { useAccounting } from "./useAccounting";
-export { useEmployees } from "./useEmployees";
-export { usePayroll } from "./usePayroll";
