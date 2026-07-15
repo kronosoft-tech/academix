@@ -4,11 +4,15 @@ import { Card } from "../../../shared/ui/components/Card";
 import { Button } from "../../../shared/ui/components/Button";
 import { Input } from "../../../shared/ui/components/Input";
 import { Spinner } from "../../../shared/ui/components/Spinner";
+import { UserEditModal } from "../components/UserEditModal";
+import type { User } from "../../../shared/types/User";
 
 export default function UsersPage() {
-  const { users, isLoading, error, createUser, refetch } = useUsers();
+  const { users, isLoading, error, createUser, updateUser, deleteUser, resetPassword, refetch } = useUsers();
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -17,11 +21,14 @@ export default function UsersPage() {
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users
+    .filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,12 +124,27 @@ export default function UsersPage() {
         </Card>
       )}
 
-      <div className="mb-4">
-        <Input
-          placeholder="Buscar usuarios..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="mb-4 flex gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Buscar usuarios..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="w-48">
+          <select
+            className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-[var(--color-background)] text-[var(--color-foreground)]"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="all">Todos los roles</option>
+            <option value="admin">Administrador</option>
+            <option value="gerente">Gerente</option>
+            <option value="empleado">Empleado</option>
+            <option value="profesor">Profesor</option>
+          </select>
+        </div>
       </div>
 
       {filteredUsers.length === 0 ? (
@@ -182,9 +204,28 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button className="text-[var(--color-primary)] hover:text-[var(--color-primary)] mr-3">Editar</button>
-                    <button className="text-red-600 hover:text-red-900">Eliminar</button>
-                  </td>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingUser(user)}
+                        className="text-[var(--color-primary)] hover:text-[var(--color-primary)] mr-3"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm("¿Estás seguro de eliminar este usuario?")) {
+                            deleteUser(user.id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                        disabled={user.role === "admin"}
+                      >
+                        Eliminar
+                      </Button>
+                    </td>
                 </tr>
               ))}
             </tbody>
@@ -197,6 +238,15 @@ export default function UsersPage() {
           Actualizar
         </Button>
       </div>
+
+      <UserEditModal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        user={editingUser}
+        onSave={updateUser}
+        onDelete={deleteUser}
+        onResetPassword={resetPassword}
+      />
     </div>
   );
 }

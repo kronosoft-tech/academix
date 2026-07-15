@@ -17,6 +17,7 @@ interface UseUsersReturn {
   createUser: (data: CreateUserInput) => Promise<{ success: boolean; error?: string }>;
   updateUser: (id: string, data: UpdateUserInput) => Promise<{ success: boolean; error?: string }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (id: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   refetch: () => void;
 }
 
@@ -30,6 +31,8 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string;
   email?: string;
+  role?: string;
+  password?: string;
 }
 
 function mapBackendToFrontend(dto: BackendUserDto): User {
@@ -115,6 +118,8 @@ export function useUsers(): UseUsersReturn {
         request: {
           name: data.name ?? null,
           email: data.email ?? null,
+          role: data.role ?? null,
+          password: data.password ?? null,
         },
       });
 
@@ -152,6 +157,35 @@ export function useUsers(): UseUsersReturn {
     }
   };
 
+  const resetPassword = async (id: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true);
+    try {
+      const response = await invoke<{
+        success: boolean;
+        data: BackendUserDto | null;
+        error: string | null;
+      }>("update_user", {
+        id,
+        request: {
+          name: null,
+          email: null,
+          role: null,
+          password: newPassword,
+        },
+      });
+
+      if (response.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || "Failed to reset password" };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Failed to reset password" };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     users,
     isLoading,
@@ -159,6 +193,7 @@ export function useUsers(): UseUsersReturn {
     createUser,
     updateUser,
     deleteUser,
+    resetPassword,
     refetch: fetchUsers,
   };
 }
