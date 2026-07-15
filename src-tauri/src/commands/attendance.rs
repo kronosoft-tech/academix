@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::application::dto::{
-    AttendanceDto, CreateAttendanceRequest, GroupAttendanceStats, UpdateAttendanceRequest,
+    AttendanceDto, CreateAttendanceRequest, GroupAttendanceStats, StudentAbsenceCountDto,
+    UpdateAttendanceRequest,
 };
 use crate::application::use_cases::AttendanceService;
 use crate::infrastructure::repositories::SqliteAttendanceRepository;
@@ -51,6 +52,22 @@ pub struct AttendanceListCommandResponse {
 pub struct GroupAttendanceStatsResponse {
     pub success: bool,
     pub data: Option<GroupAttendanceStats>,
+    pub error: Option<String>,
+}
+
+/// Absence count response
+#[derive(Debug, Serialize)]
+pub struct AbsenceCountResponse {
+    pub success: bool,
+    pub data: Option<i32>,
+    pub error: Option<String>,
+}
+
+/// Group absence counts response
+#[derive(Debug, Serialize)]
+pub struct GroupAbsenceCountsResponse {
+    pub success: bool,
+    pub data: Option<Vec<StudentAbsenceCountDto>>,
     pub error: Option<String>,
 }
 
@@ -229,6 +246,47 @@ pub fn get_group_attendance_stats(
             error: None,
         },
         Err(e) => GroupAttendanceStatsResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Count student absences in a group
+#[tauri::command]
+pub fn count_student_absences(
+    state: State<AttendanceServiceState>,
+    student_id: String,
+    group_id: String,
+) -> AbsenceCountResponse {
+    match state.count_student_absences(&student_id, &group_id) {
+        Ok(count) => AbsenceCountResponse {
+            success: true,
+            data: Some(count),
+            error: None,
+        },
+        Err(e) => AbsenceCountResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Count group absences (all students)
+#[tauri::command]
+pub fn count_group_absences(
+    state: State<AttendanceServiceState>,
+    group_id: String,
+) -> GroupAbsenceCountsResponse {
+    match state.count_group_absences(&group_id) {
+        Ok(counts) => GroupAbsenceCountsResponse {
+            success: true,
+            data: Some(counts),
+            error: None,
+        },
+        Err(e) => GroupAbsenceCountsResponse {
             success: false,
             data: None,
             error: Some(e.to_string()),
