@@ -8,12 +8,10 @@ import PaymentsPage from "../../features/payments/routes/PaymentsPage";
 import AttendancePage from "../../features/attendance/routes/AttendancePage";
 import UsersPage from "../../features/users/routes/UsersPage";
 import AccountingPage from "../../features/accounting/routes/AccountingPage";
-import EmployeesPage from "../../features/accounting/routes/EmployeesPage";
-import PayrollPage from "../../features/accounting/routes/PayrollPage";
-import ReportsPage from "../../features/accounting/routes/ReportsPage";
 import SettingsPage from "../pages/settings/SettingsPage";
+import ProfilePage from "../pages/profile/ProfilePage";
 
-type Page = "dashboard" | "students" | "courses" | "groups" | "payments" | "attendance" | "users" | "accounting" | "employees" | "payroll" | "reports" | "settings";
+type Page = "dashboard" | "students" | "courses" | "groups" | "payments" | "attendance" | "users" | "accounting" | "settings" | "profile";
 
 interface NavItem {
   name: string;
@@ -29,14 +27,9 @@ const allNavigation: NavItem[] = [
   { name: "Pagos", page: "payments", allowedRoles: ["admin", "gerente", "empleado"] },
   { name: "Asistencia", page: "attendance" },
   { name: "Contabilidad", page: "accounting", allowedRoles: ["admin", "gerente"] },
-  { name: "Empleados", page: "employees", allowedRoles: ["admin", "gerente"] },
-  { name: "Nómina", page: "payroll", allowedRoles: ["admin", "gerente"] },
-  { name: "Reportes", page: "reports", allowedRoles: ["admin", "gerente"] },
   { name: "Usuarios", page: "users", allowedRoles: ["admin", "gerente"] },
-  { name: "Configuración", page: "settings" },
 ];
 
-// Simple icon components inline
 const DashboardIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -85,24 +78,6 @@ const AccountingIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const EmployeesIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-);
-
-const PayrollIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-  </svg>
-);
-
-const ReportsIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-  </svg>
-);
-
 const SettingsIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -110,9 +85,9 @@ const SettingsIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const LogoutIcon = ({ className }: { className?: string }) => (
+const LoginIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1m5 4v.01" />
   </svg>
 );
 
@@ -125,15 +100,14 @@ const icons: Record<Page, React.FC<{ className?: string }>> = {
   attendance: AttendanceIcon,
   users: UsersIcon,
   accounting: AccountingIcon,
-  employees: EmployeesIcon,
-  payroll: PayrollIcon,
-  reports: ReportsIcon,
   settings: SettingsIcon,
+  profile: LoginIcon,
 };
 
 export default function MainLayout() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const navigation = allNavigation.filter((item) => {
     if (!item.allowedRoles) return true;
@@ -160,21 +134,19 @@ export default function MainLayout() {
       case "payments": return <PaymentsPage />;
       case "attendance": return <AttendancePage />;
       case "accounting": return <AccountingPage />;
-      case "employees": return <EmployeesPage />;
-      case "payroll": return <PayrollPage />;
-      case "reports": return <ReportsPage />;
       case "users": return <UsersPage />;
       case "settings": return <SettingsPage />;
+      case "profile": return <ProfilePage />;
       default: return <DashboardPage />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
+    <div className="min-h-screen bg-background">
       <div className="flex">
-        <aside className="w-64 bg-[var(--color-background)] border-r border-[var(--color-foreground)]/20 fixed inset-y-0 left-0">
-          <div className="h-16 flex items-center px-6 border-b border-[var(--color-foreground)]/20">
-            <h1 className="text-xl font-bold text-[var(--color-primary)]">Academix</h1>
+        <aside className="w-64 bg-background border-r border-foreground/20 fixed inset-y-0 left-0">
+          <div className="h-16 flex items-center px-6 border-b border-foreground/20">
+            <h1 className="text-xl font-bold text-primary">Academix</h1>
           </div>
           <nav className="p-4 space-y-1">
             {navigation.map((item) => {
@@ -183,11 +155,10 @@ export default function MainLayout() {
                 <button
                   key={item.name}
                   onClick={() => setCurrentPage(item.page)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === item.page
-                      ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                      : "text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === item.page
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-secondary/10"
+                    }`}
                 >
                   <NavIcon className="h-5 w-5" />
                   {item.name}
@@ -196,32 +167,72 @@ export default function MainLayout() {
             })}
           </nav>
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--color-foreground)]/20">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-8 w-8 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-[var(--color-primary)]">
-                  {user?.name?.charAt(0) || "U"}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--color-foreground)] truncate">
-                  {user?.name || "Usuario"}
-                </p>
-                <p className="text-xs text-[var(--color-foreground)]/60 truncate capitalize">
-                  {user?.role ? roleLabels[user.role] || user.role : "Usuario"}
-                </p>
-              </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="w-full flex items-center gap-3 hover:bg-[var(--color-secondary)]/10 rounded-lg p-2 transition-colors"
+              >
+                <div className="h-8 w-8 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center">
+                  <span className="text-sm font-medium text-[var(--color-primary)]">
+                    {user?.name?.charAt(0) || "U"}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-[var(--color-foreground)] truncate">
+                    {user?.name || "Usuario"}
+                  </p>
+                  <p className="text-xs text-[var(--color-foreground)]/60 truncate capitalize">
+                    {user?.role ? roleLabels[user.role] || user.role : "Usuario"}
+                  </p>
+                </div>
+                <svg className="h-4 w-4 text-[var(--color-foreground)]/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-[var(--color-background)] border border-[var(--color-foreground)]/20 rounded-lg shadow-lg overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setCurrentPage("profile");
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Mi Perfil
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentPage("settings");
+                      setShowUserMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10 transition-colors"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Configuración
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-[var(--color-foreground)]/20"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]/10 rounded-lg transition-colors"
-            >
-              <LogoutIcon className="h-4 w-4" />
-              Cerrar sesión
-            </button>
           </div>
         </aside>
 
-        <main className="flex-1 ml-64 p-6 bg-[var(--color-background)]">
+        <main className="flex-1 ml-64 p-6 bg-background">
           {renderPage()}
         </main>
       </div>
