@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStudents } from "../hooks/useStudents";
 import { useGroups } from "../../groups/hooks/useGroups";
 import { useCourses } from "../../courses/hooks/useCourses";
 import { usePayments } from "../../payments/hooks/usePayments";
+import { useStudentAbsences } from "../hooks/useStudentAbsences";
+import { useAttendanceThreshold } from "../hooks/useAttendanceThreshold";
 import { Card } from "../../../shared/ui/components/Card";
 import { Button } from "../../../shared/ui/components/Button";
 import { Input } from "../../../shared/ui/components/Input";
 import { Spinner } from "../../../shared/ui/components/Spinner";
 import { SearchableSelect } from "../../../shared/ui/components/SearchableSelect";
 import { Modal } from "../../../shared/ui/components/Modal";
+import { AttendanceWarningBadge } from "../components/AttendanceWarningBadge";
+import { AttendanceThresholdSettings } from "../components/AttendanceThresholdSettings";
 import type { Student } from "../../../shared/types/Student";
 
 interface PaymentStatus {
@@ -32,8 +36,30 @@ export default function StudentsPage() {
   const { groups } = useGroups();
   const { courses } = useCourses();
   const { payments, isLoading: paymentsLoading } = usePayments();
+  const { getGroupAbsenceCounts, isLoading: absencesLoading } = useStudentAbsences();
+  const { threshold } = useAttendanceThreshold();
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [absenceCounts, setAbsenceCounts] = useState<Map<string, number>>(new Map());
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Fetch absence counts for all groups the students belong to
+  useEffect(() => {
+    const fetchAllAbsences = async () => {
+      const groupIds = new Set(students.map((s) => s.groupId).filter(Boolean) as string[]);
+      const newCounts = new Map<string, number>();
+      for (const gid of groupIds) {
+        const counts = await getGroupAbsenceCounts(gid);
+        for (const c of counts) {
+          newCounts.set(c.studentId, c.absenceCount);
+        }
+      }
+      setAbsenceCounts(newCounts);
+    };
+    if (students.length > 0) {
+      fetchAllAbsences();
+    }
+  }, [students, getGroupAbsenceCounts]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -300,6 +326,17 @@ export default function StudentsPage() {
         </div>
       )}
 
+      {/* Settings Toggle */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="text-sm text-[var(--color-primary)] hover:underline"
+        >
+          {showSettings ? "Ocultar configuración" : "Configuración de asistencia"}
+        </button>
+        {showSettings && <AttendanceThresholdSettings />}
+      </div>
+
       {/* Search Bar */}
       <div className="mb-4">
         <Input
@@ -332,6 +369,9 @@ export default function StudentsPage() {
                   Teléfono
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
+                  Asistencia
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Estado
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
@@ -342,13 +382,13 @@ export default function StudentsPage() {
             <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
               {paymentsLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
+                  <td colSpan={8} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
                     Cargando pagos...
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
+                  <td colSpan={8} className="px-4 py-8 text-center text-[var(--color-foreground)]/60">
                     {searchTerm ? "No se encontraron estudiantes" : "No hay estudiantes registrados"}
                   </td>
                 </tr>
@@ -371,6 +411,17 @@ export default function StudentsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-[var(--color-foreground)]/60">
                         {student.phone || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {absencesLoading ? (
+                          <span className="text-[var(--color-foreground)]/60">...</span>
+                        ) : (
+                          <AttendanceWarningBadge
+                            absenceCount={absenceCounts.get(student.id) || 0}
+                            threshold={threshold}
+                            showCount={true}
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         {paymentStatus.isPaid ? (
@@ -670,6 +721,32 @@ export default function StudentsPage() {
                 </div>
               </div>
             )}
+
+            {/* Attendance Info */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-2">Asistencia</h4>
+              {selectedStudent.groupId ? (
+                <div className="bg-[var(--color-foreground)]/5 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-[var(--color-foreground)]">
+                      {selectedStudentGroup?.name || selectedStudent.groupId}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[var(--color-foreground)]/60">
+                        {absenceCounts.get(selectedStudent.id) || 0} faltas
+                      </span>
+                      <AttendanceWarningBadge
+                        absenceCount={absenceCounts.get(selectedStudent.id) || 0}
+                        threshold={threshold}
+                        showCount={false}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--color-foreground)]/60">Sin grupo asignado</p>
+              )}
+            </div>
 
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-3">Estado de pagos</h4>
