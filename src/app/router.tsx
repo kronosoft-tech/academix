@@ -1,13 +1,19 @@
 import { createHashRouter, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
-// Create router with hash routing for Tauri (no server needed)
 export const router = createHashRouter([
   {
     path: "/login",
     lazy: async () => {
       const { default: LoginPage } = await import("../features/auth/routes/LoginPage");
       return { Component: LoginPage };
+    },
+  },
+  {
+    path: "/register",
+    lazy: async () => {
+      const { default: RegisterPage } = await import("../features/auth/routes/RegisterPage");
+      return { Component: RegisterPage };
     },
   },
   {
@@ -86,20 +92,6 @@ export const router = createHashRouter([
         },
       },
       {
-        path: "employees",
-        lazy: async () => {
-          const { default: EmployeesPage } = await import("../features/accounting/routes/EmployeesPage");
-          return { Component: EmployeesPage };
-        },
-      },
-      {
-        path: "payroll",
-        lazy: async () => {
-          const { default: PayrollPage } = await import("../features/accounting/routes/PayrollPage");
-          return { Component: PayrollPage };
-        },
-      },
-      {
         path: "attendance",
         lazy: async () => {
           const { default: AttendancePage } = await import("../features/attendance/routes/AttendancePage");
@@ -121,7 +113,6 @@ export const router = createHashRouter([
   },
 ]);
 
-// Wrapper component for lazy loading MainLayout
 async function MainLayoutWrapper() {
   const { default: MainLayout } = await import("./layouts/MainLayout");
   return <MainLayout />;
