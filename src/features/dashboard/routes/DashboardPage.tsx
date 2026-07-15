@@ -27,7 +27,7 @@ export default function DashboardPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold text-[var(--color-foreground)] mb-6">Dashboard</h1>
 
-      <div 
+      <div
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
       >
         <StatCard
@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <h2 className="text-lg font-semibold text-[var(--color-foreground)] mb-4">Acciones Rápidas</h2>
-      <div 
+      <div
         className="grid grid-cols-1 md:grid-cols-3 gap-4"
       >
         <QuickActionCard
