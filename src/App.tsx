@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { HashRouter } from "react-router-dom";
 import { AuthProvider, useAuth } from "./shared/hooks/useAuth";
 import LoginPage from "./features/auth/routes/LoginPage";
 import MainLayout from "./app/layouts/MainLayout";
@@ -29,8 +30,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <HashRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </HashRouter>
   );
 }
