@@ -157,4 +157,35 @@ impl AttendanceRepository for SqliteAttendanceRepository {
             )
             .map_err(|e| DomainError::Validation(e.to_string()))
     }
+
+    fn count_absences_by_student_and_group(
+        &self,
+        student_id: &str,
+        group_id: &str,
+    ) -> Result<i32, DomainError> {
+        let sql = "SELECT COUNT(*) FROM attendance
+                   WHERE student_id = ? AND group_id = ? AND status = 'absent'";
+
+        self.pool
+            .query_row(sql, &[&student_id, &group_id], |row| row.get::<_, i32>(0))
+            .map_err(|e| DomainError::Validation(e.to_string()))?
+            .ok_or_else(|| DomainError::Validation("Count query returned no result".to_string()))
+    }
+
+    fn count_absences_by_group(
+        &self,
+        group_id: &str,
+    ) -> Result<Vec<(String, i32)>, DomainError> {
+        let sql = "SELECT student_id, COUNT(*) as absence_count FROM attendance
+                   WHERE group_id = ? AND status = 'absent'
+                   GROUP BY student_id";
+
+        self.pool
+            .query(sql, &[&group_id], |row| {
+                let student_id: String = row.get(0)?;
+                let count: i32 = row.get(1)?;
+                Ok((student_id, count))
+            })
+            .map_err(|e| DomainError::Validation(e.to_string()))
+    }
 }
