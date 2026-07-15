@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { Button, Input, Card } from "../../../shared/ui";
 import { validateEmailWithMessage } from "../../../shared/utils/validateEmail";
@@ -10,6 +11,7 @@ export function LoginForm() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +71,17 @@ export function LoginForm() {
           Iniciar sesión
         </Button>
       </form>
+
+      <div className="mt-4 text-center text-sm">
+        <span className="text-[var(--color-foreground)]/60">¿No tienes cuenta? </span>
+        <button
+          type="button"
+          onClick={() => navigate("/register")}
+          className="text-[var(--color-primary)] hover:underline font-medium"
+        >
+          Regístrate
+        </button>
+      </div>
     </Card>
   );
 }
