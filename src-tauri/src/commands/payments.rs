@@ -3,21 +3,18 @@
 //! Tauri commands for payment management.
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tauri::State;
 
 use chrono::Utc;
-use crate::application::dto::accounting::CreateEntryRequest;
+use crate::application::dto::accounting::{CreateEntryRequest, AccountingEntryDto};
 use crate::application::dto::{
     CreatePaymentRequest, PaymentDto, PaymentStatusDto, UpdatePaymentRequest,
 };
-use crate::application::ports::accounting::AccountingEntryRepository;
 use crate::application::use_cases::AccountingService;
 use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
-    SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteCourseRepository,
+    SqliteAccountingEntryRepository, SqliteCourseRepository,
     SqliteGroupRepository, SqlitePaymentRepository,
-    SqliteLiabilityRepository, SqliteEquityRepository,
 };
 
 pub type PaymentServiceState =
@@ -166,7 +163,6 @@ pub fn update_payment(
     id: String,
     request: UpdatePaymentRequest,
     accounting_entry_state: State<SqliteAccountingEntryRepository>,
-    accounting_category_state: State<SqliteAccountCategoryRepository>,
 ) -> PaymentCommandResponse {
     let update_result = state.update(
         &id,
@@ -180,39 +176,29 @@ pub fn update_payment(
     match update_result {
         Ok(payment) => {
             // If status is "paid", automatically create accounting entry
-            // Only create if there's no existing entry for this payment
             if request.status.as_deref() == Some("paid") {
-                let pool = accounting_entry_state.inner().pool();
-                let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
-                let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
                 let accounting_service = AccountingService::new(
                     accounting_entry_state.inner().clone(),
-                    accounting_category_state.inner().clone(),
-                    liability_repo,
-                    equity_repo,
                 );
 
-                // Check if an entry already exists for this payment
-                let existing_entries = accounting_entry_state
-                    .inner()
-                    .get_by_related(&payment.id, "payment")
-                    .unwrap_or_default();
+                // Check if an entry already exists for this payment (by reference)
+                let existing_entries = list_accounting_entries_by_reference(
+                    accounting_entry_state.inner(),
+                    &payment.id,
+                );
 
                 if existing_entries.is_empty() {
-                    // Create entry: Debit Cash (1105), Credit Income (6115 - Mensualidades)
+                    // Create entry: Income type, tuition category
                     let entry_request = CreateEntryRequest {
-date: Utc::now().format("%Y-%m-%d").to_string(),
+                        date: Utc::now().format("%Y-%m-%d").to_string(),
+                        entry_type: "income".to_string(),
+                        category: "tuition".to_string(),
                         description: format!("Pago estudiante - {}", id),
-                        debit_account: "1105".to_string(),  // Caja
-                        credit_account: "6115".to_string(), // Mensualidades
                         amount: payment.amount,
-                        entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
-                        reference: request.reference.or(Some(format!("PAG-{}", &id[..8]))),
-                        related_id: Some(payment.id.clone()),
-                        related_type: Some("payment".to_string()),
+                        reference: Some(format!("PAG-{}", &payment.id[..8.min(payment.id.len())])),
                     };
 
-                    match accounting_service.create_entry(entry_request, "system".to_string()) {
+                    match accounting_service.create_entry(entry_request) {
                         Ok(_entry) => {
                             // Success - payment updated and accounting entry created
                         }
@@ -250,8 +236,8 @@ pub fn delete_payment(
     id: String,
     accounting_entry_state: State<SqliteAccountingEntryRepository>,
 ) -> PaymentCommandResponse {
-    // First, delete related accounting entries (cascade delete)
-    if let Err(e) = accounting_entry_state.inner().delete_by_related(&id, "payment") {
+    // First, delete related accounting entries by reference
+    if let Err(e) = delete_accounting_entries_by_reference(accounting_entry_state.inner(), &id) {
         eprintln!("[DEBUG] Failed to delete related accounting entries: {}", e);
         // Continue anyway - we want to delete the payment
     }
@@ -271,15 +257,12 @@ pub fn delete_payment(
 }
 
 /// Register payment and create accounting entry automatically
-/// This is used when a payment is received - marks it as paid and creates
-/// an accounting entry for the income (e.g., monthly fee)
 #[tauri::command]
 pub fn register_payment_with_income(
     state: State<PaymentServiceState>,
     payment_id: String,
     reference: String,
     accounting_entry_state: State<SqliteAccountingEntryRepository>,
-    accounting_category_state: State<SqliteAccountCategoryRepository>,
 ) -> PaymentCommandResponse {
     // First update payment to "paid" status
     let update_result = state.update(
@@ -294,30 +277,21 @@ pub fn register_payment_with_income(
     match update_result {
         Ok(_payment) => {
             // Now create accounting entry for the income
-            let pool = accounting_entry_state.inner().pool();
-            let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
-            let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
             let accounting_service = AccountingService::new(
                 accounting_entry_state.inner().clone(),
-                accounting_category_state.inner().clone(),
-                liability_repo,
-                equity_repo,
             );
 
-            // Create entry: Debit to Cash/Bank (1105), Credit to Income (6115 - Mensualidades)
+            // Create entry: Income type, tuition category
             let entry_request = CreateEntryRequest {
                 date: Utc::now().format("%Y-%m-%d").to_string(),
+                entry_type: "income".to_string(),
+                category: "tuition".to_string(),
                 description: format!("Pago {}", _payment.student_id),
-                debit_account: "1105".to_string(),  // Caja
-                credit_account: "6115".to_string(), // Mensualidades
                 amount: _payment.amount,
-                entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
                 reference: Some(format!("PAG-{}", reference)),
-                related_id: Some(_payment.id.clone()),
-                related_type: Some("payment".to_string()),
             };
 
-            match accounting_service.create_entry(entry_request, "system".to_string()) {
+            match accounting_service.create_entry(entry_request) {
                 Ok(_entry) => PaymentCommandResponse {
                     success: true,
                     data: Some(_payment),
@@ -325,7 +299,6 @@ pub fn register_payment_with_income(
                 },
                 Err(e) => {
                     // Payment was updated but accounting entry failed
-                    // Still return success but log the error
                     PaymentCommandResponse {
                         success: true,
                         data: Some(_payment),
@@ -352,8 +325,6 @@ pub struct PaymentStatusCommandResponse {
     pub data: Option<PaymentStatusDto>,
     pub error: Option<String>,
 }
-
-/// Get student payment status
 
 /// Payment status list command response
 #[derive(Debug, Serialize)]
@@ -413,13 +384,10 @@ pub struct SyncPaymentsAccountingResponse {
 }
 
 /// Sync existing paid payments to accounting entries
-/// This migration creates accounting entries for payments that were marked as "paid"
-/// before the automatic accounting integration was enabled
 #[tauri::command]
 pub fn sync_payments_to_accounting(
     state: State<PaymentServiceState>,
     accounting_entry_state: State<SqliteAccountingEntryRepository>,
-    accounting_category_state: State<SqliteAccountCategoryRepository>,
 ) -> SyncPaymentsAccountingResponse {
     eprintln!("[DEBUG] Starting payment-to-accounting sync");
 
@@ -437,14 +405,8 @@ pub fn sync_payments_to_accounting(
         }
     };
 
-    let pool = accounting_entry_state.inner().pool();
-    let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
-    let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
     let accounting_service = AccountingService::new(
         accounting_entry_state.inner().clone(),
-        accounting_category_state.inner().clone(),
-        liability_repo,
-        equity_repo,
     );
 
     let mut synced = 0;
@@ -458,10 +420,10 @@ pub fn sync_payments_to_accounting(
         }
 
         // Check if entry already exists for this payment
-        let existing = accounting_entry_state
-            .inner()
-            .get_by_related(&payment.id, "payment")
-            .unwrap_or_default();
+        let existing = list_accounting_entries_by_reference(
+            accounting_entry_state.inner(),
+            &payment.id,
+        );
 
         if !existing.is_empty() {
             eprintln!(
@@ -480,22 +442,19 @@ pub fn sync_payments_to_accounting(
 
         // Get reference or generate one
         let reference = payment.reference.clone()
-            .or_else(|| Some(format!("PAG-{}", &payment.id[..8])));
+            .or_else(|| Some(format!("PAG-{}", &payment.id[..8.min(payment.id.len())])));
 
         // Create accounting entry
         let entry_request = CreateEntryRequest {
             date: date_str,
+            entry_type: "income".to_string(),
+            category: "tuition".to_string(),
             description: format!("Pago estudiante - {}", payment.student_id),
-            debit_account: "1105".to_string(),  // Caja
-            credit_account: "6115".to_string(), // Mensualidades
             amount: payment.amount,
-            entry_type: Some(crate::domain::entities::accounting::EntryType::Automatic),
             reference,
-            related_id: Some(payment.id.clone()),
-            related_type: Some("payment".to_string()),
         };
 
-        match accounting_service.create_entry(entry_request, "system".to_string()) {
+        match accounting_service.create_entry(entry_request) {
             Ok(_) => {
                 eprintln!("[DEBUG] Created accounting entry for payment {}", payment.id);
                 synced += 1;
@@ -520,4 +479,38 @@ pub fn sync_payments_to_accounting(
         skipped,
         error: None,
     }
+}
+
+// Helper functions for accounting entry operations by reference
+
+fn list_accounting_entries_by_reference(
+    repo: &SqliteAccountingEntryRepository,
+    payment_id: &str,
+) -> Vec<AccountingEntryDto> {
+    use crate::application::ports::accounting::AccountingEntryRepository;
+
+    match repo.list(None, None, None) {
+        Ok(entries) => entries
+            .into_iter()
+            .filter(|e| {
+                e.reference.as_ref().map(|r| r.starts_with("PAG-")).unwrap_or(false)
+                    && e.description.contains(&payment_id[..8.min(payment_id.len())])
+            })
+            .map(|e| AccountingEntryDto::from(e))
+            .collect(),
+        Err(_) => vec![],
+    }
+}
+
+fn delete_accounting_entries_by_reference(
+    repo: &SqliteAccountingEntryRepository,
+    payment_id: &str,
+) -> Result<(), String> {
+    use crate::application::ports::accounting::AccountingEntryRepository;
+
+    let entries = list_accounting_entries_by_reference(repo, payment_id);
+    for entry in entries {
+        repo.delete(&entry.id)?;
+    }
+    Ok(())
 }

@@ -25,6 +25,8 @@ pub struct CreateUserCommand {
 pub struct UpdateUserCommand {
     pub name: Option<String>,
     pub email: Option<String>,
+    pub role: Option<String>,
+    pub password: Option<String>,
 }
 
 /// User response payload
@@ -102,30 +104,74 @@ pub fn list_users(state: State<UserServiceState>) -> UserListCommandResponse {
     }
 }
 
-/// Update user
+/// List users filtered by role
+#[tauri::command]
+pub fn list_users_by_role(state: State<UserServiceState>, role: String) -> UserListCommandResponse {
+    match state.list_by_role(&role) {
+        Ok(users) => UserListCommandResponse {
+            success: true,
+            data: Some(users),
+            error: None,
+        },
+        Err(e) => UserListCommandResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        },
+    }
+}
+
+/// Update user (admin: supports role and password changes)
 #[tauri::command]
 pub fn update_user(
     state: State<UserServiceState>,
     id: String,
     request: UpdateUserCommand,
 ) -> UserCommandResponse {
-    match state.update(
-        &id,
-        UpdateUserRequest {
-            name: request.name,
-            email: request.email,
-        },
-    ) {
-        Ok(user) => UserCommandResponse {
-            success: true,
-            data: Some(user),
-            error: None,
-        },
-        Err(e) => UserCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+    // If role or password is provided, use admin_update
+    if request.role.is_some() || request.password.is_some() {
+        match state.admin_update(
+            &id,
+            UpdateUserRequest {
+                name: request.name,
+                email: request.email,
+                role: request.role,
+                password: request.password,
+            },
+        ) {
+            Ok(user) => UserCommandResponse {
+                success: true,
+                data: Some(user),
+                error: None,
+            },
+            Err(e) => UserCommandResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            },
+        }
+    } else {
+        // Simple update without role/password changes
+        match state.update(
+            &id,
+            UpdateUserRequest {
+                name: request.name,
+                email: request.email,
+                role: None,
+                password: None,
+            },
+        ) {
+            Ok(user) => UserCommandResponse {
+                success: true,
+                data: Some(user),
+                error: None,
+            },
+            Err(e) => UserCommandResponse {
+                success: false,
+                data: None,
+                error: Some(e.to_string()),
+            },
+        }
     }
 }
 
