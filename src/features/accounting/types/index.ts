@@ -1,5 +1,3 @@
-// Accounting Module Types - Phase 6 Export
+// Accounting Module Types
 
 export * from "./accounting";
-export * from "./employees";
-export * from "./payroll";
