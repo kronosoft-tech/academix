@@ -25,6 +25,11 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
         }
     }
 
+    /// Get the user repository for direct access
+    pub fn user_repository(&self) -> &U {
+        &self.user_repository
+    }
+
     /// Authenticate user and create session
     pub fn login(&self, request: LoginRequest) -> Result<LoginResponse, ApplicationError> {
         // Find user by email
