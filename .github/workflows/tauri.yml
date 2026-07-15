@@ -4,14 +4,11 @@ on:
   push:
     branches:
       - release
+    tags:
+      - 'app-v*'
   pull_request:
     branches:
       - release
-
-  # Build on tags matching app-v* (e.g., app-v1.0.0)
-  tag:
-    tags:
-      - 'app-v*'
 
 permissions:
   contents: write
