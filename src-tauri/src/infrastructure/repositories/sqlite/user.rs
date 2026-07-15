@@ -62,22 +62,34 @@ impl SqliteUserRepository {
 }
 
 impl UserRepository for SqliteUserRepository {
+    fn pool(&self) -> Arc<SqlitePool> {
+        Arc::clone(&self.pool)
+    }
+
     fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_user)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn_ref = self.pool.connection();
+        let conn = conn_ref.lock().unwrap();
+        match conn.query_row(sql, [id], Self::row_to_user) {
+            Ok(user) => Ok(Some(user)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE email = ?";
 
-        self.pool
-            .query_row(sql, &[&email.as_str()], Self::row_to_user)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn_ref = self.pool.connection();
+        let conn = conn_ref.lock().unwrap();
+        match conn.query_row(sql, [email.as_str()], Self::row_to_user) {
+            Ok(user) => Ok(Some(user)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn save(&self, user: &User) -> Result<(), DomainError> {

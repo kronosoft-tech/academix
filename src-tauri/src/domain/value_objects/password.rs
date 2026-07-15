@@ -23,8 +23,8 @@ impl Password {
 
     /// Validate password strength (not hashed, for pre-hashing validation)
     pub fn validate_strength(password: &str) -> Result<(), String> {
-        if password.len() < 6 {
-            return Err("Password must be at least 6 characters".to_string());
+        if password.len() < 8 {
+            return Err("Password must be at least 8 characters".to_string());
         }
 
         if password.len() > 128 {
