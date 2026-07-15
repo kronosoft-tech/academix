@@ -1,7 +1,8 @@
 //! Attendance Use Cases
 
 use crate::application::dto::{
-    AttendanceDto, CreateAttendanceRequest, GroupAttendanceStats, UpdateAttendanceRequest,
+    AttendanceDto, CreateAttendanceRequest, GroupAttendanceStats, StudentAbsenceCountDto,
+    UpdateAttendanceRequest,
 };
 use crate::application::errors::ApplicationError;
 use crate::application::ports::AttendanceRepository;
@@ -242,5 +243,35 @@ impl<R: AttendanceRepository> AttendanceService<R> {
             total_students,
             total_sessions,
         })
+    }
+
+    /// Count absences for a student in a specific group
+    pub fn count_student_absences(
+        &self,
+        student_id: &str,
+        group_id: &str,
+    ) -> Result<i32, ApplicationError> {
+        let count = self
+            .attendance_repository
+            .count_absences_by_student_and_group(student_id, group_id)?;
+        Ok(count)
+    }
+
+    /// Count absences for all students in a group
+    pub fn count_group_absences(
+        &self,
+        group_id: &str,
+    ) -> Result<Vec<StudentAbsenceCountDto>, ApplicationError> {
+        let counts = self
+            .attendance_repository
+            .count_absences_by_group(group_id)?;
+
+        Ok(counts
+            .into_iter()
+            .map(|(student_id, absence_count)| StudentAbsenceCountDto {
+                student_id,
+                absence_count,
+            })
+            .collect())
     }
 }
