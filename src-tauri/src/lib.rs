@@ -9,29 +9,20 @@ pub mod env_loader;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AccountingService, AttendanceService, CourseService, EmployeeService, GroupService, InvoiceService,
-    PaymentService, PayrollService, StudentService, UserService,
+    AttendanceService, CourseService, GroupService, InvoiceService,
+    PaymentService, SettingsService, StudentService, UserService,
 };
-use commands::accounting::{
-    create_entry, get_account_tree, get_accounting_summary, get_entry, get_financial_balance,
-    get_income_statement, get_trial_balance, list_accounts, list_entries,
-};
-use commands::accounting_ext::{
-    create_equity, create_fixed_asset, create_liability, list_equities, list_liabilities, pay_liability,
-};
+use commands::accounting::{create_entry, get_entry, get_accounting_summary, list_entries, delete_entry};
 use commands::attendance::{
-    create_attendance, delete_attendance, get_attendance, get_group_attendance_stats,
-    list_attendance_by_group_date, list_attendance_by_student, list_attendances, update_attendance,
+    count_group_absences, count_student_absences, create_attendance, delete_attendance,
+    get_attendance, get_group_attendance_stats, list_attendance_by_group_date,
+    list_attendance_by_student, list_attendances, update_attendance,
 };
-use commands::auth::{login, logout, AppState as AuthAppState};
+use commands::auth::{change_password, login, logout, update_profile, AppState as AuthAppState};
 use commands::base::health;
 use commands::courses::{
     archive_course, create_course, delete_course, get_course, hard_delete_course,
     list_archived_courses, list_courses, restore_course, update_course,
-};
-use commands::employees::{
-    create_employee, delete_employee, get_employee, get_employee_summary, list_employees,
-    update_employee,
 };
 use commands::groups::{create_group, delete_group, get_group, list_groups, update_group};
 use commands::invoices::{
@@ -41,28 +32,25 @@ use commands::invoices::{
 use commands::payments::{
     create_payment, delete_payment, get_all_students_payment_summary, get_payment,
     get_student_payment_status, list_payments, list_payments_by_student, update_payment,
-    sync_payments_to_accounting,
 };
-use commands::payroll::{get_payroll_run, get_payroll_summary, list_payroll_runs, run_payroll};
-use commands::pdf::{export_financial_balance_pdf, export_income_statement_pdf};
+use commands::register::register_user;
+use commands::settings::{get_absence_threshold, set_absence_threshold};
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
 };
-use commands::users::{create_user, delete_user, get_user, list_users, update_user};
+use commands::users::{create_user, delete_user, get_user, list_users, list_users_by_role, update_user};
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
-    SqliteAccountCategoryRepository, SqliteAccountingEntryRepository, SqliteAttendanceRepository,
-    SqliteCourseRepository, SqliteEmployeeRepository, SqliteEquityRepository, SqliteGroupRepository,
-    SqliteInvoiceRepository, SqliteInvoiceLineRepository, SqliteLiabilityRepository,
-    SqlitePaymentRepository, SqlitePayrollEntryRepository, SqlitePayrollRepository,
-    SqliteStudentRepository, SqliteUserRepository,
+    SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
+    SqliteInvoiceRepository, SqliteInvoiceLineRepository,
+    SqlitePaymentRepository, SqliteSettingsRepository, SqliteStudentRepository,
+    SqliteUserRepository, SqliteAccountingEntryRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
 
 /// Get the database path in the app data directory
 fn get_db_path() -> PathBuf {
-    // Use app data directory for database
     let app_data = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("academix");
@@ -80,16 +68,6 @@ fn init_database() -> SqlitePool {
 
     let pool = SqlitePool::new(db_path.clone()).expect("Failed to create database pool");
 
-    // VERIFY FILE WAS CREATED
-    if !db_path.exists() {
-        eprintln!("[CRITICAL] DATABASE FILE DOES NOT EXIST after pool creation: {:?}", db_path);
-    } else {
-        let size = std::fs::metadata(&db_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
-        println!("[DB FILE] Created: {:?} ({} bytes)", db_path, size);
-    }
-
     let conn_ref = pool.connection();
     let conn = conn_ref.lock().unwrap();
 
@@ -100,7 +78,6 @@ fn init_database() -> SqlitePool {
                 Ok(_) => println!("Migration {} applied", $name),
                 Err(e) => {
                     let err_str = format!("{}", e);
-                    // Only warn for idempotent errors (column already exists)
                     if err_str.contains("duplicate column name") || err_str.contains("table students has no column") {
                         println!("Migration {} already applied (idempotent)", $name);
                     } else {
@@ -111,91 +88,47 @@ fn init_database() -> SqlitePool {
         };
     }
 
-    // Run initial schema migration (not idempotent - creates tables)
+    // Run initial schema migration
     let migration_sql = include_str!("../migrations/001_initial_schema.sql");
     conn.execute_batch(migration_sql)
         .expect("Failed to run initial schema migration");
 
-    // Run migration 003 - add guardian and schedule fields (idempotent)
+    // Run migrations 003-009 (existing)
     run_migration!(conn, "003", include_str!("../migrations/003_add_guardian_and_schedule_fields.sql"));
-
-    // Run migration 004 - add student enrollment columns (idempotent)
     run_migration!(conn, "004", include_str!("../migrations/004_add_student_enrollment_columns.sql"));
-
-    // Run migration 005 - add course price (idempotent)
     run_migration!(conn, "005", include_str!("../migrations/005_add_course_price.sql"));
-
-    // Run migration 006 - add group schedule fields (idempotent)
     run_migration!(conn, "006", include_str!("../migrations/006_add_group_schedule_fields.sql"));
-
-    // Run migration 007 - add start_date column to groups (idempotent)
     run_migration!(conn, "007", include_str!("../migrations/007_add_start_date_to_groups.sql"));
-
-    // Run migration 008 - fix groups table schema (add end_date) (idempotent)
     run_migration!(conn, "008", include_str!("../migrations/008_fix_groups_table_schema.sql"));
-
-    // Run migration 009 - make payments.due_date nullable (idempotent)
     run_migration!(conn, "009", include_str!("../migrations/009_make_payments_due_date_nullable.sql"));
 
-    // Run migration 010 - accounting schema (CREATE TABLE IF NOT EXISTS - idempotent)
+    // Run migration 010 - original accounting schema
     run_migration!(conn, "010", include_str!("../migrations/010_accounting_schema.sql"));
 
-    // Run migration 011 - accounting seed (PUC Colombian chart of accounts) (INSERT OR IGNORE - idempotent)
+    // Run migration 011 - accounting seed
     run_migration!(conn, "011", include_str!("../migrations/011_accounting_seed.sql"));
 
-    // Run migration 012 - liabilities and equity tables (CREATE TABLE IF NOT EXISTS - idempotent)
+    // Run migration 012 - liabilities and equity
     run_migration!(conn, "012", include_str!("../migrations/012_liabilities_equity_schema.sql"));
 
-    // Run migration 013 - fixed assets table (idempotent)
+    // Run migration 013 - fixed assets
     run_migration!(conn, "013", include_str!("../migrations/013_fixed_assets_schema.sql"));
 
-    // Run migration 014 - fixed assets accounts (15xx, 16xx)
+    // Run migration 014 - fixed assets accounts
     run_migration!(conn, "014", include_str!("../migrations/014_fixed_assets_accounts.sql"));
 
-    // Run migration 015 - pasivos accounts (21xx, 22xx)
+    // Run migration 015 - pasivos accounts
     run_migration!(conn, "015", include_str!("../migrations/015_pasivos_accounts.sql"));
 
-    // Verify accounts exist
-    let count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM account_categories", [], |row| {
-            row.get(0)
-        })
-        .unwrap_or(0);
-    println!("Total account categories in DB: {}", count);
+    // Run migration 016 - simplify accounting schema
+    run_migration!(conn, "016", include_str!("../migrations/016_simplify_accounting_schema.sql"));
 
-    // Verify courses table structure
-    {
-        let mut stmt = conn.prepare("PRAGMA table_info(courses)").expect("Failed to check courses table");
-        let columns: Vec<String> = stmt
-            .query_map([], |row| row.get::<_, String>(1))
-            .expect("Failed to query courses columns")
-            .filter_map(Result::ok)
-            .collect();
-        println!("[DB SCHEMA] Courses table columns: {:?}", columns);
-        
-        if !columns.contains(&"price".to_string()) {
-            eprintln!("[CRITICAL] courses table MISSING 'price' column!");
-        }
-        if !columns.contains(&"duration".to_string()) {
-            eprintln!("[CRITICAL] courses table MISSING 'duration' column!");
-        }
-    }
+    // Run migration 017 - add app settings table
+    run_migration!(conn, "017", include_str!("../migrations/017_add_app_settings.sql"));
 
     println!("Database initialized successfully");
     
     drop(conn);
-    
-    // VERIFY FILE SIZE AFTER INITIALIZATION
-    if let Ok(meta) = std::fs::metadata(&db_path) {
-        println!("[DB FILE] After init: {:?} ({} bytes) - WAL: {:?} (<{} bytes)", 
-            db_path,
-            meta.len(),
-            db_path.with_extension("db-wal"),
-            std::fs::metadata(db_path.with_extension("db-wal"))
-                .map(|m| m.len())
-                .unwrap_or(0)
-        );
-    }
     
     pool
 }
@@ -209,7 +142,6 @@ fn seed_admin_user(pool: &SqlitePool) {
 
     let repo = SqliteUserRepository::new(Arc::new(pool.clone()));
 
-    // Load admin email from environment or use default
     let admin_email = match get_env_var("ADMIN_EMAIL", Some("admin@academix.com")) {
         Ok(email) => {
             if is_production() {
@@ -227,7 +159,6 @@ fn seed_admin_user(pool: &SqlitePool) {
         }
     };
 
-    // Load admin password hash from environment or use default
     let admin_password_hash = match get_env_var(
         "ADMIN_PASSWORD_HASH",
         Some("$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy"),
@@ -248,7 +179,6 @@ fn seed_admin_user(pool: &SqlitePool) {
         }
     };
 
-    // Validate email format
     let email_value = match Email::new(admin_email.clone()) {
         Ok(e) => e,
         Err(e) => {
@@ -257,13 +187,11 @@ fn seed_admin_user(pool: &SqlitePool) {
         }
     };
 
-    // Check if admin exists
     if repo.exists_by_email(&email_value).unwrap_or(false) {
         println!("Admin user already exists");
         return;
     }
 
-    // Create admin user
     let admin = User::new(
         "admin-1".to_string(),
         admin_email,
@@ -289,12 +217,9 @@ fn create_service_states(
     GroupService<SqliteGroupRepository>,
     PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>,
     AttendanceService<SqliteAttendanceRepository>,
-    EmployeeService<SqliteEmployeeRepository>,
     InvoiceService<SqliteInvoiceRepository, SqliteInvoiceLineRepository>,
-    PayrollService<SqlitePayrollRepository, SqlitePayrollEntryRepository, SqliteEmployeeRepository>,
-    AccountingService<SqliteAccountingEntryRepository, SqliteAccountCategoryRepository>,
-    SqliteAccountingEntryRepository,
-    SqliteAccountCategoryRepository,
+    crate::application::use_cases::AccountingService<SqliteAccountingEntryRepository>,
+    SettingsService<SqliteSettingsRepository>,
 ) {
     let user_repo = SqliteUserRepository::new(Arc::clone(&pool));
     let student_repo = SqliteStudentRepository::new(Arc::clone(&pool));
@@ -302,23 +227,12 @@ fn create_service_states(
     let group_repo = SqliteGroupRepository::new(Arc::clone(&pool));
     let payment_repo = SqlitePaymentRepository::new(Arc::clone(&pool));
     let attendance_repo = SqliteAttendanceRepository::new(Arc::clone(&pool));
-    let employee_repo = SqliteEmployeeRepository::new(Arc::clone(&pool));
-    // Invoice repositories
     let invoice_repo = SqliteInvoiceRepository::new(Arc::clone(&pool));
     let invoice_line_repo = SqliteInvoiceLineRepository::new(Arc::clone(&pool));
-    // Payroll repositories
-    let payroll_repo = SqlitePayrollRepository::new(Arc::clone(&pool));
-    let payroll_entry_repo = SqlitePayrollEntryRepository::new(Arc::clone(&pool));
-    // Accounting repositories
     let accounting_entry_repo = SqliteAccountingEntryRepository::new(Arc::clone(&pool));
-    let accounting_category_repo = SqliteAccountCategoryRepository::new(Arc::clone(&pool));
-    let liability_repo = SqliteLiabilityRepository::new(Arc::clone(&pool));
-    let equity_repo = SqliteEquityRepository::new(Arc::clone(&pool));
-    let accounting_service = AccountingService::new(
+    let settings_repo = SqliteSettingsRepository::new(Arc::clone(&pool));
+    let accounting_service = crate::application::use_cases::AccountingService::new(
         accounting_entry_repo.clone(),
-        accounting_category_repo.clone(),
-        liability_repo.clone(),
-        equity_repo.clone(),
     );
 
     (
@@ -328,12 +242,9 @@ fn create_service_states(
         GroupService::new(group_repo.clone()),
         PaymentService::new(payment_repo, group_repo, course_repo),
         AttendanceService::new(attendance_repo),
-        EmployeeService::new(employee_repo.clone()),
         InvoiceService::new(invoice_repo, invoice_line_repo),
-        PayrollService::new(payroll_repo, payroll_entry_repo, employee_repo),
         accounting_service,
-        accounting_entry_repo,
-        accounting_category_repo,
+        SettingsService::new(settings_repo),
     )
 }
 
@@ -355,12 +266,9 @@ pub fn run() {
         group_service,
         payment_service,
         attendance_service,
-        employee_service,
         invoice_service,
-        payroll_service,
         accounting_service,
-        accounting_entry_repo,
-        accounting_category_repo,
+        settings_service,
     ) = create_service_states(Arc::clone(&pool));
 
     tauri::Builder::default()
@@ -374,24 +282,24 @@ pub fn run() {
         .manage(group_service)
         .manage(payment_service)
         .manage(attendance_service)
-        .manage(employee_service)
         .manage(invoice_service)
-        .manage(payroll_service)
         .manage(accounting_service)
-        .manage(accounting_entry_repo)
-        .manage(accounting_category_repo)
-        .manage(SqliteLiabilityRepository::new(Arc::clone(&pool)))
-        .manage(SqliteEquityRepository::new(Arc::clone(&pool)))
+        .manage(settings_service)
         .invoke_handler(tauri::generate_handler![
             // Health check
             health,
+            // Public registration (no auth required)
+            register_user,
             // Auth commands
             login,
             logout,
+            update_profile,
+            change_password,
             // User commands
             create_user,
             get_user,
             list_users,
+            list_users_by_role,
             update_user,
             delete_user,
             // Student commands
@@ -425,7 +333,6 @@ pub fn run() {
             delete_payment,
             get_student_payment_status,
             get_all_students_payment_summary,
-            sync_payments_to_accounting,
             // Attendance commands
             create_attendance,
             get_attendance,
@@ -435,37 +342,14 @@ pub fn run() {
             update_attendance,
             delete_attendance,
             get_group_attendance_stats,
-            // Employee commands
-            create_employee,
-            get_employee,
-            list_employees,
-            update_employee,
-            delete_employee,
-            get_employee_summary,
-            // Payroll commands
-            run_payroll,
-            get_payroll_run,
-            list_payroll_runs,
-            get_payroll_summary,
-            // Accounting commands
+            count_student_absences,
+            count_group_absences,
+            // Accounting commands (simplified)
             create_entry,
             get_entry,
             list_entries,
-            get_trial_balance,
-            get_income_statement,
-            list_accounts,
-            get_account_tree,
+            delete_entry,
             get_accounting_summary,
-            get_financial_balance,
-            export_financial_balance_pdf,
-            export_income_statement_pdf,
-            // Liability & Equity commands
-            create_liability,
-            list_liabilities,
-            pay_liability,
-            create_equity,
-            list_equities,
-            create_fixed_asset,
             // Invoice commands
             create_invoice,
             get_invoice,
@@ -473,6 +357,9 @@ pub fn run() {
             register_payment,
             cancel_invoice,
             get_invoice_summary,
+            // Settings commands
+            get_absence_threshold,
+            set_absence_threshold,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
