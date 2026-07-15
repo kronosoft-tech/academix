@@ -30,4 +30,17 @@ pub trait AttendanceRepository: Send + Sync {
         group_id: &str,
         date: DateTime<Utc>,
     ) -> Result<Vec<Attendance>, DomainError>;
+
+    /// Count absences for a student in a specific group
+    fn count_absences_by_student_and_group(
+        &self,
+        student_id: &str,
+        group_id: &str,
+    ) -> Result<i32, DomainError>;
+
+    /// Count absences for all students in a group (returns student_id, count pairs)
+    fn count_absences_by_group(
+        &self,
+        group_id: &str,
+    ) -> Result<Vec<(String, i32)>, DomainError>;
 }
