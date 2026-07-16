@@ -3,11 +3,15 @@ name: Build and Release
 on:
   push:
     branches:
+      - main
+      - develop
       - release
     tags:
       - "app-v*"
   pull_request:
     branches:
+      - main
+      - develop
       - release
 
 permissions:
@@ -48,7 +52,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install Linux dependencies (x64)
         if: matrix.platform == 'ubuntu-22.04' && !contains(matrix.args, 'aarch64')
@@ -68,9 +72,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev:arm64 libappindicator3-dev:arm64 librsvg2-dev:arm64 patchelf:arm64
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "20"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
