@@ -130,12 +130,9 @@ try {
 
 ## Testing
 
-No test framework configured yet. When adding tests:
-
-```bash
-# Install Vitest
-npm install -D vitest @testing-library/react @testing-library/jest-dom
-```
+- **Vitest** with jsdom environment (config: `vitest.config.ts`)
+- Setup file: `src/test/setup.ts` — mocks Tauri API and localStorage
+- Run: `bun run test` or `bun run test:watch`
 
 ---
 
