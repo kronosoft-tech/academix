@@ -21,7 +21,7 @@ impl SqliteGroupRepository {
     }
 
     fn row_to_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<Group> {
-        // Column order MUST match the database schema (migration 008)
+        // Column order MUST match the database schema (migration 008 + 018)
         let id: String = row.get(0)?;
         let course_id: String = row.get(1)?;
         let name: String = row.get(2)?;
@@ -37,9 +37,16 @@ impl SqliteGroupRepository {
         let status_str: String = row.get(12)?;
         let created_str: String = row.get(13)?;
         let updated_str: String = row.get(14)?;
+        let class_duration: Option<i32> = row.get(15)?;
+        let skipped_dates_json: Option<String> = row.get(16)?;
 
         // Parse days from JSON if present
         let days: Option<Vec<String>> = days_json.and_then(|s| serde_json::from_str(&s).ok());
+
+        // Parse skipped_dates from JSON if present, default to empty vec
+        let skipped_dates: Vec<String> = skipped_dates_json
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
 
         Ok(Group {
             id,
@@ -61,16 +68,19 @@ impl SqliteGroupRepository {
             updated_at: DateTime::parse_from_rfc3339(&updated_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
+            class_duration,
+            skipped_dates,
         })
     }
 }
 
 impl GroupRepository for SqliteGroupRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Group>, DomainError> {
-        // Column order MUST match the database schema (migration 008)
+        // Column order MUST match the database schema (migration 008 + 018)
         let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
                           start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
                    FROM groups_table WHERE id = ?";
 
         self.pool
@@ -81,7 +91,8 @@ impl GroupRepository for SqliteGroupRepository {
     fn find_by_course_id(&self, course_id: &str) -> Result<Vec<Group>, DomainError> {
         let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
                           start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
                    FROM groups_table WHERE course_id = ? ORDER BY name";
 
         self.pool
@@ -90,15 +101,17 @@ impl GroupRepository for SqliteGroupRepository {
     }
 
     fn save(&self, group: &Group) -> Result<(), DomainError> {
-        // Column order MUST match the database schema (migration 008)
+        // Column order MUST match the database schema (migration 008 + 018)
         let sql = "INSERT INTO groups_table (id, course_id, name, professor_id, schedule, days, 
                                            start_time, end_time, start_date, end_date, 
-                                           max_students, current_students, status, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                                           max_students, current_students, status, created_at, updated_at,
+                                           class_duration, skipped_dates)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         let days_json = group
             .days
             .as_ref()
             .map(|d| serde_json::to_string(d).unwrap_or_default());
+        let skipped_dates_json = Some(serde_json::to_string(&group.skipped_dates).unwrap_or_default());
 
         self.pool
             .execute(
@@ -119,6 +132,8 @@ impl GroupRepository for SqliteGroupRepository {
                     &group.status.as_str().to_string(),
                     &group.created_at.to_rfc3339(),
                     &group.updated_at.to_rfc3339(),
+                    &group.class_duration,
+                    &skipped_dates_json,
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -129,13 +144,15 @@ impl GroupRepository for SqliteGroupRepository {
     fn update(&self, group: &Group) -> Result<(), DomainError> {
         let sql = "UPDATE groups_table 
                    SET name = ?, professor_id = ?, schedule = ?, max_students = ?, current_students = ?, 
-                       status = ?, updated_at = ?, days = ?, start_time = ?, end_time = ?, start_date = ?, end_date = ?
+                       status = ?, updated_at = ?, days = ?, start_time = ?, end_time = ?, start_date = ?, end_date = ?,
+                       class_duration = ?, skipped_dates = ?
                    WHERE id = ?";
 
         let days_json = group
             .days
             .as_ref()
             .map(|d| serde_json::to_string(d).unwrap_or_default());
+        let skipped_dates_json = Some(serde_json::to_string(&group.skipped_dates).unwrap_or_default());
 
         let affected = self
             .pool
@@ -154,6 +171,8 @@ impl GroupRepository for SqliteGroupRepository {
                     &group.end_time,
                     &group.start_date,
                     &group.end_date,
+                    &group.class_duration,
+                    &skipped_dates_json,
                     &group.id,
                 ],
             )
@@ -182,7 +201,8 @@ impl GroupRepository for SqliteGroupRepository {
     fn find_all(&self) -> Result<Vec<Group>, DomainError> {
         let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
                           start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
                    FROM groups_table ORDER BY name";
 
         self.pool
@@ -193,7 +213,8 @@ impl GroupRepository for SqliteGroupRepository {
     fn find_by_professor_id(&self, professor_id: &str) -> Result<Vec<Group>, DomainError> {
         let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
                           start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
                    FROM groups_table WHERE professor_id = ? ORDER BY name";
 
         self.pool
