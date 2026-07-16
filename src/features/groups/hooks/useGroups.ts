@@ -11,9 +11,14 @@ interface BackendGroupDto {
   days: string[] | null;
   start_time: string | null;
   end_time: string | null;
+  start_date: string | null;
+  end_date: string | null;
   max_students: number;
   current_students: number;
   status: string;
+  class_duration: number | null;
+  skipped_dates: string[];
+  calculated_end_date: string | null;
 }
 
 interface UseGroupsReturn {
@@ -36,11 +41,16 @@ function mapBackendToFrontend(dto: BackendGroupDto): Group {
     days: dto.days ?? undefined,
     startTime: dto.start_time ?? undefined,
     endTime: dto.end_time ?? undefined,
+    startDate: dto.start_date ?? undefined,
+    endDate: dto.end_date ?? undefined,
     maxStudents: dto.max_students,
     currentStudents: dto.current_students,
     status: dto.status as Group["status"],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    classDuration: dto.class_duration ?? undefined,
+    skippedDates: dto.skipped_dates ?? [],
+    calculatedEndDate: dto.calculated_end_date ?? undefined,
   };
 }
 
@@ -91,7 +101,11 @@ export function useGroups(): UseGroupsReturn {
           days: data.days ?? null,
           start_time: data.startTime ?? null,
           end_time: data.endTime ?? null,
+          start_date: data.startDate ?? null,
+          end_date: data.endDate ?? null,
           max_students: data.maxStudents ?? 20,
+          class_duration: data.classDuration ?? null,
+          skipped_dates: data.skippedDates ?? null,
         },
       });
 
@@ -123,9 +137,13 @@ export function useGroups(): UseGroupsReturn {
           days: data.days ?? null,
           start_time: data.startTime ?? null,
           end_time: data.endTime ?? null,
+          start_date: data.startDate ?? null,
+          end_date: data.endDate ?? null,
           max_students: data.maxStudents ?? null,
           status: data.status ?? null,
           professor_id: data.professorId ?? null,
+          class_duration: data.classDuration ?? null,
+          skipped_dates: data.skippedDates ?? null,
         },
       });
 
