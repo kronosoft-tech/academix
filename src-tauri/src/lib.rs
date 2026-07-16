@@ -126,9 +126,6 @@ fn init_database() -> SqlitePool {
     // Run migration 017 - add app settings table
     run_migration!(conn, "017", include_str!("../migrations/017_add_app_settings.sql"));
 
-    // Run migration 018 - add class_duration and skipped_dates to groups
-    run_migration!(conn, "018", include_str!("../migrations/018_add_class_duration_and_skipped_dates.sql"));
-
     println!("Database initialized successfully");
     
     drop(conn);
@@ -217,7 +214,7 @@ fn create_service_states(
     UserService<SqliteUserRepository>,
     StudentService<SqliteStudentRepository, SqliteGroupRepository>,
     CourseService<SqliteCourseRepository>,
-    GroupService<SqliteGroupRepository, SqliteCourseRepository>,
+    GroupService<SqliteGroupRepository>,
     PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>,
     AttendanceService<SqliteAttendanceRepository>,
     InvoiceService<SqliteInvoiceRepository, SqliteInvoiceLineRepository>,
@@ -242,7 +239,7 @@ fn create_service_states(
         UserService::new(user_repo),
         StudentService::new(student_repo, SqliteGroupRepository::new(Arc::clone(&pool))),
         CourseService::new(SqliteCourseRepository::new(Arc::clone(&pool))),
-        GroupService::new(group_repo.clone(), SqliteCourseRepository::new(Arc::clone(&pool))),
+        GroupService::new(group_repo.clone()),
         PaymentService::new(payment_repo, group_repo, course_repo),
         AttendanceService::new(attendance_repo),
         InvoiceService::new(invoice_repo, invoice_line_repo),

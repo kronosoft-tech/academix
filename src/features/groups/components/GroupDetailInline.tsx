@@ -102,45 +102,6 @@ export default function GroupDetailInline({
         </div>
       </div>
 
-      {/* Additional Group Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {group.startDate && (
-          <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
-            <p className="text-sm text-[var(--color-foreground)]/60">Fecha de Inicio</p>
-            <p className="font-semibold">{group.startDate}</p>
-          </div>
-        )}
-        {group.classDuration && (
-          <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
-            <p className="text-sm text-[var(--color-foreground)]/60">Duración de Clase</p>
-            <p className="font-semibold">{group.classDuration} minutos</p>
-          </div>
-        )}
-        {group.calculatedEndDate && (
-          <div className="bg-[var(--color-background)] p-4 rounded-lg shadow">
-            <p className="text-sm text-[var(--color-foreground)]/60">Fecha de Fin Calculada</p>
-            <p className="font-semibold">{group.calculatedEndDate}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Skipped Dates */}
-      {group.skippedDates && group.skippedDates.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-sm font-medium text-[var(--color-foreground)]/60 mb-2">Fechas Omitidas</h3>
-          <div className="flex flex-wrap gap-2">
-            {group.skippedDates.map((date) => (
-              <span
-                key={date}
-                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
-              >
-                {date}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Attendance Section Tabs */}
       <div className="mb-6">
         <div className="flex gap-2 border-b">

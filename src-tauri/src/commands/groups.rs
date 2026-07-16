@@ -7,9 +7,9 @@ use tauri::State;
 
 use crate::application::dto::{CreateGroupRequest, GroupDto, UpdateGroupRequest};
 use crate::application::use_cases::GroupService;
-use crate::infrastructure::repositories::{SqliteCourseRepository, SqliteGroupRepository};
+use crate::infrastructure::repositories::SqliteGroupRepository;
 
-pub type GroupServiceState = GroupService<SqliteGroupRepository, SqliteCourseRepository>;
+pub type GroupServiceState = GroupService<SqliteGroupRepository>;
 
 /// Create group request payload
 #[derive(Debug, Deserialize)]
@@ -24,8 +24,6 @@ pub struct CreateGroupCommand {
     pub start_date: Option<String>,
     pub end_date: Option<String>,
     pub max_students: Option<i32>,
-    pub class_duration: Option<i32>,
-    pub skipped_dates: Option<Vec<String>>,
 }
 
 /// Update group request payload
@@ -41,8 +39,6 @@ pub struct UpdateGroupCommand {
     pub end_date: Option<String>,
     pub max_students: Option<i32>,
     pub status: Option<String>,
-    pub class_duration: Option<i32>,
-    pub skipped_dates: Option<Vec<String>>,
 }
 
 /// Group response payload
@@ -78,8 +74,6 @@ pub fn create_group(
         start_date: request.start_date,
         end_date: request.end_date,
         max_students: request.max_students.unwrap_or(20),
-        class_duration: request.class_duration,
-        skipped_dates: request.skipped_dates,
     }) {
         Ok(group) => GroupCommandResponse {
             success: true,
@@ -148,8 +142,6 @@ pub fn update_group(
             end_date: request.end_date,
             max_students: request.max_students,
             status: request.status,
-            class_duration: request.class_duration,
-            skipped_dates: request.skipped_dates,
         },
     ) {
         Ok(group) => GroupCommandResponse {

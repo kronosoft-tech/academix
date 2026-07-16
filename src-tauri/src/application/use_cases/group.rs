@@ -2,31 +2,21 @@
 
 use crate::application::dto::{CreateGroupRequest, GroupDto, UpdateGroupRequest};
 use crate::application::errors::ApplicationError;
-use crate::application::ports::{CourseRepository, GroupRepository};
+use crate::application::ports::GroupRepository;
 use crate::domain::entities::Group;
 use uuid::Uuid;
 
 /// Group service
-pub struct GroupService<R: GroupRepository, C: CourseRepository> {
+pub struct GroupService<R: GroupRepository> {
     group_repository: R,
-    course_repository: C,
 }
 
-impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
-    pub fn new(group_repository: R, course_repository: C) -> Self {
-        Self {
-            group_repository,
-            course_repository,
-        }
+impl<R: GroupRepository> GroupService<R> {
+    pub fn new(group_repository: R) -> Self {
+        Self { group_repository }
     }
 
     fn group_to_dto(&self, group: &Group) -> GroupDto {
-        // Fetch course duration to calculate end date
-        let calculated_end_date = match self.course_repository.find_by_id(&group.course_id) {
-            Ok(Some(course)) => group.calculate_end_date(course.duration),
-            _ => None,
-        };
-
         GroupDto {
             id: group.id.clone(),
             course_id: group.course_id.clone(),
@@ -41,9 +31,6 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
             max_students: group.max_students,
             current_students: group.current_students,
             status: group.status.as_str().to_string(),
-            class_duration: group.class_duration,
-            skipped_dates: group.skipped_dates.clone(),
-            calculated_end_date,
         }
     }
 
@@ -61,8 +48,6 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
             request.start_date,
             request.end_date,
             request.max_students,
-            request.class_duration,
-            request.skipped_dates.unwrap_or_default(),
         );
 
         self.group_repository.save(&group)?;
@@ -137,14 +122,6 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
         if let Some(status) = request.status {
             group.status = crate::domain::entities::group::GroupStatus::from_str(&status)
                 .unwrap_or(group.status);
-        }
-
-        if let Some(class_duration) = request.class_duration {
-            group.class_duration = Some(class_duration);
-        }
-
-        if let Some(skipped_dates) = request.skipped_dates {
-            group.skipped_dates = skipped_dates;
         }
 
         self.group_repository.update(&group)?;

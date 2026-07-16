@@ -7,8 +7,6 @@ export interface Group {
   days?: string[];
   startTime?: string;
   endTime?: string;
-  startDate?: string;
-  endDate?: string;
   maxStudents: number;
   currentStudents?: number;
   status: "open" | "closed" | "completed";
@@ -17,10 +15,6 @@ export interface Group {
   // Include course info for price lookup
   coursePrice?: number;
   courseName?: string;
-  // New fields for class duration and skipped dates
-  classDuration?: number;
-  skippedDates?: string[];
-  calculatedEndDate?: string;
 }
 
 export interface CreateGroupInput {
@@ -31,11 +25,7 @@ export interface CreateGroupInput {
   days?: string[];
   startTime?: string;
   endTime?: string;
-  startDate?: string;
-  endDate?: string;
   maxStudents: number;
-  classDuration?: number;
-  skippedDates?: string[];
 }
 
 export interface UpdateGroupInput {
@@ -44,11 +34,7 @@ export interface UpdateGroupInput {
   days?: string[];
   startTime?: string;
   endTime?: string;
-  startDate?: string;
-  endDate?: string;
   maxStudents?: number;
   professorId?: string;
   status?: Group["status"];
-  classDuration?: number;
-  skippedDates?: string[];
 }
