@@ -76,8 +76,15 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Setup Bun
+      - name: Setup Bun (Linux/macOS)
+        if: matrix.platform != 'windows-latest'
         run: curl -fsSL https://bun.sh/install | bash && echo "$HOME/.bun/bin" >> $GITHUB_PATH
+
+      - name: Setup Bun (Windows)
+        if: matrix.platform == 'windows-latest'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
 
       - name: Install frontend dependencies
         run: bun install
