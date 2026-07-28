@@ -51,16 +51,12 @@ use infrastructure::turso::provisioning::TursoProvisioningService;
 use infrastructure::turso::session::CurrentSession;
 use infrastructure::local_db;
 use infrastructure::repositories::{
-    SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
-    SqliteInvoiceRepository, SqliteInvoiceLineRepository,
-    SqlitePaymentRepository, SqliteSettingsRepository, SqliteStudentRepository,
-    SqliteUserRepository, SqliteAccountingEntryRepository,
     MemoryBackedUserRepository,
     MemoryBackedStudentRepository, MemoryBackedGroupRepository,
     MemoryBackedCourseRepository, MemoryBackedPaymentRepository,
     MemoryBackedAttendanceRepository, MemoryBackedInvoiceRepository,
     MemoryBackedInvoiceLineRepository, MemoryBackedAccountingEntryRepository,
-    MemoryBackedSettingsRepository, MemoryBackedSessionRepository,
+    MemoryBackedSettingsRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
