@@ -21,6 +21,7 @@ use commands::attendance::{
     list_attendance_by_student, list_attendances, update_attendance,
 };
 use commands::auth::{change_password, login, logout, update_profile, AppState as TursoAppState};
+use commands::admin::list_client_databases;
 use commands::base::health;
 use commands::courses::{
     archive_course, create_course, delete_course, get_course, hard_delete_course,
@@ -394,6 +395,8 @@ pub async fn run() {
             // Settings commands
             get_absence_threshold,
             set_absence_threshold,
+            // Admin commands (superadmin)
+            list_client_databases,
         ]);
 
     builder
