@@ -48,12 +48,19 @@ use infrastructure::turso::control_plane::ControlPlaneRepository;
 use infrastructure::turso::flush_timer::start_flush_timer;
 use infrastructure::turso::memory_buffer::MemoryBuffer;
 use infrastructure::turso::provisioning::TursoProvisioningService;
+use infrastructure::turso::session::CurrentSession;
 use infrastructure::local_db;
 use infrastructure::repositories::{
     SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
     SqliteInvoiceRepository, SqliteInvoiceLineRepository,
     SqlitePaymentRepository, SqliteSettingsRepository, SqliteStudentRepository,
     SqliteUserRepository, SqliteAccountingEntryRepository,
+    MemoryBackedUserRepository,
+    MemoryBackedStudentRepository, MemoryBackedGroupRepository,
+    MemoryBackedCourseRepository, MemoryBackedPaymentRepository,
+    MemoryBackedAttendanceRepository, MemoryBackedInvoiceRepository,
+    MemoryBackedInvoiceLineRepository, MemoryBackedAccountingEntryRepository,
+    MemoryBackedSettingsRepository, MemoryBackedSessionRepository,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -359,31 +366,91 @@ pub async fn run() {
         }
     };
 
-    // Create old service states with SQLite repositories (backward compat until Phase 5)
-    let user_service = UserService::new(SqliteUserRepository::new());
+    // Phase 5: MemoryBuffer-backed repositories (reads from Turso per-user DBs)
+    let session = Arc::new(Mutex::new(CurrentSession { user_id: None }));
+
+    let user_service = UserService::new(MemoryBackedUserRepository::new(
+        Arc::clone(&connection_manager),
+        Arc::clone(&memory_buffer),
+        Arc::clone(&session),
+    ));
     let student_service = StudentService::new(
-        SqliteStudentRepository::new(),
-        SqliteGroupRepository::new(),
+        MemoryBackedStudentRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
+        MemoryBackedGroupRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
     );
-    let course_service = CourseService::new(SqliteCourseRepository::new());
+    let course_service = CourseService::new(MemoryBackedCourseRepository::new(
+        Arc::clone(&connection_manager),
+        Arc::clone(&memory_buffer),
+        Arc::clone(&session),
+    ));
     let group_service = GroupService::new(
-        SqliteGroupRepository::new(),
-        SqliteCourseRepository::new(),
+        MemoryBackedGroupRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
+        MemoryBackedCourseRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
     );
     let payment_service = PaymentService::new(
-        SqlitePaymentRepository::new(),
-        SqliteGroupRepository::new(),
-        SqliteCourseRepository::new(),
+        MemoryBackedPaymentRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
+        MemoryBackedGroupRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
+        MemoryBackedCourseRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
     );
-    let attendance_service = AttendanceService::new(SqliteAttendanceRepository::new());
+    let attendance_service =
+        AttendanceService::new(MemoryBackedAttendanceRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ));
     let invoice_service = InvoiceService::new(
-        SqliteInvoiceRepository::new(),
-        SqliteInvoiceLineRepository::new(),
+        MemoryBackedInvoiceRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
+        MemoryBackedInvoiceLineRepository::new(
+            Arc::clone(&connection_manager),
+            Arc::clone(&memory_buffer),
+            Arc::clone(&session),
+        ),
     );
-    let accounting_service = crate::application::use_cases::AccountingService::new(
-        SqliteAccountingEntryRepository::new(),
-    );
-    let settings_service = SettingsService::new(SqliteSettingsRepository::new());
+    let accounting_service =
+        crate::application::use_cases::AccountingService::new(
+            MemoryBackedAccountingEntryRepository::new(
+                Arc::clone(&connection_manager),
+                Arc::clone(&memory_buffer),
+                Arc::clone(&session),
+            ),
+        );
+    let settings_service = SettingsService::new(MemoryBackedSettingsRepository::new(
+        Arc::clone(&connection_manager),
+        Arc::clone(&memory_buffer),
+        Arc::clone(&session),
+    ));
 
     // Build the Turso AppState
     let turso_state = TursoAppState {
@@ -391,6 +458,7 @@ pub async fn run() {
         memory_buffer: Arc::clone(&memory_buffer),
         control_plane: control_plane.as_ref().map(Arc::clone),
         flush_timer_sender,
+        session: Arc::clone(&session),
     };
 
     // Build Tauri app

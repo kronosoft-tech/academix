@@ -20,6 +20,7 @@ use crate::infrastructure::turso::session::CurrentSession;
 /// - `get_setting`: checks the pending buffer first (for unflushed writes),
 ///   then falls through to the user's Turso database.
 /// - `set_setting`: writes to the MemoryBuffer (lazy-flush to Turso).
+#[derive(Clone)]
 pub struct MemoryBackedSettingsRepository {
     connection_manager: Arc<Mutex<ConnectionManager>>,
     memory_buffer: Arc<Mutex<MemoryBuffer>>,

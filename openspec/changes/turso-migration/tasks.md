@@ -213,70 +213,67 @@
 
 ---
 
-## Phase 5: Repository Rewrite (MemoryBuffer-backed)
+## Phase 5: Repository Rewrite (MemoryBuffer-backed) ✅ COMPLETE
 
-### 5.1 Rewrite UserRepository implementation
+### 5.1 Rewrite UserRepository implementation ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/user.rs`
-- **Action**: Replace `SqliteUserRepository` with `MemoryBackedUserRepository`
-  - Holds `Arc<Mutex<MemoryBuffer>>` + `user_id: String`
-  - `find_by_id()` / `find_by_email()` → check buffer cache, if miss → read from Turso via ConnectionManager
-  - `save()` / `update()` / `delete()` → `buffer_write()` to MemoryBuffer
+- **Files**: NEW `src-tauri/src/infrastructure/repositories/memory_backed/user.rs`
+- **Status**: DONE — `MemoryBackedUserRepository` with MemoryBuffer write-back cache + Turso read-through via ConnectionManager
 
-### 5.2 Rewrite SessionRepository
+### 5.2 Rewrite SessionRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/session.rs`
-- **Action**: Same pattern — MemoryBuffer-backed
+- **Files**: NEW `memory_backed/session.rs`
+- **Status**: DONE — `MemoryBackedSessionRepository`
 
-### 5.3 Rewrite StudentRepository
+### 5.3 Rewrite StudentRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/student.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/student.rs`
+- **Status**: DONE — `MemoryBackedStudentRepository`
 
-### 5.4 Rewrite CourseRepository
+### 5.4 Rewrite CourseRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/course.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/course.rs`
+- **Status**: DONE — `MemoryBackedCourseRepository`
 
-### 5.5 Rewrite GroupRepository
+### 5.5 Rewrite GroupRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/group.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/group.rs`
+- **Status**: DONE — `MemoryBackedGroupRepository`
 
-### 5.6 Rewrite PaymentRepository
+### 5.6 Rewrite PaymentRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/payment.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/payment.rs`
+- **Status**: DONE — `MemoryBackedPaymentRepository`
 
-### 5.7 Rewrite AttendanceRepository
+### 5.7 Rewrite AttendanceRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/attendance.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/attendance.rs`
+- **Status**: DONE — `MemoryBackedAttendanceRepository` with `DomainError` error type, date filters, absence counts
 
-### 5.8 Rewrite InvoiceRepository + InvoiceLineRepository
+### 5.8 Rewrite InvoiceRepository + InvoiceLineRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/invoice.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/invoice.rs`, `memory_backed/invoice_line.rs`
+- **Status**: DONE — `MemoryBackedInvoiceRepository`, `MemoryBackedInvoiceLineRepository`
 
-### 5.9 Rewrite SettingsRepository
+### 5.9 Rewrite SettingsRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/settings.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/settings.rs`
+- **Status**: DONE — `MemoryBackedSettingsRepository`
 
-### 5.10 Rewrite AccountingEntryRepository
+### 5.10 Rewrite AccountingEntryRepository ✅
 
-- **File**: `src-tauri/src/infrastructure/repositories/sqlite/accounting.rs`
-- **Action**: MemoryBuffer + Turso read-through
+- **Files**: NEW `memory_backed/accounting.rs`
+- **Status**: DONE — `MemoryBackedAccountingEntryRepository` with income/expense aggregates
 
 ### 5.11 Clean up old SQLite repository files
 
-- **Files**: `src-tauri/src/infrastructure/repositories/sqlite/*.rs`
-- **Action**: Rename to `memory_backed/*.rs` for clarity. Update module declarations.
+- **Files**: `sqlite/*.rs` → `memory_backed/*.rs`
+- **Action**: Old sqlite/ files RENAMED to memory_backed/ module structure. Module declarations in `mod.rs` updated.
 
-### 5.12 Update port interfaces
+### 5.12 Update port interfaces ✅
 
-- **File**: `src-tauri/src/application/ports/user.rs`
-- **Action**: Remove `fn pool()` method (no longer relevant). Repositories no longer expose a pool.
+- **Files**: All `application/ports/*.rs`
+- **Status**: DONE — All 10 port traits implemented by MemoryBacked repos
 
 ---
 

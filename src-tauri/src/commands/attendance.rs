@@ -6,9 +6,9 @@ use crate::application::dto::{
     UpdateAttendanceRequest,
 };
 use crate::application::use_cases::AttendanceService;
-use crate::infrastructure::repositories::SqliteAttendanceRepository;
+use crate::infrastructure::repositories::MemoryBackedAttendanceRepository;
 
-pub type AttendanceServiceState = AttendanceService<SqliteAttendanceRepository>;
+pub type AttendanceServiceState = AttendanceService<MemoryBackedAttendanceRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateAttendanceCommand {

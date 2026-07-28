@@ -16,6 +16,7 @@ use crate::infrastructure::password;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
+use crate::infrastructure::turso::session::CurrentSession;
 use std::collections::HashMap;
 
 /// New AppState holding Turso infrastructure
@@ -24,6 +25,7 @@ pub struct AppState {
     pub memory_buffer: Arc<Mutex<MemoryBuffer>>,
     pub control_plane: Option<Arc<ControlPlaneRepository>>,
     pub flush_timer_sender: Option<tokio::sync::oneshot::Sender<()>>,
+    pub session: Arc<Mutex<CurrentSession>>,
 }
 
 /// Login request payload
@@ -152,6 +154,12 @@ pub async fn login(
         );
     }
 
+    // Set the current session user_id (for MemoryBacked repo routing)
+    {
+        let mut sess = state.session.lock().await;
+        sess.user_id = Some(user_id.clone());
+    }
+
     // Step 9: Return login response
     Ok(CommandLoginResponse {
         success: true,
@@ -186,16 +194,28 @@ pub async fn logout(
     state: State<'_, AppState>,
     request: CommandLogoutRequest,
 ) -> Result<CommandLogoutResponse, String> {
+    // Resolve user_id from session for buffer routing
+    let user_id = {
+        let sess = state.session.lock().await;
+        sess.user_id.clone().unwrap_or_else(|| "system".to_string())
+    };
+
     // Buffer the session deletion — will be flushed to Turso
     let mut buffer = state.memory_buffer.lock().await;
     buffer.buffer_write(
-        "system",
+        &user_id,
         BufferedOperation::Delete {
             table: "sessions".to_string(),
             id: request.token.clone(),
         },
     );
     drop(buffer);
+
+    // Clear the session user_id
+    {
+        let mut sess = state.session.lock().await;
+        sess.user_id = None;
+    }
 
     Ok(CommandLogoutResponse {
         success: true,

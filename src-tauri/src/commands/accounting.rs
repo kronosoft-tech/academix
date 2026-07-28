@@ -4,12 +4,12 @@
 
 use crate::application::dto::accounting::{AccountingEntryDto, AccountingSummaryDto, CreateEntryRequest};
 use crate::application::use_cases::AccountingService;
-use crate::infrastructure::repositories::SqliteAccountingEntryRepository;
+use crate::infrastructure::repositories::MemoryBackedAccountingEntryRepository;
 use tauri::command;
 use tauri::State;
 
 /// Type alias for Accounting Service with SQLite repository
-pub type AccountingServiceState = AccountingService<SqliteAccountingEntryRepository>;
+pub type AccountingServiceState = AccountingService<MemoryBackedAccountingEntryRepository>;
 
 /// Create a new accounting entry (income or expense)
 #[command]

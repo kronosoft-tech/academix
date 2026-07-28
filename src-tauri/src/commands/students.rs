@@ -3,9 +3,9 @@ use tauri::State;
 
 use crate::application::dto::{CreateStudentRequest, StudentDto, UpdateStudentRequest};
 use crate::application::use_cases::StudentService;
-use crate::infrastructure::repositories::{SqliteGroupRepository, SqliteStudentRepository};
+use crate::infrastructure::repositories::{MemoryBackedGroupRepository, MemoryBackedStudentRepository};
 
-pub type StudentServiceState = StudentService<SqliteStudentRepository, SqliteGroupRepository>;
+pub type StudentServiceState = StudentService<MemoryBackedStudentRepository, MemoryBackedGroupRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateStudentCommand {

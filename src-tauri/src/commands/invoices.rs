@@ -7,9 +7,9 @@ use crate::application::dto::invoice::{
 };
 use crate::application::use_cases::InvoiceService;
 use crate::domain::entities::invoice::InvoicePaymentMethod;
-use crate::infrastructure::repositories::{SqliteInvoiceLineRepository, SqliteInvoiceRepository};
+use crate::infrastructure::repositories::{MemoryBackedInvoiceLineRepository, MemoryBackedInvoiceRepository};
 
-pub type InvoiceServiceState = InvoiceService<SqliteInvoiceRepository, SqliteInvoiceLineRepository>;
+pub type InvoiceServiceState = InvoiceService<MemoryBackedInvoiceRepository, MemoryBackedInvoiceLineRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateInvoiceCommand {

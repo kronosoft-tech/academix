@@ -19,6 +19,7 @@ use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
 
 /// MemoryBuffer-backed implementation of UserRepository.
+#[derive(Clone)]
 pub struct MemoryBackedUserRepository {
     connection_manager: Arc<Mutex<ConnectionManager>>,
     memory_buffer: Arc<Mutex<MemoryBuffer>>,

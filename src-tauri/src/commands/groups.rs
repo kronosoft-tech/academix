@@ -3,9 +3,9 @@ use tauri::State;
 
 use crate::application::dto::{CreateGroupRequest, GroupDto, UpdateGroupRequest};
 use crate::application::use_cases::GroupService;
-use crate::infrastructure::repositories::{SqliteCourseRepository, SqliteGroupRepository};
+use crate::infrastructure::repositories::{MemoryBackedCourseRepository, MemoryBackedGroupRepository};
 
-pub type GroupServiceState = GroupService<SqliteGroupRepository, SqliteCourseRepository>;
+pub type GroupServiceState = GroupService<MemoryBackedGroupRepository, MemoryBackedCourseRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGroupCommand {

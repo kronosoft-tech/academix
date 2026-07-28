@@ -9,12 +9,12 @@ use crate::application::dto::{
 use crate::application::use_cases::AccountingService;
 use crate::application::use_cases::PaymentService;
 use crate::infrastructure::repositories::{
-    SqliteAccountingEntryRepository, SqliteCourseRepository,
-    SqliteGroupRepository, SqlitePaymentRepository,
+    MemoryBackedAccountingEntryRepository, MemoryBackedCourseRepository,
+    MemoryBackedGroupRepository, MemoryBackedPaymentRepository,
 };
 
 pub type PaymentServiceState =
-    PaymentService<SqlitePaymentRepository, SqliteGroupRepository, SqliteCourseRepository>;
+    PaymentService<MemoryBackedPaymentRepository, MemoryBackedGroupRepository, MemoryBackedCourseRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePaymentCommand {
@@ -137,7 +137,7 @@ pub async fn update_payment(
     state: State<'_, PaymentServiceState>,
     id: String,
     request: UpdatePaymentRequest,
-    accounting_entry_state: State<'_, SqliteAccountingEntryRepository>,
+    accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
     let update_result = state.update(
         &id,
@@ -197,7 +197,7 @@ pub async fn update_payment(
 pub async fn delete_payment(
     state: State<'_, PaymentServiceState>,
     id: String,
-    accounting_entry_state: State<'_, SqliteAccountingEntryRepository>,
+    accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
     if let Err(e) = delete_accounting_entries_by_reference(accounting_entry_state.inner(), &id).await {
         eprintln!("[DEBUG] Failed to delete related accounting entries: {}", e);
@@ -218,7 +218,7 @@ pub async fn register_payment_with_income(
     state: State<'_, PaymentServiceState>,
     payment_id: String,
     reference: String,
-    accounting_entry_state: State<'_, SqliteAccountingEntryRepository>,
+    accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
     let update_result = state.update(
         &payment_id,
@@ -299,7 +299,7 @@ pub async fn get_all_students_payment_summary(
 #[tauri::command]
 pub async fn sync_payments_to_accounting(
     state: State<'_, PaymentServiceState>,
-    accounting_entry_state: State<'_, SqliteAccountingEntryRepository>,
+    accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<SyncPaymentsAccountingResponse, String> {
     let payments = match state.list_domain().await {
         Ok(p) => p,
@@ -370,7 +370,7 @@ pub async fn sync_payments_to_accounting(
 }
 
 async fn list_accounting_entries_by_reference(
-    repo: &SqliteAccountingEntryRepository,
+    repo: &MemoryBackedAccountingEntryRepository,
     payment_id: &str,
 ) -> Vec<AccountingEntryDto> {
     use crate::application::ports::accounting::AccountingEntryRepository;
@@ -389,7 +389,7 @@ async fn list_accounting_entries_by_reference(
 }
 
 async fn delete_accounting_entries_by_reference(
-    repo: &SqliteAccountingEntryRepository,
+    repo: &MemoryBackedAccountingEntryRepository,
     payment_id: &str,
 ) -> Result<(), String> {
     use crate::application::ports::accounting::AccountingEntryRepository;

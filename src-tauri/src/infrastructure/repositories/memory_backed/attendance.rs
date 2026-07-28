@@ -17,6 +17,7 @@ use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffe
 use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
 
+#[derive(Clone)]
 pub struct MemoryBackedAttendanceRepository {
     connection_manager: Arc<Mutex<ConnectionManager>>,
     memory_buffer: Arc<Mutex<MemoryBuffer>>,

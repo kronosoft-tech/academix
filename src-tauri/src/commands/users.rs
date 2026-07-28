@@ -3,9 +3,9 @@ use tauri::State;
 
 use crate::application::dto::{CreateUserRequest, UpdateUserRequest, UserDto, UserListItem};
 use crate::application::use_cases::UserService;
-use crate::infrastructure::repositories::SqliteUserRepository;
+use crate::infrastructure::repositories::MemoryBackedUserRepository;
 
-pub type UserServiceState = UserService<SqliteUserRepository>;
+pub type UserServiceState = UserService<MemoryBackedUserRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateUserCommand {

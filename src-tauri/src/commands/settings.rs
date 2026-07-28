@@ -2,9 +2,9 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::application::use_cases::SettingsService;
-use crate::infrastructure::repositories::SqliteSettingsRepository;
+use crate::infrastructure::repositories::MemoryBackedSettingsRepository;
 
-pub type SettingsServiceState = SettingsService<SqliteSettingsRepository>;
+pub type SettingsServiceState = SettingsService<MemoryBackedSettingsRepository>;
 
 #[derive(Debug, Serialize)]
 pub struct ThresholdResponse {

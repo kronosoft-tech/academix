@@ -15,6 +15,7 @@ use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
 use crate::infrastructure::turso::session::CurrentSession;
 
+#[derive(Clone)]
 pub struct MemoryBackedAccountingEntryRepository {
     connection_manager: Arc<Mutex<ConnectionManager>>,
     memory_buffer: Arc<Mutex<MemoryBuffer>>,

@@ -3,9 +3,9 @@ use tauri::State;
 
 use crate::application::dto::{CourseDto, CreateCourseRequest, UpdateCourseRequest};
 use crate::application::use_cases::CourseService;
-use crate::infrastructure::repositories::SqliteCourseRepository;
+use crate::infrastructure::repositories::MemoryBackedCourseRepository;
 
-pub type CourseServiceState = CourseService<SqliteCourseRepository>;
+pub type CourseServiceState = CourseService<MemoryBackedCourseRepository>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateCourseCommand {

@@ -18,6 +18,7 @@ use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
 
 /// MemoryBuffer-backed implementation of CourseRepository.
+#[derive(Clone)]
 pub struct MemoryBackedCourseRepository {
     connection_manager: Arc<Mutex<ConnectionManager>>,
     memory_buffer: Arc<Mutex<MemoryBuffer>>,
