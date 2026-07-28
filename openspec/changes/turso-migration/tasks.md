@@ -1,0 +1,345 @@
+# Tasks: Turso SaaS Migration (v2 — In-Memory + Flush)
+
+**Review Workload Forecast:**
+- Estimated total changed lines: **~1,200**
+- 800-line budget risk: **High** (but manageable with chained PRs)
+- Chained PRs recommended: **Yes** (6 sequential PRs)
+
+---
+
+## Phase 1: Foundation — MemoryBuffer + Turso Infrastructure
+
+> Zero behavioral change. All new code, no existing files modified (except Cargo.toml).
+
+### 1.1 Add libsql and reqwest dependencies
+
+- **File**: `src-tauri/Cargo.toml`
+- **Action**: Add `libsql` with `rustls-tls` feature. Add `reqwest` with `rustls-tls` + `json` features.
+- **Verification**: `cargo check` passes
+
+### 1.2 Create Turso infrastructure module
+
+- **File**: `src-tauri/src/infrastructure/turso/mod.rs`
+- **Action**: Module declaration that re-exports: provisioning, control_plane, connection_manager, memory_buffer, flush_timer
+
+### 1.3 Implement MemoryBuffer
+
+- **File**: `src-tauri/src/infrastructure/turso/memory_buffer.rs`
+- **Action**: Struct with:
+  - `pending_writes: HashMap<String, Vec<BufferedOperation>>` — keyed by user_id
+  - `cached_entities: HashMap<String, Vec<Entity>>` — read-through cache
+  - `last_write_at: Arc<Mutex<Instant>>` — timer reference
+  - `buffer_write(user_id, op)` — adds to pending_writes, resets timer
+  - `read(user_id, key)` — checks buffer first, then calls read-through callback
+  - `flush(cm: &ConnectionManager)` — builds batch SQL from buffered ops, executes against each user's Turso DB
+  - `build_insert_sql(table, data)` / `build_update_sql(table, id, data)` helpers
+- **Verification**: Unit tested — assert writes buffer, flush generates correct SQL
+
+### 1.4 Implement FlushTimer
+
+- **File**: `src-tauri/src/infrastructure/turso/flush_timer.rs`
+- **Action**: Background tokio task:
+  - Checks `MemoryBuffer::idle_duration()` every 30 seconds
+  - If idle for 15+ minutes → call `MemoryBuffer::flush()`
+  - On app close signal → call `MemoryBuffer::flush()` with 5s timeout
+  - Resets on every write activity
+- **Verification**: Unit tested with mocked clock
+
+### 1.5 Implement TursoProvisioningService
+
+- **File**: `src-tauri/src/infrastructure/turso/provisioning.rs`
+- **Action**: Struct with `api_token`, `org`, `reqwest::Client`
+- **Methods**:
+  - `create_database(name)` — `POST /v1/organizations/{org}/databases { name }`
+  - `create_auth_token(db_name)` — `POST /v1/organizations/{org}/databases/{name}/auth/tokens`
+  - `list_databases()` — `GET /v1/organizations/{org}/databases`
+  - `delete_database(name)` — `DELETE /v1/organizations/{org}/databases/{name}`
+- **Error handling**: Custom `ProvisioningError` enum
+- **Verification**: Unit tested with wiremock
+
+### 1.6 Implement ConnectionManager
+
+- **File**: `src-tauri/src/infrastructure/turso/connection_manager.rs`
+- **Action**: Struct with `HashMap<String, (libsql::Database, UserDbMapping)>`
+- **Lazy init**: Connection created on first `resolve_by_email()` or `resolve_by_user_id()`
+- **Remote-only**: `libsql::Database::open_remote(db_url, token)` — no local files
+- **Methods**:
+  - `resolve_by_email(cp_repo, email)` — query control plane, create connection, cache
+  - `resolve_by_user_id(user_id)` — return cached connection or error
+  - `register_connection(mapping)` — add to cache + control plane
+  - `run_migrations(db)` — execute all 18 migrations against the new DB
+- **Verification**: Unit tested
+
+### 1.7 Create slug generator
+
+- **File**: `src-tauri/src/infrastructure/turso/provisioning.rs`
+- **Action**: Helper `fn generate_db_slug(academy_name: &str) -> String`
+- **Rules**: lowercase, replace spaces→hyphens, remove special chars, 4-char random suffix
+- **Verification**: Tested with various inputs
+
+---
+
+## Phase 2: Control Plane (Turso-backed)
+
+> Prerequisite: superadmin creates `academix-control-plane` DB manually via turso-cli.
+
+### 2.1 Implement ControlPlaneRepository (Turso-backed)
+
+- **File**: `src-tauri/src/infrastructure/turso/control_plane.rs`
+- **Action**: Connect to Turso DB via libsql, manage `user_databases` table
+- **Schema**:
+  ```sql
+  CREATE TABLE user_databases (
+    user_id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE,
+    academy_name TEXT NOT NULL, db_url TEXT NOT NULL,
+    db_token TEXT NOT NULL, org TEXT DEFAULT 'academix',
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE users (id, email, password_hash, name, role, is_active, created_at, updated_at);
+  CREATE TABLE sessions (id, user_id, token, expires_at, created_at);
+  ```
+- **Methods**: `save_user_db()`, `find_by_email()`, `find_by_user_id()`, `list_all_databases()`
+- **Verification**: Integration test against real Turso DB (smoke test)
+
+### 2.2 Add env vars for Turso configuration
+
+- **File**: `src-tauri/src/env_loader.rs`
+- **Action**: Add loading for `CONTROL_PLANE_DB_URL`, `CONTROL_PLANE_DB_TOKEN`, `TURSO_API_TOKEN`, `TURSO_ORG`
+
+### 2.3 Seed superadmin in control plane on startup
+
+- **File**: `src-tauri/src/lib.rs`
+- **Action**: On app startup, connect to control plane Turso DB, seed superadmin user (same pattern as existing `seed_admin_user`)
+- **Verification**: First startup creates superadmin
+
+---
+
+## Phase 3: Registration with Turso DB Creation
+
+### 3.1 Add academy_name to RegisterUserRequest DTO
+
+- **File**: `src-tauri/src/application/dto/user.rs`
+- **Action**: Add `academy_name: String` field
+
+### 3.2 Add academy_name to RegisterForm UI
+
+- **File**: `src/features/auth/components/RegisterForm.tsx`
+- **Action**: Add `academy_name` to `RegisterFormData`, add input field with label "Nombre de la academia", validation (3-100 chars, alphanumeric + spaces)
+
+### 3.3 Pass academy_name in frontend invoke
+
+- **File**: `src/features/auth/components/RegisterForm.tsx`
+- **Action**: Include `academy_name` in the `invoke("register_user", ...)` payload
+
+### 3.4 Modify RegisterUserUseCase with Turso provisioning
+
+- **File**: `src-tauri/src/application/use_cases/register.rs`
+- **Action**: Flow:
+  1. Validate email + password
+  2. Check email uniqueness (control plane)
+  3. Generate DB slug from academy_name
+  4. `TursoProvisioningService::create_database(slug)` — await (2-5s)
+  5. `TursoProvisioningService::create_auth_token(slug)` — await
+  6. Open libsql connection to new DB
+  7. Run all 18 migrations against new DB
+  8. Save user record → MemoryBuffer (queued for flush)
+  9. Save mapping → ControlPlaneRepository (direct write)
+  10. Return success
+
+### 3.5 Update RegisterForm loading state
+
+- **File**: `src/features/auth/components/RegisterForm.tsx`
+- **Action**: Show "Creando tu academia..." with spinner while registering, disable button
+
+### 3.6 Handle registration errors
+
+- **File**: `src/features/auth/components/RegisterForm.tsx`
+- **Action**: Error messages for: duplicate email, Turso API failure, slug conflict
+
+---
+
+## Phase 4: Login + MemoryBuffer Integration (HARD CUTOVER)
+
+> This phase removes local SQLite. After this, the app is fully Turso-backed.
+
+### 4.1 Modify AppState for ConnectionManager + MemoryBuffer
+
+- **File**: `src-tauri/src/commands/auth.rs`
+- **Action**: `AppState` now holds `ConnectionManager`, `MemoryBuffer`, `ControlPlaneRepository`, `FlushTimer`
+- **Action**: Remove old `AppState` that held `AuthService` with local pool
+
+### 4.2 Modify login command for Turso DB resolution
+
+- **File**: `src-tauri/src/commands/auth.rs`
+- **Action**: Login flow:
+  1. Look up email in control plane Turso DB
+  2. Resolve user's Turso DB via ConnectionManager
+  3. Query `users` table in user's Turso DB
+  4. Verify password
+  5. Buffer session creation → MemoryBuffer
+
+### 4.3 Add resolve helper for authenticated commands
+
+- **File**: `src-tauri/src/commands/auth.rs`
+- **Action**: `resolve_user(state, token)` → validates session (buffer + Turso), returns `(User, libsql::Connection)`
+
+### 4.4 Route all commands through MemoryBuffer
+
+- **File**: `src-tauri/src/commands/*.rs` (all 12 command files)
+- **Action**: Change from `State<Service>` → resolve user → buffer writes through MemoryBuffer. Reads check buffer first, then Turso.
+
+### 4.5 Remove SqlitePool and rusqlite
+
+- **File**: `src-tauri/src/infrastructure/database/pool.rs`
+- **Action**: Delete file (no longer needed)
+- **File**: `src-tauri/Cargo.toml`
+- **Action**: Remove `rusqlite` dependency entirely
+- **File**: `src-tauri/src/lib.rs`
+- **Action**: Remove all `init_database()`, `seed_admin_user()` — these live in control plane now
+- **Verification**: `cargo check` passes with zero rusqlite references
+
+### 4.6 Update lib.rs entry point
+
+- **File**: `src-tauri/src/lib.rs`
+- **Action**: New `run()` flow:
+  1. Load env vars for Turso config
+  2. Connect to control plane Turso DB
+  3. Create `ControlPlaneRepository`, `ConnectionManager`, `MemoryBuffer`, `FlushTimer`
+  4. Start flush timer background task
+  5. Register all managed state + command handlers
+  6. On app close → `FlushTimer::flush_now()` (blocking)
+
+### 4.7 Update RegisterUserUseCase to use MemoryBuffer
+
+- **File**: `src-tauri/src/application/use_cases/register.rs`
+- **Action**: After creating Turso DB and running migrations, save user record via MemoryBuffer (not local pool)
+
+---
+
+## Phase 5: Repository Rewrite (MemoryBuffer-backed)
+
+### 5.1 Rewrite UserRepository implementation
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/user.rs`
+- **Action**: Replace `SqliteUserRepository` with `MemoryBackedUserRepository`
+  - Holds `Arc<Mutex<MemoryBuffer>>` + `user_id: String`
+  - `find_by_id()` / `find_by_email()` → check buffer cache, if miss → read from Turso via ConnectionManager
+  - `save()` / `update()` / `delete()` → `buffer_write()` to MemoryBuffer
+
+### 5.2 Rewrite SessionRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/session.rs`
+- **Action**: Same pattern — MemoryBuffer-backed
+
+### 5.3 Rewrite StudentRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/student.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.4 Rewrite CourseRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/course.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.5 Rewrite GroupRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/group.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.6 Rewrite PaymentRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/payment.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.7 Rewrite AttendanceRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/attendance.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.8 Rewrite InvoiceRepository + InvoiceLineRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/invoice.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.9 Rewrite SettingsRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/settings.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.10 Rewrite AccountingEntryRepository
+
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/accounting.rs`
+- **Action**: MemoryBuffer + Turso read-through
+
+### 5.11 Clean up old SQLite repository files
+
+- **Files**: `src-tauri/src/infrastructure/repositories/sqlite/*.rs`
+- **Action**: Rename to `memory_backed/*.rs` for clarity. Update module declarations.
+
+### 5.12 Update port interfaces
+
+- **File**: `src-tauri/src/application/ports/user.rs`
+- **Action**: Remove `fn pool()` method (no longer relevant). Repositories no longer expose a pool.
+
+---
+
+## Phase 6: Superadmin
+
+### 6.1 Add list_client_databases Tauri command
+
+- **File**: `src-tauri/src/commands/admin.rs` (NEW)
+- **Action**: `list_client_databases(token: String) -> Vec<ClientDatabaseInfo>`
+  - Validate token + check role=Admin
+  - Query `ControlPlaneRepository::list_all_databases()`
+  - Return: email, academy_name, db_url, created_at
+
+### 6.2 Add admin commands module
+
+- **File**: `src-tauri/src/commands/mod.rs`
+- **Action**: Add `pub mod admin;`
+
+### 6.3 Register admin command in lib.rs
+
+- **File**: `src-tauri/src/lib.rs`
+- **Action**: Add `list_client_databases` to `generate_handler![]`
+
+---
+
+## Total Task Summary
+
+| Phase | Tasks | Est. Lines | Description |
+|-------|-------|-----------|-------------|
+| 1 — Foundation | 7 | ~250 | MemoryBuffer, flush timer, provisioning, connection manager |
+| 2 — Control Plane | 3 | ~120 | Turso-backed control plane, env vars, superadmin seed |
+| 3 — Registration | 6 | ~150 | Academy name, Turso DB creation, loading states |
+| 4 — Login + Cutover | 7 | ~300 | MemoryBuffer integration, remove local SQLite, lib.rs rewrite |
+| 5 — Repository Rewrite | 12 | ~350 | 11 repos → MemoryBuffer-backed, port updates |
+| 6 — Superadmin | 3 | ~50 | Admin command, role check |
+| **Total** | **38** | **~1,220** | |
+
+### Chained PR Strategy
+
+```
+feature/turso-migration ← acumula todo
+  │
+  ├── PR #1: Foundation     (~250 lines) → main  (new code, no behavior change)
+  ├── PR #2: Control Plane  (~120 lines) → main  (env vars, schema)
+  ├── PR #3: Registration   (~150 lines) → main  (new flow, dual-path)
+  ├── PR #4: Login + Cutover (~300 lines) → main  (HARD CUTOVER)
+  ├── PR #5: Repositories   (~350 lines, split 6+6) → main
+  └── PR #6: Superadmin     (~50 lines)  → main
+         ↓
+  feature/turso-migration mergea a main al final
+```
+
+### Risk Priority
+
+| Priority | Task | Why |
+|----------|------|-----|
+| 🔴 CRITICAL | 1.3 MemoryBuffer | Foundation — everything depends on this |
+| 🔴 CRITICAL | 2.1 ControlPlaneRepository | Registration + login need it |
+| 🔴 CRITICAL | 4.5 Remove SqlitePool | Hard cutover point — app stops working without it |
+| 🟡 HIGH | 3.4 RegisterUserUseCase | Core registration with Turso provisioning |
+| 🟡 HIGH | 4.2 Login resolves Turso DB | Core login flow |
+| 🟡 HIGH | 5.1-5.10 Rewrite repos | Every feature depends on repos |
+| 🟢 MEDIUM | 6.1-6.3 Superadmin | Add-on feature |
