@@ -5,6 +5,8 @@
 use crate::application::dto::{RegisterUserRequest, RegisterUserResponse};
 use crate::application::use_cases::RegisterUserUseCase;
 use crate::infrastructure::repositories::SqliteUserRepository;
+use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
+use crate::infrastructure::turso::provisioning::TursoProvisioningService;
 use std::sync::Arc;
 use tauri::{command, State};
 
@@ -13,11 +15,19 @@ use tauri::{command, State};
 pub async fn register_user(
     request: RegisterUserRequest,
     pool: State<'_, Arc<crate::infrastructure::database::SqlitePool>>,
+    control_plane: State<'_, Option<Arc<ControlPlaneRepository>>>,
+    provisioning: State<'_, Option<Arc<TursoProvisioningService>>>,
 ) -> Result<RegisterUserResponse, String> {
     let repository = SqliteUserRepository::new(Arc::clone(&pool));
-    let use_case = RegisterUserUseCase::new(repository);
+
+    // Clone the optional services from managed state
+    let cp: Option<Arc<ControlPlaneRepository>> = (*control_plane).clone();
+    let prov: Option<Arc<TursoProvisioningService>> = (*provisioning).clone();
+
+    let use_case = RegisterUserUseCase::new(repository, cp, prov);
 
     use_case
         .execute(request)
+        .await
         .map_err(|e| e.to_string())
 }

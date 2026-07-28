@@ -108,6 +108,11 @@ impl TursoProvisioningService {
         }
     }
 
+    /// Get the organization slug used by this service.
+    pub fn org(&self) -> &str {
+        &self.org
+    }
+
     /// Create a new database in the Turso organization.
     ///
     /// `POST /v1/organizations/{org}/databases`

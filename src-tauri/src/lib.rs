@@ -41,6 +41,7 @@ use commands::students::{
 use commands::users::{create_user, delete_user, get_user, list_users, list_users_by_role, update_user};
 use env_loader::load_turso_config;
 use infrastructure::turso::control_plane::{ControlPlaneRepository, UserRow};
+use infrastructure::turso::provisioning::TursoProvisioningService;
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
     SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
@@ -330,11 +331,23 @@ pub async fn run() {
     // Seed admin user
     seed_admin_user(&pool);
 
-    // Initialize control plane (Turso-backed)
-    match load_turso_config() {
+    // Initialize control plane (Turso-backed) and provisioning service
+    let (control_plane, provisioning_service) = match load_turso_config() {
         Ok(turso_config) => {
-            println!("[TURSO] Connecting to control plane...");
-            match ControlPlaneRepository::new(&turso_config.control_plane_db_url, &turso_config.control_plane_db_token).await {
+            println!("[TURSO] Turso config loaded, initializing services...");
+
+            // Always create provisioning service from env vars
+            let prov = Arc::new(TursoProvisioningService::new(
+                turso_config.turso_api_token.clone(),
+                turso_config.turso_org.clone(),
+            ));
+
+            let cp = match ControlPlaneRepository::new(
+                &turso_config.control_plane_db_url,
+                &turso_config.control_plane_db_token,
+            )
+            .await
+            {
                 Ok(cp) => {
                     if let Err(e) = cp.ensure_schema().await {
                         eprintln!("[TURSO] Failed to ensure control plane schema: {}", e);
@@ -342,18 +355,27 @@ pub async fn run() {
                         println!("[TURSO] Control plane schema ready");
                     }
                     seed_control_plane_admin(&cp).await;
+                    Some(Arc::new(cp))
                 }
                 Err(e) => {
                     eprintln!("[TURSO] Failed to connect to control plane: {}", e);
-                    eprintln!("[TURSO] Control plane features disabled. Set CONTROL_PLANE_DB_URL and CONTROL_PLANE_DB_TOKEN to enable.");
+                    eprintln!(
+                        "[TURSO] Control plane features disabled. Set CONTROL_PLANE_DB_URL \
+                         and CONTROL_PLANE_DB_TOKEN to enable."
+                    );
+                    None
                 }
-            }
+            };
+            (cp, Some(prov))
         }
         Err(e) => {
             eprintln!("[TURSO] Turso config not available: {}", e);
-            eprintln!("[TURSO] Turso features disabled. Set env vars to enable (see README).");
+            eprintln!(
+                "[TURSO] Turso features disabled. Set env vars to enable (see README)."
+            );
+            (None, None)
         }
-    }
+    };
 
     // Create all service states with SQLite repositories
     let pool = Arc::new(pool);
@@ -369,7 +391,7 @@ pub async fn run() {
         settings_service,
     ) = create_service_states(Arc::clone(&pool));
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -382,83 +404,90 @@ pub async fn run() {
         .manage(attendance_service)
         .manage(invoice_service)
         .manage(accounting_service)
-        .manage(settings_service)
-        .invoke_handler(tauri::generate_handler![
-            // Health check
-            health,
-            // Public registration (no auth required)
-            register_user,
-            // Auth commands
-            login,
-            logout,
-            update_profile,
-            change_password,
-            // User commands
-            create_user,
-            get_user,
-            list_users,
-            list_users_by_role,
-            update_user,
-            delete_user,
-            // Student commands
-            create_student,
-            get_student,
-            list_students,
-            update_student,
-            delete_student,
-            // Course commands
-            create_course,
-            get_course,
-            list_courses,
-            update_course,
-            delete_course,
-            archive_course,
-            restore_course,
-            hard_delete_course,
-            list_archived_courses,
-            // Group commands
-            create_group,
-            get_group,
-            list_groups,
-            update_group,
-            delete_group,
-            // Payment commands
-            create_payment,
-            get_payment,
-            list_payments,
-            list_payments_by_student,
-            update_payment,
-            delete_payment,
-            get_student_payment_status,
-            get_all_students_payment_summary,
-            // Attendance commands
-            create_attendance,
-            get_attendance,
-            list_attendances,
-            list_attendance_by_group_date,
-            list_attendance_by_student,
-            update_attendance,
-            delete_attendance,
-            get_group_attendance_stats,
-            count_student_absences,
-            count_group_absences,
-            // Accounting commands (simplified)
-            create_entry,
-            get_entry,
-            list_entries,
-            delete_entry,
-            get_accounting_summary,
-            // Invoice commands
-            create_invoice,
-            get_invoice,
-            list_invoices,
-            register_payment,
-            cancel_invoice,
-            get_invoice_summary,
-            // Settings commands
-            get_absence_threshold,
-            set_absence_threshold,
-        ])
+        .manage(settings_service);
+
+    // Register optional Turso services as managed state (None when not configured)
+    builder = builder.manage(control_plane);
+    builder = builder.manage(provisioning_service);
+
+    builder = builder.invoke_handler(tauri::generate_handler![
+        // Health check
+        health,
+        // Public registration (no auth required)
+        register_user,
+        // Auth commands
+        login,
+        logout,
+        update_profile,
+        change_password,
+        // User commands
+        create_user,
+        get_user,
+        list_users,
+        list_users_by_role,
+        update_user,
+        delete_user,
+        // Student commands
+        create_student,
+        get_student,
+        list_students,
+        update_student,
+        delete_student,
+        // Course commands
+        create_course,
+        get_course,
+        list_courses,
+        update_course,
+        delete_course,
+        archive_course,
+        restore_course,
+        hard_delete_course,
+        list_archived_courses,
+        // Group commands
+        create_group,
+        get_group,
+        list_groups,
+        update_group,
+        delete_group,
+        // Payment commands
+        create_payment,
+        get_payment,
+        list_payments,
+        list_payments_by_student,
+        update_payment,
+        delete_payment,
+        get_student_payment_status,
+        get_all_students_payment_summary,
+        // Attendance commands
+        create_attendance,
+        get_attendance,
+        list_attendances,
+        list_attendance_by_group_date,
+        list_attendance_by_student,
+        update_attendance,
+        delete_attendance,
+        get_group_attendance_stats,
+        count_student_absences,
+        count_group_absences,
+        // Accounting commands (simplified)
+        create_entry,
+        get_entry,
+        list_entries,
+        delete_entry,
+        get_accounting_summary,
+        // Invoice commands
+        create_invoice,
+        get_invoice,
+        list_invoices,
+        register_payment,
+        cancel_invoice,
+        get_invoice_summary,
+        // Settings commands
+        get_absence_threshold,
+        set_absence_threshold,
+    ]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

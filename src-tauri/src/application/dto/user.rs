@@ -14,6 +14,7 @@ pub struct CreateUserRequest {
 /// Register user request (public registration)
 #[derive(Debug, Deserialize)]
 pub struct RegisterUserRequest {
+    pub academy_name: String,
     pub email: String,
     pub password: String,
     pub name: String,
