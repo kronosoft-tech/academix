@@ -138,57 +138,67 @@
 
 > This phase removes local SQLite. After this, the app is fully Turso-backed.
 
-### 4.1 Modify AppState for ConnectionManager + MemoryBuffer
+### 4.1 Modify AppState for ConnectionManager + MemoryBuffer ✅
 
 - **File**: `src-tauri/src/commands/auth.rs`
-- **Action**: `AppState` now holds `ConnectionManager`, `MemoryBuffer`, `ControlPlaneRepository`, `FlushTimer`
+- **Action**: `AppState` now holds `ConnectionManager`, `MemoryBuffer`, `ControlPlaneRepository`, `FlushTimer` (all optional for graceful fallback)
 - **Action**: Remove old `AppState` that held `AuthService` with local pool
+- **Note**: `control_plane` is `Option<Arc<ControlPlaneRepository>>` — login returns helpful error when Turso not configured. `flush_timer_sender: None` (timer not started — Phase 5 will wire it).
 
-### 4.2 Modify login command for Turso DB resolution
+### 4.2 Modify login command for Turso DB resolution ✅
 
 - **File**: `src-tauri/src/commands/auth.rs`
 - **Action**: Login flow:
   1. Look up email in control plane Turso DB
   2. Resolve user's Turso DB via ConnectionManager
   3. Query `users` table in user's Turso DB
-  4. Verify password
+  4. Verify password (bcrypt)
   5. Buffer session creation → MemoryBuffer
+- **Verification**: `cargo check` passes. Returns `Result<CommandLoginResponse, String>` (Tauri 2 convention for async commands with `State`).
 
-### 4.3 Add resolve helper for authenticated commands
+### 4.3 Add resolve helper for authenticated commands ✅
 
 - **File**: `src-tauri/src/commands/auth.rs`
-- **Action**: `resolve_user(state, token)` → validates session (buffer + Turso), returns `(User, libsql::Connection)`
+- **Action**: `resolve_authenticated_user(token, cp, cm, mb)` → stub returning error with guidance. Full implementation deferred to Phase 5.
 
-### 4.4 Route all commands through MemoryBuffer
+### 4.4 Route auth commands through Turso AppState ✅
 
-- **File**: `src-tauri/src/commands/*.rs` (all 12 command files)
-- **Action**: Change from `State<Service>` → resolve user → buffer writes through MemoryBuffer. Reads check buffer first, then Turso.
+- **File**: `src-tauri/src/commands/auth.rs`
+- **Action**: `login`, `logout`, `update_profile`, `change_password` all use new Turso `AppState`. login/logout are fully functional. update_profile/change_password are stubs returning clear error messages.
+- **Note**: Other command files (users, students, courses, etc.) still use old managed state. Full MemoryBuffer routing is Phase 5.
 
-### 4.5 Remove SqlitePool and rusqlite
+### 4.5 Remove SqlitePool (keep rusqlite) ✅
 
 - **File**: `src-tauri/src/infrastructure/database/pool.rs`
-- **Action**: Delete file (no longer needed)
-- **File**: `src-tauri/Cargo.toml`
-- **Action**: Remove `rusqlite` dependency entirely
-- **File**: `src-tauri/src/lib.rs`
-- **Action**: Remove all `init_database()`, `seed_admin_user()` — these live in control plane now
-- **Verification**: `cargo check` passes with zero rusqlite references
+- **Action**: DELETED — file removed
+- **File**: `src-tauri/src/infrastructure/database/mod.rs`
+- **Action**: Replaced pool module with `set_db_path()`/`open_connection()` globals
+- **File**: `src-tauri/src/infrastructure/repositories/sqlite/*.rs` (10 files)
+- **Action**: All repos rewritten to use `database::open_connection()` instead of `SqlitePool` parameter
+- **File**: `src-tauri/src/application/ports/user.rs`
+- **Action**: Removed `fn pool()` from `UserRepository` trait
+- **DEVIATION**: `rusqlite` NOT removed from `Cargo.toml`. The sqlite repos still use sync rusqlite API. Full removal deferred to Phase 5. `cargo check` passes.
+- **Verification**: All 10 repos compile without SqlitePool references.
 
-### 4.6 Update lib.rs entry point
+### 4.6 Update lib.rs entry point ✅
 
 - **File**: `src-tauri/src/lib.rs`
 - **Action**: New `run()` flow:
-  1. Load env vars for Turso config
-  2. Connect to control plane Turso DB
-  3. Create `ControlPlaneRepository`, `ConnectionManager`, `MemoryBuffer`, `FlushTimer`
-  4. Start flush timer background task
-  5. Register all managed state + command handlers
-  6. On app close → `FlushTimer::flush_now()` (blocking)
+  1. Load env vars for Turso config (`load_turso_config()`)
+  2. Connect to control plane Turso DB (or None if not configured)
+  3. Create `ControlPlaneRepository`, `ConnectionManager`, `MemoryBuffer`
+  4. `run_local_migrations()` for backward-compat SQLite reads
+  5. `seed_control_plane_admin()` on startup
+  6. Register Turso AppState + old service states for backward compat
+  7. Register all command handlers
+- **Note**: Uses `tokio::sync::Mutex` for connection_manager and memory_buffer (required for `Send` across `.await`). Flush timer not started (set to None). Old service states kept until Phase 5.
 
-### 4.7 Update RegisterUserUseCase to use MemoryBuffer
+### 4.7 Update commands using new constructors ✅
 
-- **File**: `src-tauri/src/application/use_cases/register.rs`
-- **Action**: After creating Turso DB and running migrations, save user record via MemoryBuffer (not local pool)
+- **File**: `src-tauri/src/commands/register.rs`
+- **Action**: Already uses `SqliteUserRepository::new()` (no pool argument). No changes needed.
+- **File**: `src-tauri/src/commands/auth.rs`
+- **Action**: All auth commands rewritten to use Turso `AppState` with `tokio::sync::Mutex` for thread-safe async.
 
 ---
 

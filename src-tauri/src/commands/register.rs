@@ -14,11 +14,10 @@ use tauri::{command, State};
 #[command]
 pub async fn register_user(
     request: RegisterUserRequest,
-    pool: State<'_, Arc<crate::infrastructure::database::SqlitePool>>,
     control_plane: State<'_, Option<Arc<ControlPlaneRepository>>>,
     provisioning: State<'_, Option<Arc<TursoProvisioningService>>>,
 ) -> Result<RegisterUserResponse, String> {
-    let repository = SqliteUserRepository::new(Arc::clone(&pool));
+    let repository = SqliteUserRepository::new();
 
     // Clone the optional services from managed state
     let cp: Option<Arc<ControlPlaneRepository>> = (*control_plane).clone();

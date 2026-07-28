@@ -6,19 +6,16 @@ use crate::application::ports::UserRepository;
 use crate::domain::entities::user::{Role, User};
 use crate::domain::errors::DomainError;
 use crate::domain::value_objects::Email;
-use crate::infrastructure::database::SqlitePool;
+use crate::infrastructure::database;
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
 
 /// SQLite implementation of UserRepository
 #[derive(Clone)]
-pub struct SqliteUserRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteUserRepository;
 
 impl SqliteUserRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_user(row: &rusqlite::Row<'_>) -> rusqlite::Result<User> {
@@ -61,17 +58,18 @@ impl SqliteUserRepository {
     }
 }
 
-impl UserRepository for SqliteUserRepository {
-    fn pool(&self) -> Arc<SqlitePool> {
-        Arc::clone(&self.pool)
+impl Default for SqliteUserRepository {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
+impl UserRepository for SqliteUserRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE id = ?";
 
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
         match conn.query_row(sql, [id], Self::row_to_user) {
             Ok(user) => Ok(Some(user)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -83,8 +81,7 @@ impl UserRepository for SqliteUserRepository {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE email = ?";
 
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
         match conn.query_row(sql, [email.as_str()], Self::row_to_user) {
             Ok(user) => Ok(Some(user)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -97,22 +94,21 @@ impl UserRepository for SqliteUserRepository {
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         let role_str = Self::role_to_string(user.role);
-
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &user.id,
-                    &user.email,
-                    &user.password_hash,
-                    &user.name,
-                    &role_str,
-                    &(if user.active { 1 } else { 0 }).to_string(),
-                    &user.created_at.to_rfc3339(),
-                    &user.updated_at.to_rfc3339(),
-                ],
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                user.id,
+                user.email,
+                user.password_hash,
+                user.name,
+                role_str,
+                if user.active { 1 } else { 0 },
+                user.created_at.to_rfc3339(),
+                user.updated_at.to_rfc3339(),
+            ],
+        )
+        .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
@@ -123,19 +119,18 @@ impl UserRepository for SqliteUserRepository {
                    WHERE id = ?";
 
         let role_str = Self::role_to_string(user.role);
-
-        let affected = self
-            .pool
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
             .execute(
                 sql,
-                &[
-                    &user.email,
-                    &user.password_hash,
-                    &user.name,
-                    &role_str,
-                    &(if user.active { 1 } else { 0 }).to_string(),
-                    &Utc::now().to_rfc3339(),
-                    &user.id,
+                rusqlite::params![
+                    user.email,
+                    user.password_hash,
+                    user.name,
+                    role_str,
+                    if user.active { 1 } else { 0 },
+                    Utc::now().to_rfc3339(),
+                    user.id,
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -149,9 +144,9 @@ impl UserRepository for SqliteUserRepository {
     fn delete(&self, id: &str) -> Result<(), DomainError> {
         let sql = "UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&Utc::now().to_rfc3339(), &id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -164,16 +159,21 @@ impl UserRepository for SqliteUserRepository {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE is_active = 1 ORDER BY name";
 
-        self.pool
-            .query(sql, &[], Self::row_to_user)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn
+            .prepare(sql)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map([], Self::row_to_user)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<User>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 
     fn exists_by_email(&self, email: &Email) -> Result<bool, DomainError> {
         let sql = "SELECT COUNT(*) FROM users WHERE email = ?";
 
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
         let count: i32 = conn
             .query_row(sql, [email.as_str()], |row| row.get(0))
             .map_err(|e| DomainError::Validation(e.to_string()))?;

@@ -3,36 +3,39 @@
 use crate::application::ports::SessionRepository;
 use crate::domain::entities::Session;
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database::SqlitePool;
+use crate::infrastructure::database;
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
 
 /// SQLite implementation of SessionRepository
 #[derive(Clone)]
-pub struct SqliteSessionRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteSessionRepository;
 
 impl SqliteSessionRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<Session> {
-        let expires_str: String = row.get(4)?;
-        let created_str: String = row.get(5)?;
+        let expires_str: String = row.get(3)?;
+        let created_str: String = row.get(4)?;
 
         Ok(Session {
             id: row.get(0)?,
             user_id: row.get(1)?,
             token: row.get(2)?,
-            created_at: DateTime::parse_from_rfc3339(&created_str)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
             expires_at: DateTime::parse_from_rfc3339(&expires_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now()),
+            created_at: DateTime::parse_from_rfc3339(&created_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
         })
+    }
+}
+
+impl Default for SqliteSessionRepository {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -41,36 +44,42 @@ impl SessionRepository for SqliteSessionRepository {
         let sql = "SELECT id, user_id, token, expires_at, created_at 
                  FROM sessions WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_session)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [id], Self::row_to_session) {
+            Ok(session) => Ok(Some(session)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn find_by_token(&self, token: &str) -> Result<Option<Session>, DomainError> {
         let sql = "SELECT id, user_id, token, expires_at, created_at 
                  FROM sessions WHERE token = ?";
 
-        self.pool
-            .query_row(sql, &[&token], Self::row_to_session)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [token], Self::row_to_session) {
+            Ok(session) => Ok(Some(session)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn save(&self, session: &Session) -> Result<(), DomainError> {
         let sql = "INSERT INTO sessions (id, user_id, token, expires_at, created_at)
                  VALUES (?, ?, ?, ?, ?)";
 
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &session.id,
-                    &session.user_id,
-                    &session.token,
-                    &session.expires_at.to_rfc3339(),
-                    &session.created_at.to_rfc3339(),
-                ],
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                session.id,
+                session.user_id,
+                session.token,
+                session.expires_at.to_rfc3339(),
+                session.created_at.to_rfc3339(),
+            ],
+        )
+        .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
@@ -78,9 +87,9 @@ impl SessionRepository for SqliteSessionRepository {
     fn delete(&self, id: &str) -> Result<(), DomainError> {
         let sql = "DELETE FROM sessions WHERE id = ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -93,9 +102,9 @@ impl SessionRepository for SqliteSessionRepository {
         let now = Utc::now().to_rfc3339();
         let sql = "DELETE FROM sessions WHERE expires_at < ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&now])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![now])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(affected as u64)

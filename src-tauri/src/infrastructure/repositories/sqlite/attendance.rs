@@ -5,19 +5,16 @@
 use crate::application::ports::AttendanceRepository;
 use crate::domain::entities::attendance::{Attendance, AttendanceStatus};
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database::SqlitePool;
+use crate::infrastructure::database;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
-use std::sync::Arc;
 
 /// SQLite implementation of AttendanceRepository
 #[derive(Clone)]
-pub struct SqliteAttendanceRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteAttendanceRepository;
 
 impl SqliteAttendanceRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_attendance(row: &rusqlite::Row<'_>) -> rusqlite::Result<Attendance> {
@@ -25,7 +22,6 @@ impl SqliteAttendanceRepository {
         let date_str: String = row.get(3)?;
         let created_str: String = row.get(6)?;
 
-        // Parse date - may be just date or full datetime
         let date = DateTime::parse_from_rfc3339(&date_str)
             .map(|dt| dt.with_timezone(&Utc))
             .or_else(|_| {
@@ -49,14 +45,23 @@ impl SqliteAttendanceRepository {
     }
 }
 
+impl Default for SqliteAttendanceRepository {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AttendanceRepository for SqliteAttendanceRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Attendance>, DomainError> {
         let sql = "SELECT id, student_id, group_id, date, status, notes, created_at
                    FROM attendance WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_attendance)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [id], Self::row_to_attendance) {
+            Ok(attendance) => Ok(Some(attendance)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn save(&self, attendance: &Attendance) -> Result<(), DomainError> {
@@ -64,20 +69,20 @@ impl AttendanceRepository for SqliteAttendanceRepository {
             "INSERT INTO attendance (id, student_id, group_id, date, status, notes, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &attendance.id,
-                    &attendance.student_id,
-                    &attendance.group_id,
-                    &attendance.date.to_rfc3339(),
-                    &attendance.status.as_str().to_string(),
-                    &attendance.notes,
-                    &attendance.created_at.to_rfc3339(),
-                ],
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                attendance.id,
+                attendance.student_id,
+                attendance.group_id,
+                attendance.date.to_rfc3339(),
+                attendance.status.as_str(),
+                attendance.notes,
+                attendance.created_at.to_rfc3339(),
+            ],
+        )
+        .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
@@ -87,17 +92,17 @@ impl AttendanceRepository for SqliteAttendanceRepository {
                    SET student_id = ?, group_id = ?, date = ?, status = ?, notes = ?
                    WHERE id = ?";
 
-        let affected = self
-            .pool
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
             .execute(
                 sql,
-                &[
-                    &attendance.student_id,
-                    &attendance.group_id,
-                    &attendance.date.to_rfc3339(),
-                    &attendance.status.as_str().to_string(),
-                    &attendance.notes,
-                    &attendance.id,
+                rusqlite::params![
+                    attendance.student_id,
+                    attendance.group_id,
+                    attendance.date.to_rfc3339(),
+                    attendance.status.as_str(),
+                    attendance.notes,
+                    attendance.id,
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -111,9 +116,9 @@ impl AttendanceRepository for SqliteAttendanceRepository {
     fn delete(&self, id: &str) -> Result<(), DomainError> {
         let sql = "DELETE FROM attendance WHERE id = ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -126,18 +131,26 @@ impl AttendanceRepository for SqliteAttendanceRepository {
         let sql = "SELECT id, student_id, group_id, date, status, notes, created_at
                    FROM attendance ORDER BY date DESC";
 
-        self.pool
-            .query(sql, &[], Self::row_to_attendance)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map([], Self::row_to_attendance)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 
     fn find_by_student_id(&self, student_id: &str) -> Result<Vec<Attendance>, DomainError> {
         let sql = "SELECT id, student_id, group_id, date, status, notes, created_at
                    FROM attendance WHERE student_id = ? ORDER BY date DESC";
 
-        self.pool
-            .query(sql, &[&student_id], Self::row_to_attendance)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map(rusqlite::params![student_id], Self::row_to_attendance)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 
     fn find_by_group_and_date(
@@ -149,13 +162,13 @@ impl AttendanceRepository for SqliteAttendanceRepository {
         let sql = "SELECT id, student_id, group_id, date, status, notes, created_at
                    FROM attendance WHERE group_id = ? AND date LIKE ? ORDER BY date DESC";
 
-        self.pool
-            .query(
-                sql,
-                &[&group_id, &format!("{}%", date_str)],
-                Self::row_to_attendance,
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map(rusqlite::params![group_id, format!("{}%", date_str)], Self::row_to_attendance)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 
     fn count_absences_by_student_and_group(
@@ -166,10 +179,11 @@ impl AttendanceRepository for SqliteAttendanceRepository {
         let sql = "SELECT COUNT(*) FROM attendance
                    WHERE student_id = ? AND group_id = ? AND status = 'absent'";
 
-        self.pool
-            .query_row(sql, &[&student_id, &group_id], |row| row.get::<_, i32>(0))
-            .map_err(|e| DomainError::Validation(e.to_string()))?
-            .ok_or_else(|| DomainError::Validation("Count query returned no result".to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let count: i32 = conn
+            .query_row(sql, rusqlite::params![student_id, group_id], |row| row.get(0))
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        Ok(count)
     }
 
     fn count_absences_by_group(
@@ -180,12 +194,16 @@ impl AttendanceRepository for SqliteAttendanceRepository {
                    WHERE group_id = ? AND status = 'absent'
                    GROUP BY student_id";
 
-        self.pool
-            .query(sql, &[&group_id], |row| {
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map(rusqlite::params![group_id], |row| {
                 let student_id: String = row.get(0)?;
                 let count: i32 = row.get(1)?;
                 Ok((student_id, count))
             })
-            .map_err(|e| DomainError::Validation(e.to_string()))
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 }

@@ -5,19 +5,16 @@
 use crate::application::ports::StudentRepository;
 use crate::domain::entities::Student;
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database::SqlitePool;
+use crate::infrastructure::database;
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
 
 /// SQLite implementation of StudentRepository
 #[derive(Clone)]
-pub struct SqliteStudentRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteStudentRepository;
 
 impl SqliteStudentRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_student(row: &rusqlite::Row<'_>) -> rusqlite::Result<Student> {
@@ -42,7 +39,6 @@ impl SqliteStudentRepository {
             phone: row.get(7)?,
             address: row.get::<_, Option<String>>(17)?,
             birth_date: birth_date_str.and_then(|s| {
-                // Try RFC3339 first, then YYYY-MM-DD
                 DateTime::parse_from_rfc3339(&s)
                     .ok()
                     .map(|dt| dt.with_timezone(&Utc))
@@ -69,6 +65,12 @@ impl SqliteStudentRepository {
     }
 }
 
+impl Default for SqliteStudentRepository {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StudentRepository for SqliteStudentRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Student>, DomainError> {
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
@@ -76,9 +78,12 @@ impl StudentRepository for SqliteStudentRepository {
                           active, created_at, updated_at, course_id, group_id, address
                    FROM students WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_student)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [id], Self::row_to_student) {
+            Ok(student) => Ok(Some(student)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn find_by_user_id(&self, user_id: &str) -> Result<Option<Student>, DomainError> {
@@ -87,45 +92,47 @@ impl StudentRepository for SqliteStudentRepository {
                           active, created_at, updated_at, course_id, group_id, address
                    FROM students WHERE user_id = ?";
 
-        self.pool
-            .query_row(sql, &[&user_id], Self::row_to_student)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [user_id], Self::row_to_student) {
+            Ok(student) => Ok(Some(student)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn save(&self, student: &Student) -> Result<(), DomainError> {
         let sql = "INSERT INTO students (id, user_id, first_name, last_name, document_type, 
-                                     document_number, email, phone, birth_date, 
-                                     guardian_name, guardian_document, guardian_phone,
-                                     active, created_at, updated_at, course_id, group_id, address)
+                                      document_number, email, phone, birth_date, 
+                                      guardian_name, guardian_document, guardian_phone,
+                                      active, created_at, updated_at, course_id, group_id, address)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         let birth_date = student.birth_date.map(|dt| dt.to_rfc3339());
-
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &student.id,
-                    &student.user_id,
-                    &student.first_name,
-                    &student.last_name,
-                    &student.document_type,
-                    &student.document_number,
-                    &student.email,
-                    &student.phone,
-                    &birth_date,
-                    &student.guardian_name,
-                    &student.guardian_document,
-                    &student.guardian_phone,
-                    &(if student.active { 1 } else { 0 }).to_string(),
-                    &student.created_at.to_rfc3339(),
-                    &student.updated_at.to_rfc3339(),
-                    &student.course_id,
-                    &student.group_id,
-                    &student.address,
-                ],
-            )
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                student.id,
+                student.user_id,
+                student.first_name,
+                student.last_name,
+                student.document_type,
+                student.document_number,
+                student.email,
+                student.phone,
+                birth_date,
+                student.guardian_name,
+                student.guardian_document,
+                student.guardian_phone,
+                if student.active { 1 } else { 0 },
+                student.created_at.to_rfc3339(),
+                student.updated_at.to_rfc3339(),
+                student.course_id,
+                student.group_id,
+                student.address,
+            ],
+        )
+        .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
@@ -138,26 +145,25 @@ impl StudentRepository for SqliteStudentRepository {
                    WHERE id = ?";
 
         let birth_date = student.birth_date.map(|dt| dt.to_rfc3339());
-
-        let affected = self
-            .pool
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
             .execute(
                 sql,
-                &[
-                    &student.first_name,
-                    &student.last_name,
-                    &student.email,
-                    &student.phone,
-                    &student.address,
-                    &birth_date,
-                    &student.guardian_name,
-                    &student.guardian_document,
-                    &student.guardian_phone,
-                    &(if student.active { 1 } else { 0 }).to_string(),
-                    &Utc::now().to_rfc3339(),
-                    &student.course_id,
-                    &student.group_id,
-                    &student.id,
+                rusqlite::params![
+                    student.first_name,
+                    student.last_name,
+                    student.email,
+                    student.phone,
+                    student.address,
+                    birth_date,
+                    student.guardian_name,
+                    student.guardian_document,
+                    student.guardian_phone,
+                    if student.active { 1 } else { 0 },
+                    Utc::now().to_rfc3339(),
+                    student.course_id,
+                    student.group_id,
+                    student.id,
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -171,9 +177,9 @@ impl StudentRepository for SqliteStudentRepository {
     fn delete(&self, id: &str) -> Result<(), DomainError> {
         let sql = "UPDATE students SET active = 0, updated_at = ? WHERE id = ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&Utc::now().to_rfc3339(), &id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -184,12 +190,16 @@ impl StudentRepository for SqliteStudentRepository {
 
     fn find_all(&self) -> Result<Vec<Student>, DomainError> {
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
-                         email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
-                         active, created_at, updated_at, course_id, group_id, address
-                  FROM students WHERE active = 1 ORDER BY last_name, first_name";
+                          email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
+                          active, created_at, updated_at, course_id, group_id, address
+                   FROM students WHERE active = 1 ORDER BY last_name, first_name";
 
-        self.pool
-            .query(sql, &[], Self::row_to_student)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map([], Self::row_to_student)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 }

@@ -2,26 +2,18 @@
 
 use crate::application::ports::accounting::AccountingEntryRepository;
 use crate::domain::entities::accounting::{AccountingCategory, AccountingEntry, EntryType};
-use crate::infrastructure::database::SqlitePool;
-use std::sync::Arc;
+use crate::infrastructure::database;
 
 /// SQLite implementation of AccountingEntryRepository
 #[derive(Clone)]
-pub struct SqliteAccountingEntryRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteAccountingEntryRepository;
 
 impl SqliteAccountingEntryRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
-    }
-
-    pub fn pool(&self) -> Arc<SqlitePool> {
-        Arc::clone(&self.pool)
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_accounting_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<AccountingEntry> {
-        // SQL: id, date, type, category, description, amount, reference, created_at
         let entry_type_str: String = row.get(2)?;
         let category_str: String = row.get(3)?;
 
@@ -48,21 +40,21 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
                       id, date, type, category, description, amount, reference, created_at
                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &entry.id,
-                    &entry.date,
-                    &entry.entry_type.as_str(),
-                    &entry.category.as_str(),
-                    &entry.description,
-                    &entry.amount.to_string(),
-                    &entry.reference,
-                    &entry.created_at,
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+        let conn = database::open_connection()?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                entry.id,
+                entry.date,
+                entry.entry_type.as_str(),
+                entry.category.as_str(),
+                entry.description,
+                entry.amount,
+                entry.reference,
+                entry.created_at,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(entry)
     }
@@ -71,9 +63,12 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
         let sql = "SELECT id, date, type, category, description, amount, reference, created_at
                   FROM accounting_entries WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_accounting_entry)
-            .map_err(|e| e.to_string())
+        let conn = database::open_connection()?;
+        match conn.query_row(sql, [id], Self::row_to_accounting_entry) {
+            Ok(entry) => Ok(Some(entry)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
     }
 
     fn list(
@@ -105,43 +100,44 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
 
         sql.push_str(" ORDER BY date DESC, created_at DESC");
 
+        let conn = database::open_connection()?;
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let params_refs: Vec<&dyn rusqlite::ToSql> =
             params.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
-
-        self.pool
-            .query(&sql, &params_refs, Self::row_to_accounting_entry)
-            .map_err(|e| e.to_string())
+        let rows = stmt
+            .query_map(params_refs.as_slice(), Self::row_to_accounting_entry)
+            .map_err(|e| e.to_string())?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| e.to_string())
     }
 
     fn delete(&self, id: &str) -> Result<bool, String> {
         let sql = "DELETE FROM accounting_entries WHERE id = ?";
 
-        let affected = self.pool.execute(sql, &[&id]).map_err(|e| e.to_string())?;
-
+        let conn = database::open_connection()?;
+        let affected = conn.execute(sql, rusqlite::params![id]).map_err(|e| e.to_string())?;
         Ok(affected > 0)
     }
 
     fn get_total_income(&self, date_from: &str, date_to: &str) -> Result<f64, String> {
         let sql = "SELECT COALESCE(SUM(amount), 0) FROM accounting_entries 
                   WHERE date >= ? AND date <= ? AND type = 'income'";
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
-        let total: f64 = conn
-            .query_row(sql, &[date_from, date_to], |row| row.get(0))
-            .map_err(|e| e.to_string())?;
 
+        let conn = database::open_connection()?;
+        let total: f64 = conn
+            .query_row(sql, rusqlite::params![date_from, date_to], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
         Ok(total)
     }
 
     fn get_total_expenses(&self, date_from: &str, date_to: &str) -> Result<f64, String> {
         let sql = "SELECT COALESCE(SUM(amount), 0) FROM accounting_entries 
                   WHERE date >= ? AND date <= ? AND type = 'expense'";
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
-        let total: f64 = conn
-            .query_row(sql, &[date_from, date_to], |row| row.get(0))
-            .map_err(|e| e.to_string())?;
 
+        let conn = database::open_connection()?;
+        let total: f64 = conn
+            .query_row(sql, rusqlite::params![date_from, date_to], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
         Ok(total)
     }
 
@@ -153,12 +149,11 @@ impl AccountingEntryRepository for SqliteAccountingEntryRepository {
             prefix.len() + 2
         );
         let pattern = format!("{}%", prefix);
-        let conn_ref = self.pool.connection();
-        let conn = conn_ref.lock().unwrap();
+
+        let conn = database::open_connection()?;
         let next: u32 = conn
             .query_row(&sql, [&pattern], |row| row.get(0))
             .map_err(|e| e.to_string())?;
-
         Ok(next)
     }
 }

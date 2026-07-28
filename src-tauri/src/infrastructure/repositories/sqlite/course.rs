@@ -5,19 +5,16 @@
 use crate::application::ports::CourseRepository;
 use crate::domain::entities::course::{Course, CourseStatus};
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database::SqlitePool;
+use crate::infrastructure::database;
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
 
 /// SQLite implementation of CourseRepository
 #[derive(Clone)]
-pub struct SqliteCourseRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteCourseRepository;
 
 impl SqliteCourseRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 
     fn row_to_course(row: &rusqlite::Row<'_>) -> rusqlite::Result<Course> {
@@ -46,15 +43,24 @@ impl SqliteCourseRepository {
     }
 }
 
+impl Default for SqliteCourseRepository {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CourseRepository for SqliteCourseRepository {
     fn find_by_id(&self, id: &str) -> Result<Option<Course>, DomainError> {
         let sql =
             "SELECT id, name, description, code, credits, status, created_at, updated_at, price, duration 
                    FROM courses WHERE id = ?";
 
-        self.pool
-            .query_row(sql, &[&id], Self::row_to_course)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [id], Self::row_to_course) {
+            Ok(course) => Ok(Some(course)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn find_by_code(&self, code: &str) -> Result<Option<Course>, DomainError> {
@@ -62,9 +68,12 @@ impl CourseRepository for SqliteCourseRepository {
             "SELECT id, name, description, code, credits, status, created_at, updated_at, price, duration 
                    FROM courses WHERE code = ?";
 
-        self.pool
-            .query_row(sql, &[&code], Self::row_to_course)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        match conn.query_row(sql, [code], Self::row_to_course) {
+            Ok(course) => Ok(Some(course)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(DomainError::Validation(e.to_string())),
+        }
     }
 
     fn save(&self, course: &Course) -> Result<(), DomainError> {
@@ -72,26 +81,26 @@ impl CourseRepository for SqliteCourseRepository {
         let sql = "INSERT INTO courses (id, name, description, code, credits, status, created_at, updated_at, price, duration)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        self.pool
-            .execute(
-                sql,
-                &[
-                    &course.id,
-                    &course.name,
-                    &course.description,
-                    &course.code,
-                    &course.credits.to_string(),
-                    &course.status.as_str().to_string(),
-                    &course.created_at.to_rfc3339(),
-                    &course.updated_at.to_rfc3339(),
-                    &course.price.to_string(),
-                    &course.duration.to_string(),
-                ],
-            )
-            .map_err(|e| {
-                eprintln!("[COURSE REPO ERROR] Failed to insert: {}", e);
-                DomainError::Validation(e.to_string())
-            })?;
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(
+            sql,
+            rusqlite::params![
+                course.id,
+                course.name,
+                course.description,
+                course.code,
+                course.credits,
+                course.status.as_str(),
+                course.created_at.to_rfc3339(),
+                course.updated_at.to_rfc3339(),
+                course.price,
+                course.duration,
+            ],
+        )
+        .map_err(|e| {
+            eprintln!("[COURSE REPO ERROR] Failed to insert: {}", e);
+            DomainError::Validation(e.to_string())
+        })?;
 
         eprintln!("[COURSE REPO] Course saved successfully");
         Ok(())
@@ -102,20 +111,20 @@ impl CourseRepository for SqliteCourseRepository {
                    SET name = ?, description = ?, code = ?, credits = ?, status = ?, updated_at = ?, price = ?, duration = ?
                    WHERE id = ?";
 
-        let affected = self
-            .pool
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
             .execute(
                 sql,
-                &[
-                    &course.name,
-                    &course.description,
-                    &course.code,
-                    &course.credits.to_string(),
-                    &course.status.as_str().to_string(),
-                    &Utc::now().to_rfc3339(),
-                    &course.price.to_string(),
-                    &course.duration.to_string(),
-                    &course.id,
+                rusqlite::params![
+                    course.name,
+                    course.description,
+                    course.code,
+                    course.credits,
+                    course.status.as_str(),
+                    Utc::now().to_rfc3339(),
+                    course.price,
+                    course.duration,
+                    course.id,
                 ],
             )
             .map_err(|e| DomainError::Validation(e.to_string()))?;
@@ -127,12 +136,11 @@ impl CourseRepository for SqliteCourseRepository {
     }
 
     fn delete(&self, id: &str) -> Result<(), DomainError> {
-        // Soft delete - just archive the course
         let sql = "UPDATE courses SET status = 'archived', updated_at = ? WHERE id = ?";
 
-        let affected = self
-            .pool
-            .execute(sql, &[&Utc::now().to_rfc3339(), &id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let affected = conn
+            .execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -147,10 +155,13 @@ impl CourseRepository for SqliteCourseRepository {
             "SELECT id, name, description, code, credits, status, created_at, updated_at, price, duration 
                    FROM courses WHERE status != 'archived' ORDER BY name";
 
-        let result = self.pool
-            .query(sql, &[], Self::row_to_course)
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map([], Self::row_to_course)
             .map_err(|e| DomainError::Validation(e.to_string()))?;
-        
+        let collected: Result<Vec<_>, _> = rows.collect();
+        let result = collected.map_err(|e| DomainError::Validation(e.to_string()))?;
         eprintln!("[COURSE REPO] Found {} courses", result.len());
         Ok(result)
     }
@@ -160,16 +171,20 @@ impl CourseRepository for SqliteCourseRepository {
             "SELECT id, name, description, code, credits, status, created_at, updated_at, price, duration 
                    FROM courses WHERE status = 'archived' ORDER BY name";
 
-        self.pool
-            .query(sql, &[], Self::row_to_course)
-            .map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
+        let rows = stmt
+            .query_map([], Self::row_to_course)
+            .map_err(|e| DomainError::Validation(e.to_string()))?;
+        let collected: Result<Vec<_>, _> = rows.collect();
+        collected.map_err(|e| DomainError::Validation(e.to_string()))
     }
 
     fn restore(&self, id: &str) -> Result<(), DomainError> {
         let sql = "UPDATE courses SET status = 'draft', updated_at = ? WHERE id = ?";
 
-        self.pool
-            .execute(sql, &[&Utc::now().to_rfc3339(), &id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
         Ok(())
     }
@@ -177,8 +192,8 @@ impl CourseRepository for SqliteCourseRepository {
     fn hard_delete(&self, id: &str) -> Result<(), DomainError> {
         let sql = "DELETE FROM courses WHERE id = ?";
 
-        self.pool
-            .execute(sql, &[&id])
+        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        conn.execute(sql, rusqlite::params![id])
             .map_err(|e| DomainError::Validation(e.to_string()))?;
         Ok(())
     }
