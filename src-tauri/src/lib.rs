@@ -39,6 +39,8 @@ use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
 };
 use commands::users::{create_user, delete_user, get_user, list_users, list_users_by_role, update_user};
+use env_loader::load_turso_config;
+use infrastructure::turso::control_plane::{ControlPlaneRepository, UserRow};
 use infrastructure::database::SqlitePool;
 use infrastructure::repositories::{
     SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
@@ -210,6 +212,74 @@ fn seed_admin_user(pool: &SqlitePool) {
     }
 }
 
+/// Seed superadmin in control plane Turso DB on startup.
+async fn seed_control_plane_admin(cp: &ControlPlaneRepository) {
+    use env_loader::{get_env_var, is_production};
+
+    let admin_email = match get_env_var("ADMIN_EMAIL", Some("admin@academix.com")) {
+        Ok(email) => {
+            if is_production() {
+                println!("[ENV] Using ADMIN_EMAIL from environment: {}", email);
+            } else {
+                eprintln!("[WARNING] Using default admin email. Set ADMIN_EMAIL env var for production.");
+            }
+            email
+        }
+        Err(e) => {
+            eprintln!("[ERROR] Failed to get admin email: {}", e);
+            return;
+        }
+    };
+
+    let admin_password_hash = match get_env_var(
+        "ADMIN_PASSWORD_HASH",
+        Some("$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy"),
+    ) {
+        Ok(hash) => {
+            if is_production() {
+                println!("[ENV] Using ADMIN_PASSWORD_HASH from environment");
+            } else {
+                eprintln!("[WARNING] Using default admin password hash. Set ADMIN_PASSWORD_HASH env var for production.");
+            }
+            hash
+        }
+        Err(e) => {
+            eprintln!("[ERROR] Failed to get admin password hash: {}", e);
+            return;
+        }
+    };
+
+    // Check if superadmin already exists in control plane
+    match cp.find_user_by_email(&admin_email).await {
+        Ok(Some(_)) => {
+            println!("Superadmin already exists in control plane");
+            return;
+        }
+        Ok(None) => {} // good, proceed to create
+        Err(e) => {
+            eprintln!("[ERROR] Failed to check superadmin in control plane: {}", e);
+            return;
+        }
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let superadmin = UserRow {
+        id: "admin-1".to_string(),
+        email: admin_email,
+        password_hash: admin_password_hash,
+        name: "Luifer Admin".to_string(),
+        role: "Admin".to_string(),
+        is_active: true,
+        created_at: now.clone(),
+        updated_at: now,
+    };
+
+    match cp.save_user(&superadmin).await {
+        Ok(_) => println!("Superadmin seeded in control plane successfully"),
+        Err(e) => eprintln!("[ERROR] Failed to seed superadmin in control plane: {}", e),
+    }
+}
+
 /// Create service states with SQLite repositories
 fn create_service_states(
     pool: Arc<SqlitePool>,
@@ -252,13 +322,38 @@ fn create_service_states(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub async fn run() {
     // Initialize database with migrations
     println!("Initializing database...");
     let pool = init_database();
 
     // Seed admin user
     seed_admin_user(&pool);
+
+    // Initialize control plane (Turso-backed)
+    match load_turso_config() {
+        Ok(turso_config) => {
+            println!("[TURSO] Connecting to control plane...");
+            match ControlPlaneRepository::new(&turso_config.control_plane_db_url, &turso_config.control_plane_db_token).await {
+                Ok(cp) => {
+                    if let Err(e) = cp.ensure_schema().await {
+                        eprintln!("[TURSO] Failed to ensure control plane schema: {}", e);
+                    } else {
+                        println!("[TURSO] Control plane schema ready");
+                    }
+                    seed_control_plane_admin(&cp).await;
+                }
+                Err(e) => {
+                    eprintln!("[TURSO] Failed to connect to control plane: {}", e);
+                    eprintln!("[TURSO] Control plane features disabled. Set CONTROL_PLANE_DB_URL and CONTROL_PLANE_DB_TOKEN to enable.");
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("[TURSO] Turso config not available: {}", e);
+            eprintln!("[TURSO] Turso features disabled. Set env vars to enable (see README).");
+        }
+    }
 
     // Create all service states with SQLite repositories
     let pool = Arc::new(pool);

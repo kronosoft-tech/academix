@@ -76,6 +76,28 @@ pub fn is_production() -> bool {
     }
 }
 
+/// Turso configuration loaded from environment variables.
+#[derive(Debug, Clone)]
+pub struct TursoConfig {
+    pub control_plane_db_url: String,
+    pub control_plane_db_token: String,
+    pub turso_api_token: String,
+    pub turso_org: String,
+}
+
+/// Load all Turso configuration from environment variables.
+///
+/// All four are required — the app cannot start without them
+/// because the control plane is a Turso database.
+pub fn load_turso_config() -> Result<TursoConfig, EnvError> {
+    Ok(TursoConfig {
+        control_plane_db_url: get_env_var("CONTROL_PLANE_DB_URL", None)?,
+        control_plane_db_token: get_env_var("CONTROL_PLANE_DB_TOKEN", None)?,
+        turso_api_token: get_env_var("TURSO_API_TOKEN", None)?,
+        turso_org: get_env_var("TURSO_ORG", None)?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
