@@ -220,73 +220,115 @@ async fn run_local_migrations() {
 }
 
 /// Seed admin/superadmin in control plane Turso DB on startup.
-async fn seed_control_plane_admin(cp: &ControlPlaneRepository) {
+/// Also provisions a per-user Turso database for the admin so they can log in.
+async fn seed_control_plane_admin(
+    cp: &ControlPlaneRepository,
+    prov: Option<&Arc<TursoProvisioningService>>,
+    config: Option<&env_loader::TursoConfig>,
+) {
     use env_loader::{get_env_var, is_production};
 
-    let admin_email = match get_env_var("ADMIN_EMAIL", Some("admin@academix.com")) {
-        Ok(email) => {
-            if is_production() {
-                println!("[ENV] Using ADMIN_EMAIL from environment: {}", email);
-            } else {
-                eprintln!("[WARNING] Using default admin email. Set ADMIN_EMAIL env var for production.");
-            }
-            email
-        }
-        Err(e) => {
-            eprintln!("[ERROR] Failed to get admin email: {}", e);
-            return;
-        }
-    };
-
-    let admin_password_hash = match get_env_var(
+    let admin_email = get_env_var("ADMIN_EMAIL", Some("admin@academix.com")).unwrap_or_else(|_| "admin@academix.com".to_string());
+    let admin_password_hash = get_env_var(
         "ADMIN_PASSWORD_HASH",
         Some("$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy"),
-    ) {
-        Ok(hash) => {
-            if is_production() {
-                println!("[ENV] Using ADMIN_PASSWORD_HASH from environment");
-            } else {
-                eprintln!("[WARNING] Using default admin password hash. Set ADMIN_PASSWORD_HASH env var for production.");
-            }
-            hash
-        }
-        Err(e) => {
-            eprintln!("[ERROR] Failed to get admin password hash: {}", e);
-            return;
-        }
-    };
+    ).unwrap_or_else(|_| "$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy".to_string());
 
-    // Check if superadmin already exists in control plane
-    match cp.find_user_by_email(&admin_email).await {
-        Ok(Some(_)) => {
-            println!("Superadmin already exists in control plane");
-            return;
-        }
-        Ok(None) => {}
-        Err(e) => {
-            eprintln!("[ERROR] Failed to check superadmin in control plane: {}", e);
-            return;
-        }
+    if !is_production() {
+        eprintln!("[WARNING] Using default admin credentials. Set ADMIN_EMAIL and ADMIN_PASSWORD_HASH env vars for production.");
     }
 
-    let now = chrono::Utc::now().to_rfc3339();
-    let superadmin = infrastructure::turso::control_plane::UserRow {
-        id: "admin-1".to_string(),
-        email: admin_email,
-        password_hash: admin_password_hash,
-        name: "Luifer Admin".to_string(),
-        role: "Admin".to_string(),
-        is_active: true,
-        created_at: now.clone(),
-        updated_at: now,
+    // Check if admin already exists
+    let user_id = match cp.find_user_by_email(&admin_email).await {
+        Ok(Some(user)) => {
+            println!("Superadmin already exists in control plane");
+            user.id
+        }
+        Ok(None) => {
+            let user_id = "admin-1".to_string();
+            let now = chrono::Utc::now().to_rfc3339();
+            let superadmin = infrastructure::turso::control_plane::UserRow {
+                id: user_id.clone(),
+                email: admin_email.clone(),
+                password_hash: admin_password_hash.clone(),
+                name: "Luifer Admin".to_string(),
+                role: "Admin".to_string(),
+                is_active: true,
+                created_at: now.clone(),
+                updated_at: now.clone(),
+            };
+            if let Err(e) = cp.save_user(&superadmin).await {
+                eprintln!("[ERROR] Failed to seed superadmin: {}", e);
+                return;
+            }
+            println!("Superadmin seeded in control plane");
+            user_id
+        }
+        Err(e) => {
+            eprintln!("[ERROR] Failed to check superadmin: {}", e);
+            return;
+        }
     };
 
-    match cp.save_user(&superadmin).await {
-        Ok(_) => println!("Superadmin seeded in control plane successfully"),
-        Err(e) => eprintln!("[ERROR] Failed to seed superadmin in control plane: {}", e),
+    // Provision per-user Turso DB for admin if provisioning is available
+    if let (Some(prov), Some(config)) = (prov, config) {
+        if cp.find_by_user_id(&user_id).await.ok().flatten().is_none() {
+            eprintln!("[ADMIN] Provisioning per-user Turso database for admin...");
+            let slug = format!("academix-admin-{}", user_id);
+            match prov.create_database(&slug).await {
+                Ok(db_info) => {
+                    let db_name = format!("libsql://{}", db_info.hostname);
+                    match prov.create_auth_token(&db_name).await {
+                        Ok(token) => {
+                            let now = chrono::Utc::now().to_rfc3339();
+                            let mapping = infrastructure::turso::control_plane::UserDbMapping {
+                                user_id: user_id.clone(),
+                                email: admin_email.clone(),
+                                academy_name: "academix".to_string(),
+                                db_url: db_name.clone(),
+                                db_token: token,
+                                org: config.turso_org.clone(),
+                                created_at: now.clone(),
+                            };
+                            if let Err(e) = cp.save_user_db(&mapping).await {
+                                eprintln!("[ADMIN] Failed to save DB mapping: {}", e);
+                                return;
+                            }
+                            println!("[ADMIN] Per-user Turso DB provisioned");
+
+                            // Seed admin user record in the new per-user DB
+                            let db = match libsql::Builder::new_remote(db_name.clone(), mapping.db_token.clone()).build().await {
+                                Ok(db) => db,
+                                Err(e) => { eprintln!("[ADMIN] Failed to connect to new DB: {}", e); return; }
+                            };
+                            let conn = db.connect().unwrap();
+                            let _ = conn.execute_batch(include_str!("../migrations/001_initial_schema.sql"));
+                            let _ = conn
+                                .execute(
+                                    "INSERT OR IGNORE INTO users (id, email, password_hash, name, role, is_active, created_at, updated_at)
+                                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                                    libsql::params![
+                                        user_id.clone(),
+                                        admin_email.clone(),
+                                        admin_password_hash.clone(),
+                                        "Luifer Admin".to_string(),
+                                        "Admin".to_string(),
+                                        1,
+                                        now.clone(),
+                                        now.clone(),
+                                    ],
+                                )
+                                .await;
+                            println!("[ADMIN] Admin user seeded in per-user Turso DB");
+                        }
+                        Err(e) => eprintln!("[ADMIN] Failed to create auth token: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("[ADMIN] Failed to create Turso DB: {}", e),
+            }
+        }
     }
 }
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
     // Phase 4: Initialize local SQLite for backward-compatible read operations
@@ -312,7 +354,7 @@ pub async fn run() {
                 config.turso_api_token.clone(),
                 config.turso_org.clone(),
             ));
-            provisioning_service = Some(prov);
+            provisioning_service = Some(prov.clone());
 
             let cp = match ControlPlaneRepository::new(
                 &config.control_plane_db_url,
@@ -326,7 +368,7 @@ pub async fn run() {
                     } else {
                         println!("[TURSO] Control plane schema ready");
                     }
-                    seed_control_plane_admin(&cp).await;
+                    seed_control_plane_admin(&cp, Some(&prov), Some(&config)).await;
                     Some(Arc::new(cp))
                 }
                 Err(e) => {
