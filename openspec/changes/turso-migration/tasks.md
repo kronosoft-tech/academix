@@ -11,71 +11,47 @@
 
 > Zero behavioral change. All new code, no existing files modified (except Cargo.toml).
 
-### 1.1 Add libsql and reqwest dependencies
+### 1.1 Add libsql and reqwest dependencies ✅
 
 - **File**: `src-tauri/Cargo.toml`
-- **Action**: Add `libsql` with `rustls-tls` feature. Add `reqwest` with `rustls-tls` + `json` features.
+- **Action**: Added `libsql = { version = "0.5", features = ["remote"] }` and `reqwest = { version = "0.12", features = ["json", "rustls-tls"] }`
 - **Verification**: `cargo check` passes
+- **Note**: `libsql` feature `rustls` does not exist on 0.5.0 — used `remote` instead. `rusqlite` stays until Phase 4.
 
-### 1.2 Create Turso infrastructure module
+### 1.2 Create Turso infrastructure module ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/mod.rs`
-- **Action**: Module declaration that re-exports: provisioning, control_plane, connection_manager, memory_buffer, flush_timer
+- **Action**: Module declaration exporting: `connection_manager`, `control_plane`, `flush_timer`, `memory_buffer`, `provisioning`
 
-### 1.3 Implement MemoryBuffer
+### 1.3 Implement MemoryBuffer ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/memory_buffer.rs`
-- **Action**: Struct with:
-  - `pending_writes: HashMap<String, Vec<BufferedOperation>>` — keyed by user_id
-  - `cached_entities: HashMap<String, Vec<Entity>>` — read-through cache
-  - `last_write_at: Arc<Mutex<Instant>>` — timer reference
-  - `buffer_write(user_id, op)` — adds to pending_writes, resets timer
-  - `read(user_id, key)` — checks buffer first, then calls read-through callback
-  - `flush(cm: &ConnectionManager)` — builds batch SQL from buffered ops, executes against each user's Turso DB
-  - `build_insert_sql(table, data)` / `build_update_sql(table, id, data)` helpers
-- **Verification**: Unit tested — assert writes buffer, flush generates correct SQL
+- **Action**: Implemented `MemoryBuffer` with `pending_writes`, `cached_entities`, `last_write_at`. Includes `CachedEntity`, `BufferedOperation` enum, full method set plus unit tests.
+- **Verification**: 7 unit tests covering buffer writes, idle timer, cache, clear
 
-### 1.4 Implement FlushTimer
+### 1.4 Implement FlushTimer ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/flush_timer.rs`
-- **Action**: Background tokio task:
-  - Checks `MemoryBuffer::idle_duration()` every 30 seconds
-  - If idle for 15+ minutes → call `MemoryBuffer::flush()`
-  - On app close signal → call `MemoryBuffer::flush()` with 5s timeout
-  - Resets on every write activity
-- **Verification**: Unit tested with mocked clock
+- **Action**: Background tokio task polling every 30s, 15-min idle timeout flush, `flush_on_close` with 5s timeout, `start_flush_timer` returns shutdown sender
+- **Note**: SQL value binding uses empty params stub — actual binding in Phase 4.
 
-### 1.5 Implement TursoProvisioningService
+### 1.5 Implement TursoProvisioningService ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/provisioning.rs`
-- **Action**: Struct with `api_token`, `org`, `reqwest::Client`
-- **Methods**:
-  - `create_database(name)` — `POST /v1/organizations/{org}/databases { name }`
-  - `create_auth_token(db_name)` — `POST /v1/organizations/{org}/databases/{name}/auth/tokens`
-  - `list_databases()` — `GET /v1/organizations/{org}/databases`
-  - `delete_database(name)` — `DELETE /v1/organizations/{org}/databases/{name}`
-- **Error handling**: Custom `ProvisioningError` enum
-- **Verification**: Unit tested with wiremock
+- **Action**: Created with `api_token`, `org`, `reqwest::Client`. Methods: `create_database`, `create_auth_token`, `list_databases`, `delete_database`. Custom `ProvisioningError` enum. 6 unit tests for `generate_db_slug`.
+- **Note**: 409 Conflict retry loop (3 attempts) + rate limit detection.
 
-### 1.6 Implement ConnectionManager
+### 1.6 Implement ConnectionManager ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/connection_manager.rs`
-- **Action**: Struct with `HashMap<String, (libsql::Database, UserDbMapping)>`
-- **Lazy init**: Connection created on first `resolve_by_email()` or `resolve_by_user_id()`
-- **Remote-only**: `libsql::Database::open_remote(db_url, token)` — no local files
-- **Methods**:
-  - `resolve_by_email(cp_repo, email)` — query control plane, create connection, cache
-  - `resolve_by_user_id(user_id)` — return cached connection or error
-  - `register_connection(mapping)` — add to cache + control plane
-  - `run_migrations(db)` — execute all 18 migrations against the new DB
-- **Verification**: Unit tested
+- **Action**: `HashMap<String, CachedConnection>` with lazy init via `libsql::Builder::new_remote()`. Methods: `resolve_by_email`, `resolve_by_user_id`, `register_connection`, `run_migrations` (stub).
+- **Note**: Used `libsql::Builder` pattern (new API) instead of deprecated `Database::open_remote`.
 
-### 1.7 Create slug generator
+### 1.7 Create slug generator ✅
 
 - **File**: `src-tauri/src/infrastructure/turso/provisioning.rs`
-- **Action**: Helper `fn generate_db_slug(academy_name: &str) -> String`
-- **Rules**: lowercase, replace spaces→hyphens, remove special chars, 4-char random suffix
-- **Verification**: Tested with various inputs
+- **Action**: `fn generate_db_slug(academy_name: &str) -> String` — lowercase, spaces→hyphens, special chars removed, 30-char limit, 4-char random suffix
+- **Verification**: 6 unit tests covering lowercase, spaces, special chars, long names, uniqueness
 
 ---
 

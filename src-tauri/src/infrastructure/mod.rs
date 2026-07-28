@@ -6,6 +6,7 @@
 pub mod database;
 pub mod password;
 pub mod repositories;
+pub mod turso;
 
 pub use database::*;
 pub use repositories::*;
