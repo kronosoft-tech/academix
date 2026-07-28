@@ -20,9 +20,9 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
         }
     }
 
-    fn group_to_dto(&self, group: &Group) -> GroupDto {
+    async fn group_to_dto(&self, group: &Group) -> GroupDto {
         // Fetch course duration to calculate end date
-        let calculated_end_date = match self.course_repository.find_by_id(&group.course_id) {
+        let calculated_end_date = match self.course_repository.find_by_id(&group.course_id).await {
             Ok(Some(course)) => group.calculate_end_date(course.duration),
             _ => None,
         };
@@ -48,7 +48,7 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
     }
 
     /// Create a new group
-    pub fn create(&self, request: CreateGroupRequest) -> Result<GroupDto, ApplicationError> {
+    pub async fn create(&self, request: CreateGroupRequest) -> Result<GroupDto, ApplicationError> {
         let group = Group::new(
             Uuid::new_v7(uuid::Timestamp::now(uuid::NoContext)).to_string(),
             request.course_id,
@@ -65,37 +65,41 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
             request.skipped_dates.unwrap_or_default(),
         );
 
-        self.group_repository.save(&group)?;
+        self.group_repository.save(&group).await?;
 
-        Ok(self.group_to_dto(&group))
+        Ok(self.group_to_dto(&group).await)
     }
 
     /// Get group by ID
-    pub fn get_by_id(&self, id: &str) -> Result<GroupDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<GroupDto, ApplicationError> {
         let group = self
             .group_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Group not found".to_string()))?;
 
-        Ok(self.group_to_dto(&group))
+        Ok(self.group_to_dto(&group).await)
     }
 
     /// List all groups
-    pub fn list(&self) -> Result<Vec<GroupDto>, ApplicationError> {
-        let groups = self.group_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<GroupDto>, ApplicationError> {
+        let groups = self.group_repository.find_all().await?;
 
-        Ok(groups.iter().map(|g| self.group_to_dto(g)).collect())
+        let mut dtos = Vec::with_capacity(groups.len());
+        for g in groups {
+            dtos.push(self.group_to_dto(&g).await);
+        }
+        Ok(dtos)
     }
 
     /// Update group
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdateGroupRequest,
     ) -> Result<GroupDto, ApplicationError> {
         let mut group = self
             .group_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Group not found".to_string()))?;
 
         if let Some(name) = request.name {
@@ -147,14 +151,14 @@ impl<R: GroupRepository, C: CourseRepository> GroupService<R, C> {
             group.skipped_dates = skipped_dates;
         }
 
-        self.group_repository.update(&group)?;
+        self.group_repository.update(&group).await?;
 
-        Ok(self.group_to_dto(&group))
+        Ok(self.group_to_dto(&group).await)
     }
 
     /// Delete group (soft delete)
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
-        self.group_repository.delete(id)?;
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+        self.group_repository.delete(id).await?;
         Ok(())
     }
 }

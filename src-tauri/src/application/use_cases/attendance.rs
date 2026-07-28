@@ -23,7 +23,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// Create a new attendance record
-    pub fn create(
+    pub async fn create(
         &self,
         request: CreateAttendanceRequest,
     ) -> Result<AttendanceDto, ApplicationError> {
@@ -43,7 +43,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
             AttendanceStatus::from_str(&request.status).unwrap_or(AttendanceStatus::Present),
         );
 
-        self.attendance_repository.save(&attendance)?;
+        self.attendance_repository.save(&attendance).await?;
 
         Ok(AttendanceDto {
             id: attendance.id,
@@ -56,10 +56,10 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// Get attendance by ID
-    pub fn get_by_id(&self, id: &str) -> Result<AttendanceDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<AttendanceDto, ApplicationError> {
         let attendance = self
             .attendance_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Attendance not found".to_string()))?;
 
         Ok(AttendanceDto {
@@ -73,8 +73,8 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// List all attendance records
-    pub fn list(&self) -> Result<Vec<AttendanceDto>, ApplicationError> {
-        let attendances = self.attendance_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<AttendanceDto>, ApplicationError> {
+        let attendances = self.attendance_repository.find_all().await?;
 
         Ok(attendances
             .into_iter()
@@ -90,7 +90,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// List attendance by group and date
-    pub fn list_by_group_and_date(
+    pub async fn list_by_group_and_date(
         &self,
         group_id: &str,
         date: &str,
@@ -105,7 +105,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
 
         let attendances = self
             .attendance_repository
-            .find_by_group_and_date(group_id, parsed_date)?;
+            .find_by_group_and_date(group_id, parsed_date).await?;
 
         Ok(attendances
             .into_iter()
@@ -121,11 +121,11 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// List attendance by student
-    pub fn list_by_student(
+    pub async fn list_by_student(
         &self,
         student_id: &str,
     ) -> Result<Vec<AttendanceDto>, ApplicationError> {
-        let attendances = self.attendance_repository.find_by_student_id(student_id)?;
+        let attendances = self.attendance_repository.find_by_student_id(student_id).await?;
 
         Ok(attendances
             .into_iter()
@@ -141,14 +141,14 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// Update attendance
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdateAttendanceRequest,
     ) -> Result<AttendanceDto, ApplicationError> {
         let mut attendance = self
             .attendance_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Attendance not found".to_string()))?;
 
         if let Some(status) = request.status {
@@ -159,7 +159,7 @@ impl<R: AttendanceRepository> AttendanceService<R> {
             attendance.notes = Some(notes);
         }
 
-        self.attendance_repository.update(&attendance)?;
+        self.attendance_repository.update(&attendance).await?;
 
         Ok(AttendanceDto {
             id: attendance.id,
@@ -172,18 +172,18 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// Delete attendance
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
-        self.attendance_repository.delete(id)?;
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+        self.attendance_repository.delete(id).await?;
         Ok(())
     }
 
     /// Get group attendance statistics
-    pub fn get_group_stats(
+    pub async fn get_group_stats(
         &self,
         group_id: &str,
         total_students: i32,
     ) -> Result<GroupAttendanceStats, ApplicationError> {
-        let attendances = self.attendance_repository.find_all()?;
+        let attendances = self.attendance_repository.find_all().await?;
 
         // Filter by group
         let group_attendances: Vec<_> = attendances
@@ -246,25 +246,25 @@ impl<R: AttendanceRepository> AttendanceService<R> {
     }
 
     /// Count absences for a student in a specific group
-    pub fn count_student_absences(
+    pub async fn count_student_absences(
         &self,
         student_id: &str,
         group_id: &str,
     ) -> Result<i32, ApplicationError> {
         let count = self
             .attendance_repository
-            .count_absences_by_student_and_group(student_id, group_id)?;
+            .count_absences_by_student_and_group(student_id, group_id).await?;
         Ok(count)
     }
 
     /// Count absences for all students in a group
-    pub fn count_group_absences(
+    pub async fn count_group_absences(
         &self,
         group_id: &str,
     ) -> Result<Vec<StudentAbsenceCountDto>, ApplicationError> {
         let counts = self
             .attendance_repository
-            .count_absences_by_group(group_id)?;
+            .count_absences_by_group(group_id).await?;
 
         Ok(counts
             .into_iter()

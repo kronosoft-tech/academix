@@ -9,6 +9,86 @@ use std::sync::Arc;
 
 use crate::infrastructure::turso::control_plane::{ControlPlaneRepository, UserDbMapping};
 
+/// Standalone function to run all migrations against a Turso database.
+///
+/// Reads `.sql` migration files from `src-tauri/migrations/`, sorted by filename,
+/// and executes each one that hasn't been applied yet against the given database.
+/// Uses a `_schema_migrations` tracking table (same pattern as `run_local_migrations()`).
+///
+/// This is used by `ConnectionManager::run_migrations()` and by the registration
+/// use case when initializing a newly created Turso database.
+pub async fn run_migrations_on_db(db: &libsql::Database) -> Result<(), String> {
+    let conn = db
+        .connect()
+        .map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Create tracking table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS _schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )",
+        (),
+    )
+    .await
+    .map_err(|e| format!("Failed to create tracking table: {}", e))?;
+
+    // Read migration files, sorted by name
+    let mut migrations_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    migrations_dir.push("migrations");
+
+    let mut entries: Vec<_> = std::fs::read_dir(&migrations_dir)
+        .map_err(|e| format!("Failed to read migrations dir: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "sql"))
+        .collect();
+
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in &entries {
+        let version = entry.file_name().to_string_lossy().to_string();
+
+        // Check if already applied
+        let mut check = conn
+            .query(
+                "SELECT version FROM _schema_migrations WHERE version = ?1",
+                libsql::params![version.clone()],
+            )
+            .await
+            .map_err(|e| format!("Check migration failed: {}", e))?;
+
+        if check
+            .next()
+            .await
+            .map_err(|e| format!("Row error: {}", e))?
+            .is_some()
+        {
+            println!("[TURSO] Migration already applied: {}", version);
+            continue;
+        }
+
+        // Read and execute the migration SQL
+        let sql = std::fs::read_to_string(entry.path())
+            .map_err(|e| format!("Failed to read {}: {}", version, e))?;
+
+        conn.execute_batch(&sql)
+            .await
+            .map_err(|e| format!("Migration {} failed: {}", version, e))?;
+
+        // Record the migration as applied
+        conn.execute(
+            "INSERT INTO _schema_migrations (version) VALUES (?1)",
+            libsql::params![version.clone()],
+        )
+        .await
+        .map_err(|e| format!("Failed to record migration {}: {}", version, e))?;
+
+        println!("[TURSO] Applied migration: {}", version);
+    }
+
+    Ok(())
+}
+
 /// A cached libsql connection paired with its user database mapping.
 pub struct CachedConnection {
     pub db: Arc<libsql::Database>,
@@ -118,19 +198,18 @@ impl ConnectionManager {
 
     /// Run all migrations against a newly created database.
     ///
-    /// Executes each migration SQL file against the given libsql database.
+    /// Delegates to the standalone `run_migrations_on_db` function.
     /// This is called during registration after creating the user's Turso DB.
     pub async fn run_migrations(&self, db: &libsql::Database) -> Result<(), String> {
-        let conn = db
-            .connect()
-            .map_err(|e| format!("Failed to connect: {}", e))?;
+        run_migrations_on_db(db).await
+    }
 
-        // Additional migrations are added incrementally in Phase 3 registration.
-        // All 18 migrations will be included once the migration files are complete.
-        // For now, this is a placeholder awaiting the full migration list.
-
-        let _ = conn; // Suppress unused warning in Phase 1
-        Ok(())
+    /// Get all cached connections (for session resolution).
+    ///
+    /// Returns cloned connections so the caller can iterate without
+    /// holding the ConnectionManager lock.
+    pub fn get_all_connections(&self) -> Vec<CachedConnection> {
+        self.connections.values().cloned().collect()
     }
 }
 

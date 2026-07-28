@@ -1,69 +1,48 @@
-//! MemoryBuffer-backed User Repository
+//! MemoryBacked User Repository
 //!
-//! Writes buffer to MemoryBuffer, reads check buffer cache first then fallback to SQLite.
+//! Implements UserRepository using a MemoryBuffer write-back cache
+//! backed by the user's Turso database via ConnectionManager.
+//! Phase 5b: 6 MemoryBacked repositories.
+
+use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::application::ports::UserRepository;
 use crate::domain::entities::user::{Role, User};
 use crate::domain::errors::DomainError;
 use crate::domain::value_objects::Email;
-use crate::infrastructure::database;
-use crate::infrastructure::turso::memory_buffer::{BufferedOperation, CachedEntity, MemoryBuffer};
+use crate::infrastructure::turso::connection_manager::ConnectionManager;
+use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
+use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
+/// MemoryBuffer-backed implementation of UserRepository.
 pub struct MemoryBackedUserRepository {
-    buffer: Arc<Mutex<MemoryBuffer>>,
-    user_id: String,
+    connection_manager: Arc<Mutex<ConnectionManager>>,
+    memory_buffer: Arc<Mutex<MemoryBuffer>>,
+    session: Arc<Mutex<CurrentSession>>,
 }
 
 impl MemoryBackedUserRepository {
-    pub fn new(buffer: Arc<Mutex<MemoryBuffer>>, user_id: String) -> Self {
-        Self { buffer, user_id }
-    }
-
-    fn to_cached(user: &User) -> CachedEntity {
-        CachedEntity {
-            id: user.id.clone(),
-            data: HashMap::from([
-                ("id".to_string(), user.id.clone()),
-                ("email".to_string(), user.email.clone()),
-                ("password_hash".to_string(), user.password_hash.clone()),
-                ("name".to_string(), user.name.clone()),
-                ("role".to_string(), user.role.as_str().to_string()),
-                ("active".to_string(), if user.active { "1" } else { "0" }.to_string()),
-                ("created_at".to_string(), user.created_at.to_rfc3339()),
-                ("updated_at".to_string(), user.updated_at.to_rfc3339()),
-            ]),
+    pub fn new(
+        connection_manager: Arc<Mutex<ConnectionManager>>,
+        memory_buffer: Arc<Mutex<MemoryBuffer>>,
+        session: Arc<Mutex<CurrentSession>>,
+    ) -> Self {
+        Self {
+            connection_manager,
+            memory_buffer,
+            session,
         }
     }
 
-    fn from_cached(cached: &CachedEntity) -> Option<User> {
-        let role_str = cached.data.get("role")?;
-        let role = Role::from_str(role_str).unwrap_or(Role::Admin);
-        Some(User {
-            id: cached.data.get("id")?.clone(),
-            email: cached.data.get("email")?.clone(),
-            password_hash: cached.data.get("password_hash")?.clone(),
-            name: cached.data.get("name")?.clone(),
-            role,
-            active: cached.data.get("active")? == "1",
-            created_at: cached.data.get("created_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-            updated_at: cached.data.get("updated_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-        })
-    }
-
-    fn row_to_user(row: &rusqlite::Row<'_>) -> rusqlite::Result<User> {
-        let role_str: String = row.get(4)?;
-        let is_active: i32 = row.get(5)?;
-        let created_str: String = row.get(6)?;
-        let updated_str: String = row.get(7)?;
+    fn row_to_user(row: &libsql::Row) -> Result<User, DomainError> {
+        let role_str: String = row.get(4).map_err(|e| DomainError::Database(e.to_string()))?;
+        let is_active: i32 = row.get(5).map_err(|e| DomainError::Database(e.to_string()))?;
+        let created_str: String = row.get(6).map_err(|e| DomainError::Database(e.to_string()))?;
+        let updated_str: String = row.get(7).map_err(|e| DomainError::Database(e.to_string()))?;
 
         let role = match role_str.as_str() {
             "Admin" => Role::Admin,
@@ -74,10 +53,10 @@ impl MemoryBackedUserRepository {
         };
 
         Ok(User {
-            id: row.get(0)?,
-            email: row.get(1)?,
-            password_hash: row.get(2)?,
-            name: row.get(3)?,
+            id: row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+            email: row.get(1).map_err(|e| DomainError::Database(e.to_string()))?,
+            password_hash: row.get(2).map_err(|e| DomainError::Database(e.to_string()))?,
+            name: row.get(3).map_err(|e| DomainError::Database(e.to_string()))?,
             role,
             active: is_active != 0,
             created_at: DateTime::parse_from_rfc3339(&created_str)
@@ -88,65 +67,182 @@ impl MemoryBackedUserRepository {
                 .unwrap_or_else(|_| Utc::now()),
         })
     }
+
+    fn role_to_string(role: Role) -> &'static str {
+        match role {
+            Role::Admin => "Admin",
+            Role::Gerente => "Gerente",
+            Role::Empleado => "Empleado",
+            Role::Profesor => "Profesor",
+        }
+    }
+
+    fn user_from_data(data: &HashMap<String, String>) -> Result<User, DomainError> {
+        let role_str = data.get("role").ok_or_else(|| DomainError::Database("missing role".into()))?;
+        let role = match role_str.as_str() {
+            "Admin" => Role::Admin,
+            "Gerente" => Role::Gerente,
+            "Empleado" => Role::Empleado,
+            "Profesor" => Role::Profesor,
+            _ => Role::Admin,
+        };
+
+        let is_active: i32 = data
+            .get("is_active")
+            .ok_or_else(|| DomainError::Database("missing is_active".into()))?
+            .parse()
+            .unwrap_or(0);
+
+        let created_str = data.get("created_at").ok_or_else(|| DomainError::Database("missing created_at".into()))?;
+        let updated_str = data.get("updated_at").ok_or_else(|| DomainError::Database("missing updated_at".into()))?;
+
+        Ok(User {
+            id: data.get("id").ok_or_else(|| DomainError::Database("missing id".into()))?.clone(),
+            email: data.get("email").ok_or_else(|| DomainError::Database("missing email".into()))?.clone(),
+            password_hash: data.get("password_hash").ok_or_else(|| DomainError::Database("missing password_hash".into()))?.clone(),
+            name: data.get("name").ok_or_else(|| DomainError::Database("missing name".into()))?.clone(),
+            role,
+            active: is_active != 0,
+            created_at: DateTime::parse_from_rfc3339(created_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(updated_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        })
+    }
+
+    fn to_data_map(user: &User) -> HashMap<String, String> {
+        let mut data = HashMap::new();
+        data.insert("id".to_string(), user.id.clone());
+        data.insert("email".to_string(), user.email.clone());
+        data.insert("password_hash".to_string(), user.password_hash.clone());
+        data.insert("name".to_string(), user.name.clone());
+        data.insert("role".to_string(), Self::role_to_string(user.role).to_string());
+        data.insert("is_active".to_string(), if user.active { "1".to_string() } else { "0".to_string() });
+        data.insert("created_at".to_string(), user.created_at.to_rfc3339());
+        data.insert("updated_at".to_string(), user.updated_at.to_rfc3339());
+        data
+    }
+
+    async fn get_user_id(&self) -> Result<String, DomainError> {
+        let session = self.session.lock().await;
+        session
+            .user_id
+            .clone()
+            .ok_or_else(|| DomainError::Authentication("Not authenticated".to_string()))
+    }
+
+    async fn query_turso(&self, user_id: &str, sql: &str, params: impl libsql::params::IntoParams) -> Result<libsql::Rows, DomainError> {
+        let db = {
+            let cm = self.connection_manager.lock().await;
+            cm.get_connection(user_id)
+                .map(|c| c.db.clone())
+                .ok_or_else(|| DomainError::Database("No connection for user".to_string()))?
+        };
+        let conn = db
+            .connect()
+            .map_err(|e| DomainError::Database(e.to_string()))?;
+        conn.query(sql, params)
+            .await
+            .map_err(|e| DomainError::Database(e.to_string()))
+    }
 }
 
+#[async_trait]
 impl UserRepository for MemoryBackedUserRepository {
-    fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
-        let cache_key = format!("user:{}", id);
+    async fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Check pending inserts/updates first
         {
-            let buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-            if let Some(cached) = buf.get_cached(&self.user_id, &cache_key) {
-                if let Some(entity) = Self::from_cached(cached) {
-                    return Ok(Some(entity));
+            let buf = self.memory_buffer.lock().await;
+            if let Some(op) = buf.find_pending_insert(&user_id, "users", id) {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    return Ok(Some(Self::user_from_data(data)?));
                 }
             }
+            if let Some(op) = buf.find_pending_update(&user_id, "users", id) {
+                if let BufferedOperation::Update { data, .. } = op {
+                    return Ok(Some(Self::user_from_data(data)?));
+                }
+            }
+            if buf.has_pending_delete(&user_id, "users", id) {
+                return Ok(None);
+            }
         }
-        // Fallback to SQLite
+
+        // Read from Turso
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
-                   FROM users WHERE id = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [id], Self::row_to_user) {
-            Ok(user) => Ok(Some(user)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+                   FROM users WHERE id = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![id]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_user(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError> {
-        let cache_key = format!("user:email:{}", email.as_str());
+    async fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError> {
+        let user_id = self.get_user_id().await?;
+        let email_str = email.as_str().to_string();
+
+        // Check pending inserts for matching email
         {
-            let buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-            if let Some(cached) = buf.get_cached(&self.user_id, &cache_key) {
-                if let Some(entity) = Self::from_cached(cached) {
-                    return Ok(Some(entity));
+            let buf = self.memory_buffer.lock().await;
+            let pending_inserts = buf.scan_pending_inserts(&user_id, "users");
+            for op in pending_inserts.iter().rev() {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    if data.get("email").map(|v| v.as_str()) == Some(&email_str) {
+                        return Ok(Some(Self::user_from_data(data)?));
+                    }
+                }
+            }
+            // Check pending updates that change id
+            let pending_updates = buf.scan_pending_updates(&user_id, "users");
+            for op in pending_updates.iter().rev() {
+                if let BufferedOperation::Update { data, .. } = op {
+                    if data.get("email").map(|v| v.as_str()) == Some(&email_str) {
+                        return Ok(Some(Self::user_from_data(data)?));
+                    }
                 }
             }
         }
-        // Fallback to SQLite
+
+        // Read from Turso
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
-                   FROM users WHERE email = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [email.as_str()], Self::row_to_user) {
-            Ok(user) => Ok(Some(user)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+                   FROM users WHERE email = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![email.as_str()]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_user(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn save(&self, user: &User) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(user).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Insert {
+    async fn save(&self, user: &User) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+        let data = Self::to_data_map(user);
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Insert {
             table: "users".to_string(),
             data,
         });
         Ok(())
     }
 
-    fn update(&self, user: &User) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(user).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn update(&self, user: &User) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+        let mut data = HashMap::new();
+        data.insert("email".to_string(), user.email.clone());
+        data.insert("password_hash".to_string(), user.password_hash.clone());
+        data.insert("name".to_string(), user.name.clone());
+        data.insert("role".to_string(), Self::role_to_string(user.role).to_string());
+        data.insert("is_active".to_string(), if user.active { "1".to_string() } else { "0".to_string() });
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        // Include id for deserialization
+        data.insert("id".to_string(), user.id.clone());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "users".to_string(),
             id: user.id.clone(),
             data,
@@ -154,37 +250,105 @@ impl UserRepository for MemoryBackedUserRepository {
         Ok(())
     }
 
-    fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        buf.buffer_write(&self.user_id, BufferedOperation::Delete {
+    async fn delete(&self, id: &str) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Soft delete — update is_active to 0
+        let mut data = HashMap::new();
+        data.insert("is_active".to_string(), "0".to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("id".to_string(), id.to_string());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "users".to_string(),
             id: id.to_string(),
+            data,
         });
         Ok(())
     }
 
-    fn find_all(&self) -> Result<Vec<User>, DomainError> {
-        // No caching for list queries - go directly to SQLite
+    async fn find_all(&self) -> Result<Vec<User>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read all active users from Turso
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE is_active = 1 ORDER BY name";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn
-            .prepare(sql)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map([], Self::row_to_user)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<User>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
+
+        let mut results: Vec<User> = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_user(&row)?);
+        }
+
+        // Merge with pending operations
+        let buf = self.memory_buffer.lock().await;
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "users");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                let user = Self::user_from_data(data)?;
+                if user.active {
+                    results.push(user);
+                }
+            }
+        }
+
+        let pending_updates = buf.scan_pending_updates(&user_id, "users");
+        for op in &pending_updates {
+            if let BufferedOperation::Update { id: update_id, data, .. } = op {
+                let updated_user = Self::user_from_data(data)?;
+                if let Some(pos) = results.iter().position(|u| u.id == *update_id) {
+                    if updated_user.active {
+                        results[pos] = updated_user;
+                    } else {
+                        results.remove(pos);
+                    }
+                } else if updated_user.active {
+                    results.push(updated_user);
+                }
+            }
+        }
+
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "users");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|u| u.id != *del_id);
+            }
+        }
+
+        // Remove any pending inserts that also have a pending update (update takes precedence)
+        // and filter out anything with pending delete
+        drop(buf);
+
+        Ok(results)
     }
 
-    fn exists_by_email(&self, email: &Email) -> Result<bool, DomainError> {
-        // No caching for count queries - go directly to SQLite
-        let sql = "SELECT COUNT(*) FROM users WHERE email = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let count: i32 = conn
-            .query_row(sql, [email.as_str()], |row| row.get(0))
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        Ok(count > 0)
+    async fn exists_by_email(&self, email: &Email) -> Result<bool, DomainError> {
+        let user_id = self.get_user_id().await?;
+        let email_str = email.as_str().to_string();
+
+        // Check pending inserts
+        {
+            let buf = self.memory_buffer.lock().await;
+            let pending_inserts = buf.scan_pending_inserts(&user_id, "users");
+            for op in pending_inserts.iter().rev() {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    if data.get("email").map(|v| v.as_str()) == Some(&email_str) {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        // Query Turso
+        let sql = "SELECT COUNT(*) FROM users WHERE email = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![email.as_str()]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => {
+                let count: i32 = row.get(0).map_err(|e| DomainError::Database(e.to_string()))?;
+                Ok(count > 0)
+            }
+            None => Ok(false),
+        }
     }
 }

@@ -1,123 +1,63 @@
-//! MemoryBuffer-backed Student Repository
+//! MemoryBacked Student Repository
 //!
-//! Writes buffer to MemoryBuffer, reads check buffer cache first then fallback to SQLite.
+//! Implements StudentRepository using a MemoryBuffer write-back cache
+//! backed by the user's Turso database via ConnectionManager.
+//! Phase 5b: 6 MemoryBacked repositories.
+
+use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::application::ports::StudentRepository;
 use crate::domain::entities::Student;
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database;
-use crate::infrastructure::turso::memory_buffer::{BufferedOperation, CachedEntity, MemoryBuffer};
+use crate::infrastructure::turso::connection_manager::ConnectionManager;
+use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
+use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
+/// MemoryBuffer-backed implementation of StudentRepository.
 pub struct MemoryBackedStudentRepository {
-    buffer: Arc<Mutex<MemoryBuffer>>,
-    user_id: String,
+    connection_manager: Arc<Mutex<ConnectionManager>>,
+    memory_buffer: Arc<Mutex<MemoryBuffer>>,
+    session: Arc<Mutex<CurrentSession>>,
 }
 
 impl MemoryBackedStudentRepository {
-    pub fn new(buffer: Arc<Mutex<MemoryBuffer>>, user_id: String) -> Self {
-        Self { buffer, user_id }
-    }
-
-    fn to_cached(student: &Student) -> CachedEntity {
-        CachedEntity {
-            id: student.id.clone(),
-            data: HashMap::from([
-                ("id".to_string(), student.id.clone()),
-                ("user_id".to_string(), student.user_id.clone()),
-                ("first_name".to_string(), student.first_name.clone()),
-                ("last_name".to_string(), student.last_name.clone()),
-                ("document_type".to_string(), student.document_type.clone()),
-                ("document_number".to_string(), student.document_number.clone()),
-                ("email".to_string(), student.email.clone()),
-                ("phone".to_string(), student.phone.clone().unwrap_or_default()),
-                ("address".to_string(), student.address.clone().unwrap_or_default()),
-                ("birth_date".to_string(), student.birth_date.map(|dt| dt.to_rfc3339()).unwrap_or_default()),
-                ("guardian_name".to_string(), student.guardian_name.clone().unwrap_or_default()),
-                ("guardian_document".to_string(), student.guardian_document.clone().unwrap_or_default()),
-                ("guardian_phone".to_string(), student.guardian_phone.clone().unwrap_or_default()),
-                ("course_id".to_string(), student.course_id.clone().unwrap_or_default()),
-                ("group_id".to_string(), student.group_id.clone().unwrap_or_default()),
-                ("active".to_string(), if student.active { "1" } else { "0" }.to_string()),
-                ("created_at".to_string(), student.created_at.to_rfc3339()),
-                ("updated_at".to_string(), student.updated_at.to_rfc3339()),
-            ]),
+    pub fn new(
+        connection_manager: Arc<Mutex<ConnectionManager>>,
+        memory_buffer: Arc<Mutex<MemoryBuffer>>,
+        session: Arc<Mutex<CurrentSession>>,
+    ) -> Self {
+        Self {
+            connection_manager,
+            memory_buffer,
+            session,
         }
     }
 
-    fn from_cached(cached: &CachedEntity) -> Option<Student> {
-        let birth_date_str = cached.data.get("birth_date")?;
-        let birth_date = if birth_date_str.is_empty() {
-            None
-        } else {
-            DateTime::parse_from_rfc3339(birth_date_str)
-                .ok()
-                .map(|dt| dt.with_timezone(&Utc))
-                .or_else(|| {
-                    chrono::NaiveDate::parse_from_str(birth_date_str, "%Y-%m-%d")
-                        .ok()
-                        .and_then(|d| d.and_hms_opt(0, 0, 0))
-                        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
-                })
-        };
-
-        Some(Student {
-            id: cached.data.get("id")?.clone(),
-            user_id: cached.data.get("user_id")?.clone(),
-            first_name: cached.data.get("first_name")?.clone(),
-            last_name: cached.data.get("last_name")?.clone(),
-            document_type: cached.data.get("document_type")?.clone(),
-            document_number: cached.data.get("document_number")?.clone(),
-            email: cached.data.get("email")?.clone(),
-            phone: Self::opt_string(cached, "phone"),
-            address: Self::opt_string(cached, "address"),
-            birth_date,
-            guardian_name: Self::opt_string(cached, "guardian_name"),
-            guardian_document: Self::opt_string(cached, "guardian_document"),
-            guardian_phone: Self::opt_string(cached, "guardian_phone"),
-            course_id: Self::opt_string(cached, "course_id"),
-            group_id: Self::opt_string(cached, "group_id"),
-            active: cached.data.get("active")? == "1",
-            created_at: cached.data.get("created_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-            updated_at: cached.data.get("updated_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-        })
-    }
-
-    fn opt_string(cached: &CachedEntity, key: &str) -> Option<String> {
-        cached.data.get(key).and_then(|v| {
-            if v.is_empty() { None } else { Some(v.clone()) }
-        })
-    }
-
-    fn row_to_student(row: &rusqlite::Row<'_>) -> rusqlite::Result<Student> {
-        let birth_date_str: Option<String> = row.get(8)?;
-        let guardian_name: Option<String> = row.get(9)?;
-        let guardian_document: Option<String> = row.get(10)?;
-        let guardian_phone: Option<String> = row.get(11)?;
-        let active: i32 = row.get(12)?;
-        let created_str: String = row.get(13)?;
-        let updated_str: String = row.get(14)?;
-        let course_id: Option<String> = row.get(15)?;
-        let group_id: Option<String> = row.get(16)?;
+    fn row_to_student(row: &libsql::Row) -> Result<Student, DomainError> {
+        let birth_date_str: Option<String> = row.get(8).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_name: Option<String> = row.get(9).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_document: Option<String> = row.get(10).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_phone: Option<String> = row.get(11).map_err(|e| DomainError::Database(e.to_string()))?;
+        let active: i32 = row.get(12).map_err(|e| DomainError::Database(e.to_string()))?;
+        let created_str: String = row.get(13).map_err(|e| DomainError::Database(e.to_string()))?;
+        let updated_str: String = row.get(14).map_err(|e| DomainError::Database(e.to_string()))?;
+        let course_id: Option<String> = row.get(15).map_err(|e| DomainError::Database(e.to_string()))?;
+        let group_id: Option<String> = row.get(16).map_err(|e| DomainError::Database(e.to_string()))?;
 
         Ok(Student {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            first_name: row.get(2)?,
-            last_name: row.get(3)?,
-            document_type: row.get(4)?,
-            document_number: row.get(5)?,
-            email: row.get(6)?,
-            phone: row.get(7)?,
-            address: row.get::<_, Option<String>>(17)?,
+            id: row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+            user_id: row.get(1).map_err(|e| DomainError::Database(e.to_string()))?,
+            first_name: row.get(2).map_err(|e| DomainError::Database(e.to_string()))?,
+            last_name: row.get(3).map_err(|e| DomainError::Database(e.to_string()))?,
+            document_type: row.get(4).map_err(|e| DomainError::Database(e.to_string()))?,
+            document_number: row.get(5).map_err(|e| DomainError::Database(e.to_string()))?,
+            email: row.get(6).map_err(|e| DomainError::Database(e.to_string()))?,
+            phone: row.get(7).map_err(|e| DomainError::Database(e.to_string()))?,
+            address: row.get::<Option<String>>(17).map_err(|e| DomainError::Database(e.to_string()))?,
             birth_date: birth_date_str.and_then(|s| {
                 DateTime::parse_from_rfc3339(&s)
                     .ok()
@@ -143,69 +83,206 @@ impl MemoryBackedStudentRepository {
                 .unwrap_or_else(|_| Utc::now()),
         })
     }
+
+    fn student_from_data(data: &HashMap<String, String>) -> Result<Student, DomainError> {
+        let active: i32 = data
+            .get("active")
+            .ok_or_else(|| DomainError::Database("missing active".into()))?
+            .parse()
+            .unwrap_or(0);
+        let created_str = data.get("created_at").ok_or_else(|| DomainError::Database("missing created_at".into()))?;
+        let updated_str = data.get("updated_at").ok_or_else(|| DomainError::Database("missing updated_at".into()))?;
+
+        let birth_date_str: Option<&String> = data.get("birth_date");
+        let birth_date = birth_date_str.and_then(|s| {
+            if s.is_empty() { return None; }
+            DateTime::parse_from_rfc3339(s)
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+                .or_else(|| {
+                    chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                        .ok()
+                        .and_then(|d| d.and_hms_opt(0, 0, 0))
+                        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                })
+        });
+
+        Ok(Student {
+            id: data.get("id").ok_or_else(|| DomainError::Database("missing id".into()))?.clone(),
+            user_id: data.get("user_id").ok_or_else(|| DomainError::Database("missing user_id".into()))?.clone(),
+            first_name: data.get("first_name").ok_or_else(|| DomainError::Database("missing first_name".into()))?.clone(),
+            last_name: data.get("last_name").ok_or_else(|| DomainError::Database("missing last_name".into()))?.clone(),
+            document_type: data.get("document_type").ok_or_else(|| DomainError::Database("missing document_type".into()))?.clone(),
+            document_number: data.get("document_number").ok_or_else(|| DomainError::Database("missing document_number".into()))?.clone(),
+            email: data.get("email").ok_or_else(|| DomainError::Database("missing email".into()))?.clone(),
+            phone: data.get("phone").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            address: data.get("address").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            birth_date,
+            guardian_name: data.get("guardian_name").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            guardian_document: data.get("guardian_document").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            guardian_phone: data.get("guardian_phone").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            course_id: data.get("course_id").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            group_id: data.get("group_id").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            active: active != 0,
+            created_at: DateTime::parse_from_rfc3339(created_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(updated_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+        })
+    }
+
+    fn to_data_map(student: &Student) -> HashMap<String, String> {
+        let mut data = HashMap::new();
+        data.insert("id".to_string(), student.id.clone());
+        data.insert("user_id".to_string(), student.user_id.clone());
+        data.insert("first_name".to_string(), student.first_name.clone());
+        data.insert("last_name".to_string(), student.last_name.clone());
+        data.insert("document_type".to_string(), student.document_type.clone());
+        data.insert("document_number".to_string(), student.document_number.clone());
+        data.insert("email".to_string(), student.email.clone());
+        data.insert("phone".to_string(), student.phone.clone().unwrap_or_default());
+        data.insert("address".to_string(), student.address.clone().unwrap_or_default());
+        data.insert("birth_date".to_string(), student.birth_date.map(|d| d.to_rfc3339()).unwrap_or_default());
+        data.insert("guardian_name".to_string(), student.guardian_name.clone().unwrap_or_default());
+        data.insert("guardian_document".to_string(), student.guardian_document.clone().unwrap_or_default());
+        data.insert("guardian_phone".to_string(), student.guardian_phone.clone().unwrap_or_default());
+        data.insert("active".to_string(), if student.active { "1".to_string() } else { "0".to_string() });
+        data.insert("created_at".to_string(), student.created_at.to_rfc3339());
+        data.insert("updated_at".to_string(), student.updated_at.to_rfc3339());
+        data.insert("course_id".to_string(), student.course_id.clone().unwrap_or_default());
+        data.insert("group_id".to_string(), student.group_id.clone().unwrap_or_default());
+        data
+    }
+
+    async fn get_user_id(&self) -> Result<String, DomainError> {
+        let session = self.session.lock().await;
+        session
+            .user_id
+            .clone()
+            .ok_or_else(|| DomainError::Authentication("Not authenticated".to_string()))
+    }
+
+    async fn query_turso(&self, user_id: &str, sql: &str, params: impl libsql::params::IntoParams) -> Result<libsql::Rows, DomainError> {
+        let db = {
+            let cm = self.connection_manager.lock().await;
+            cm.get_connection(user_id)
+                .map(|c| c.db.clone())
+                .ok_or_else(|| DomainError::Database("No connection for user".to_string()))?
+        };
+        let conn = db
+            .connect()
+            .map_err(|e| DomainError::Database(e.to_string()))?;
+        conn.query(sql, params)
+            .await
+            .map_err(|e| DomainError::Database(e.to_string()))
+    }
 }
 
+#[async_trait]
 impl StudentRepository for MemoryBackedStudentRepository {
-    fn find_by_id(&self, id: &str) -> Result<Option<Student>, DomainError> {
-        let cache_key = format!("student:{}", id);
+    async fn find_by_id(&self, id: &str) -> Result<Option<Student>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Check pending inserts/updates first
         {
-            let buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-            if let Some(cached) = buf.get_cached(&self.user_id, &cache_key) {
-                if let Some(entity) = Self::from_cached(cached) {
-                    return Ok(Some(entity));
+            let buf = self.memory_buffer.lock().await;
+            if let Some(op) = buf.find_pending_insert(&user_id, "students", id) {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    return Ok(Some(Self::student_from_data(data)?));
                 }
             }
+            if let Some(op) = buf.find_pending_update(&user_id, "students", id) {
+                if let BufferedOperation::Update { data, .. } = op {
+                    return Ok(Some(Self::student_from_data(data)?));
+                }
+            }
+            if buf.has_pending_delete(&user_id, "students", id) {
+                return Ok(None);
+            }
         }
-        // Fallback to SQLite
+
+        // Read from Turso
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
-                   FROM students WHERE id = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [id], Self::row_to_student) {
-            Ok(student) => Ok(Some(student)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+                   FROM students WHERE id = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![id]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_student(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn find_by_user_id(&self, user_id: &str) -> Result<Option<Student>, DomainError> {
-        let cache_key = format!("student:user:{}", user_id);
+    async fn find_by_user_id(&self, target_user_id: &str) -> Result<Option<Student>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Check pending inserts
         {
-            let buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-            if let Some(cached) = buf.get_cached(&self.user_id, &cache_key) {
-                if let Some(entity) = Self::from_cached(cached) {
-                    return Ok(Some(entity));
+            let buf = self.memory_buffer.lock().await;
+            let pending_inserts = buf.scan_pending_inserts(&user_id, "students");
+            for op in pending_inserts.iter().rev() {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    if data.get("user_id").map(|v| v.as_str()) == Some(target_user_id) {
+                        return Ok(Some(Self::student_from_data(data)?));
+                    }
+                }
+            }
+            let pending_updates = buf.scan_pending_updates(&user_id, "students");
+            for op in pending_updates.iter().rev() {
+                if let BufferedOperation::Update { data, .. } = op {
+                    if data.get("user_id").map(|v| v.as_str()) == Some(target_user_id) {
+                        return Ok(Some(Self::student_from_data(data)?));
+                    }
                 }
             }
         }
-        // Fallback to SQLite
+
+        // Read from Turso
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
-                   FROM students WHERE user_id = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [user_id], Self::row_to_student) {
-            Ok(student) => Ok(Some(student)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+                   FROM students WHERE user_id = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![target_user_id]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_student(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn save(&self, student: &Student) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(student).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Insert {
+    async fn save(&self, student: &Student) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+        let data = Self::to_data_map(student);
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Insert {
             table: "students".to_string(),
             data,
         });
         Ok(())
     }
 
-    fn update(&self, student: &Student) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(student).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn update(&self, student: &Student) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        let mut data = HashMap::new();
+        data.insert("first_name".to_string(), student.first_name.clone());
+        data.insert("last_name".to_string(), student.last_name.clone());
+        data.insert("email".to_string(), student.email.clone());
+        data.insert("phone".to_string(), student.phone.clone().unwrap_or_default());
+        data.insert("address".to_string(), student.address.clone().unwrap_or_default());
+        data.insert("birth_date".to_string(), student.birth_date.map(|d| d.to_rfc3339()).unwrap_or_default());
+        data.insert("guardian_name".to_string(), student.guardian_name.clone().unwrap_or_default());
+        data.insert("guardian_document".to_string(), student.guardian_document.clone().unwrap_or_default());
+        data.insert("guardian_phone".to_string(), student.guardian_phone.clone().unwrap_or_default());
+        data.insert("active".to_string(), if student.active { "1".to_string() } else { "0".to_string() });
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("course_id".to_string(), student.course_id.clone().unwrap_or_default());
+        data.insert("group_id".to_string(), student.group_id.clone().unwrap_or_default());
+        data.insert("id".to_string(), student.id.clone()); // for deserialization
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "students".to_string(),
             id: student.id.clone(),
             data,
@@ -213,27 +290,78 @@ impl StudentRepository for MemoryBackedStudentRepository {
         Ok(())
     }
 
-    fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        buf.buffer_write(&self.user_id, BufferedOperation::Delete {
+    async fn delete(&self, id: &str) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Soft delete — set active = 0
+        let mut data = HashMap::new();
+        data.insert("active".to_string(), "0".to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("id".to_string(), id.to_string());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "students".to_string(),
             id: id.to_string(),
+            data,
         });
         Ok(())
     }
 
-    fn find_all(&self) -> Result<Vec<Student>, DomainError> {
-        // No caching for list queries - go directly to SQLite
+    async fn find_all(&self) -> Result<Vec<Student>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read from Turso
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
                    FROM students WHERE active = 1 ORDER BY last_name, first_name";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map([], Self::row_to_student)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<_>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
+
+        let mut results: Vec<Student> = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_student(&row)?);
+        }
+
+        // Merge with pending operations
+        let buf = self.memory_buffer.lock().await;
+
+        // Add pending inserts
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "students");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                let student = Self::student_from_data(data)?;
+                if student.active {
+                    results.push(student);
+                }
+            }
+        }
+
+        // Apply pending updates
+        let pending_updates = buf.scan_pending_updates(&user_id, "students");
+        for op in &pending_updates {
+            if let BufferedOperation::Update { id: update_id, data, .. } = op {
+                let updated = Self::student_from_data(data)?;
+                if let Some(pos) = results.iter().position(|s| s.id == *update_id) {
+                    if updated.active {
+                        results[pos] = updated;
+                    } else {
+                        results.remove(pos);
+                    }
+                } else if updated.active {
+                    results.push(updated);
+                }
+            }
+        }
+
+        // Remove pending deletes
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "students");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|s| s.id != *del_id);
+            }
+        }
+
+        Ok(results)
     }
 }

@@ -3,19 +3,20 @@
 //! Tauri commands for login/logout functionality via Turso.
 //! Phase 4: Login resolves user via ControlPlane → ConnectionManager → libsql.
 
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::application::dto::UserDto;
+use crate::domain::entities::user::{Role, User};
 use crate::infrastructure::password;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// New AppState holding Turso infrastructure
 pub struct AppState {
@@ -221,16 +222,62 @@ pub struct CommandUpdateProfileResponse {
 /// Update own profile (name and email only)
 #[tauri::command]
 pub async fn update_profile(
-    _state: State<'_, AppState>,
-    _request: CommandUpdateProfileRequest,
+    state: State<'_, AppState>,
+    request: CommandUpdateProfileRequest,
 ) -> Result<CommandUpdateProfileResponse, String> {
-    // Phase 4: Stub implementation — resolves the user and buffers the update
-    // Full implementation requires resolve_authenticated_user to be completed
-    // For now, this is a placeholder that returns an error with guidance
-    Err(
-        "Profile update via Turso not yet implemented — Phase 5 will complete this"
-            .to_string(),
+    let cp = state
+        .control_plane
+        .clone()
+        .ok_or_else(|| "Turso not configured".to_string())?;
+
+    let (user, db) = resolve_authenticated_user(
+        &request.token,
+        &cp,
+        &state.connection_manager,
+        &state.memory_buffer,
     )
+    .await?;
+
+    let conn = db
+        .connect()
+        .map_err(|e| format!("Connection error: {}", e))?;
+
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE users SET name = ?1, email = ?2, updated_at = ?3 WHERE id = ?4",
+        libsql::params![request.name.clone(), request.email.clone(), now, user.id.clone()],
+    )
+    .await
+    .map_err(|e| format!("Update failed: {}", e))?;
+
+    // Also buffer the write via MemoryBuffer for consistency
+    {
+        let mut buffer = state.memory_buffer.lock().await;
+        let mut data = HashMap::new();
+        data.insert("name".to_string(), request.name.clone());
+        data.insert("email".to_string(), request.email.clone());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        buffer.buffer_write(
+            &user.id,
+            BufferedOperation::Update {
+                table: "users".to_string(),
+                id: user.id.clone(),
+                data,
+            },
+        );
+    }
+
+    Ok(CommandUpdateProfileResponse {
+        success: true,
+        user: Some(UserDto {
+            id: user.id,
+            email: request.email,
+            name: request.name,
+            role: user.role.as_str().to_string(),
+        }),
+        error: None,
+    })
 }
 
 /// Change password request payload
@@ -251,40 +298,175 @@ pub struct CommandChangePasswordResponse {
 /// Change own password (requires current password verification)
 #[tauri::command]
 pub async fn change_password(
-    _state: State<'_, AppState>,
-    _request: CommandChangePasswordRequest,
+    state: State<'_, AppState>,
+    request: CommandChangePasswordRequest,
 ) -> Result<CommandChangePasswordResponse, String> {
-    // Phase 4: Stub implementation
-    // Full implementation requires resolve_authenticated_user
-    Err(
-        "Password change via Turso not yet implemented — Phase 5 will complete this"
-            .to_string(),
+    let cp = state
+        .control_plane
+        .clone()
+        .ok_or_else(|| "Turso not configured".to_string())?;
+
+    let (user, db) = resolve_authenticated_user(
+        &request.token,
+        &cp,
+        &state.connection_manager,
+        &state.memory_buffer,
     )
+    .await?;
+
+    // Verify current password
+    if !password::verify_password(&request.current_password, &user.password_hash) {
+        return Ok(CommandChangePasswordResponse {
+            success: false,
+            error: Some("Current password is incorrect".to_string()),
+        });
+    }
+
+    // Hash new password
+    let new_hash =
+        password::hash_password(&request.new_password).map_err(|e| e.to_string())?;
+
+    let conn = db
+        .connect()
+        .map_err(|e| format!("Connection error: {}", e))?;
+
+    conn.execute(
+        "UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3",
+        libsql::params![new_hash, Utc::now().to_rfc3339(), user.id],
+    )
+    .await
+    .map_err(|e| format!("Update failed: {}", e))?;
+
+    Ok(CommandChangePasswordResponse {
+        success: true,
+        error: None,
+    })
+}
+
+/// Helper: convert a libsql row to a domain User entity.
+fn user_from_row(row: libsql::Row) -> Result<User, String> {
+    let id: String = row.get(0).map_err(|e| format!("Parse id: {}", e))?;
+    let email: String = row.get(1).map_err(|e| format!("Parse email: {}", e))?;
+    let password_hash: String = row
+        .get(2)
+        .map_err(|e| format!("Parse password_hash: {}", e))?;
+    let name: String = row.get(3).map_err(|e| format!("Parse name: {}", e))?;
+    let role_str: String = row.get(4).map_err(|e| format!("Parse role: {}", e))?;
+    let is_active: i32 = row
+        .get(5)
+        .map_err(|e| format!("Parse is_active: {}", e))?;
+    let created_at_str: String = row
+        .get(6)
+        .map_err(|e| format!("Parse created_at: {}", e))?;
+    let updated_at_str: String = row
+        .get(7)
+        .map_err(|e| format!("Parse updated_at: {}", e))?;
+
+    let role =
+        Role::from_str(&role_str).ok_or_else(|| format!("Invalid role: {}", role_str))?;
+    let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+        .map_err(|e| format!("Parse created_at: {}", e))?
+        .with_timezone(&chrono::Utc);
+    let updated_at = DateTime::parse_from_rfc3339(&updated_at_str)
+        .map_err(|e| format!("Parse updated_at: {}", e))?
+        .with_timezone(&chrono::Utc);
+
+    Ok(User {
+        id,
+        email,
+        password_hash,
+        name,
+        role,
+        active: is_active != 0,
+        created_at,
+        updated_at,
+    })
 }
 
 /// Resolve an authenticated user from a session token.
 ///
-/// Checks MemoryBuffer first, then the user's Turso DB.
-/// Phase 4: Basic implementation that searches for the session via the user's
-/// Turso DB. Phase 5 will add MemoryBuffer-first lookup.
+/// Checks MemoryBuffer first (for sessions created in this session that haven't
+/// been flushed yet), then iterates all cached Turso DB connections to find a
+/// matching session record.
+///
+/// Phase 4: Linear scan of all connections. Phase 5 will add a proper
+/// token→user_id index in MemoryBuffer for O(1) lookup.
 pub async fn resolve_authenticated_user(
     token: &str,
-    control_plane: &ControlPlaneRepository,
+    _control_plane: &ControlPlaneRepository,
     connection_manager: &Mutex<ConnectionManager>,
     memory_buffer: &Mutex<MemoryBuffer>,
-) -> Result<(crate::domain::entities::user::User, libsql::Database), String> {
-    // Phase 4 simplification: iterate cached connections to find the session
-    // In Phase 5, this will be optimized with a token→user_id index in MemoryBuffer
+) -> Result<(User, Arc<libsql::Database>), String> {
+    // Step 1: Check MemoryBuffer for recently created (not yet flushed) sessions
+    {
+        let buffer = memory_buffer.lock().await;
+        if let Some((user_id, _session_data)) = buffer.find_session_by_token(token) {
+            // Found in pending writes — user recently logged in.
+            // Directly look up the user's cached connection.
+            let cm = connection_manager.lock().await;
+            if let Some(cached) = cm.get_connection(&user_id) {
+                let conn = cached
+                    .db
+                    .connect()
+                    .map_err(|e| format!("Connection error: {}", e))?;
 
-    // Get all connected user IDs
-    // For now, return a helpful error — this will be completed when commands migrate
-    let _ = token;
-    let _ = control_plane;
-    let _ = connection_manager;
-    let _ = memory_buffer;
+                let mut rows = conn
+                    .query(
+                        "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at FROM users WHERE id = ?1",
+                        libsql::params![user_id],
+                    )
+                    .await
+                    .map_err(|e| format!("Query error: {}", e))?;
 
-    Err(
-        "resolve_authenticated_user not fully implemented — will be completed when commands migrate"
-            .to_string(),
-    )
+                if let Some(row) = rows.next().await.map_err(|e| format!("Row error: {}", e))? {
+                    let user = user_from_row(row)?;
+                    return Ok((user, Arc::clone(&cached.db)));
+                }
+            }
+        }
+    }
+
+    // Step 2: Iterate all cached connections to find a matching session
+    let connections = {
+        let cm = connection_manager.lock().await;
+        cm.get_all_connections()
+    };
+
+    for cached in &connections {
+        let libsql_conn = cached
+            .db
+            .connect()
+            .map_err(|e| format!("Connection error: {}", e))?;
+
+        // Query sessions table for this token (only valid, non-expired sessions)
+        let mut rows = libsql_conn
+            .query(
+                "SELECT user_id FROM sessions WHERE token = ?1 AND expires_at > datetime('now')",
+                libsql::params![token],
+            )
+            .await
+            .map_err(|e| format!("Session query error: {}", e))?;
+
+        if let Some(row) = rows.next().await.map_err(|e| format!("Row error: {}", e))? {
+            let user_id: String = row
+                .get(0)
+                .map_err(|e| format!("Parse user_id: {}", e))?;
+
+            // Found the session — now get the user
+            let mut user_rows = libsql_conn
+                .query(
+                    "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at FROM users WHERE id = ?1",
+                    libsql::params![user_id],
+                )
+                .await
+                .map_err(|e| format!("User query error: {}", e))?;
+
+            if let Some(user_row) = user_rows.next().await.map_err(|e| format!("Row error: {}", e))? {
+                let user = user_from_row(user_row)?;
+                return Ok((user, Arc::clone(&cached.db)));
+            }
+        }
+    }
+
+    Err("Session not found or expired".to_string())
 }

@@ -29,13 +29,14 @@ bcrypt = "0.16"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
 thiserror = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
 printpdf = "0.7"
-tokio = { version = "1", features = ["sync", "time", "rt"] }
-libsql = { version = "0.5", features = ["remote"] }
+tokio = { version = "1", features = ["sync", "time", "rt", "macros"] }
+libsql = { version = "0.5", features = ["remote", "libsql-sys"] }
+async-trait = "0.1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 dirs = "5"
 tauri-plugin-notification = "2.3.3"
+dotenv = "0.15"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

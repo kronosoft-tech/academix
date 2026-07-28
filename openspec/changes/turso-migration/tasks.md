@@ -28,6 +28,7 @@
 - **File**: `src-tauri/src/infrastructure/turso/memory_buffer.rs`
 - **Action**: Implemented `MemoryBuffer` with `pending_writes`, `cached_entities`, `last_write_at`. Includes `CachedEntity`, `BufferedOperation` enum, full method set plus unit tests.
 - **Verification**: 7 unit tests covering buffer writes, idle timer, cache, clear
+- **Phase 4 addition**: Added `find_session_by_token(token: &str) -> Option<(String, &HashMap<String, String>)>` — linear scan of pending writes for session resolution (Phase 4 task 4.3)
 
 ### 1.4 Implement FlushTimer ✅
 
@@ -46,6 +47,9 @@
 - **File**: `src-tauri/src/infrastructure/turso/connection_manager.rs`
 - **Action**: `HashMap<String, CachedConnection>` with lazy init via `libsql::Builder::new_remote()`. Methods: `resolve_by_email`, `resolve_by_user_id`, `register_connection`, `run_migrations` (stub).
 - **Note**: Used `libsql::Builder` pattern (new API) instead of deprecated `Database::open_remote`.
+- **Phase 4 addition**: 
+  - `run_migrations()` stub replaced — delegates to standalone `run_migrations_on_db(db)` which reads `.sql` files from `src-tauri/migrations/`, tracks applied via `_schema_migrations` table
+  - Added `get_all_connections() -> Vec<CachedConnection>` for session iteration (Phase 4 task 4.3)
 
 ### 1.7 Create slug generator ✅
 
@@ -159,12 +163,19 @@
 ### 4.3 Add resolve helper for authenticated commands ✅
 
 - **File**: `src-tauri/src/commands/auth.rs`
-- **Action**: `resolve_authenticated_user(token, cp, cm, mb)` → stub returning error with guidance. Full implementation deferred to Phase 5.
+- **Action**: `resolve_authenticated_user(token, cp, cm, mb)` full implementation.
+  1. Checks MemoryBuffer's `find_session_by_token()` for recently logged-in users
+  2. Iterates all cached connections via `get_all_connections()`, queries `sessions` table for matching token (filtered by `expires_at > datetime('now')`)
+  3. Queries `users` table on matching DB
+  4. Returns `(User, Arc<libsql::Database>)` for downstream commands
+- **Also**: Added `user_from_row(row)` helper (8-field row parser with role/datetime parsing)
 
 ### 4.4 Route auth commands through Turso AppState ✅
 
 - **File**: `src-tauri/src/commands/auth.rs`
-- **Action**: `login`, `logout`, `update_profile`, `change_password` all use new Turso `AppState`. login/logout are fully functional. update_profile/change_password are stubs returning clear error messages.
+- **Action**: `login`, `logout`, `update_profile`, `change_password` all use new Turso `AppState`. login/logout are fully functional. update_profile/change_password now real implementations:
+  - `update_profile`: resolves user via `resolve_authenticated_user`, updates `users` table (name/email/updated_at), buffers write via MemoryBuffer
+  - `change_password`: resolves user, verifies current password via bcrypt, hashes new password, updates `users` table
 - **Note**: Other command files (users, students, courses, etc.) still use old managed state. Full MemoryBuffer routing is Phase 5.
 
 ### 4.5 Remove SqlitePool (keep rusqlite) ✅

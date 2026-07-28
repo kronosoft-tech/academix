@@ -2,10 +2,11 @@
 //!
 //! Implements StudentRepository using SQLite.
 
+use async_trait::async_trait;
 use crate::application::ports::StudentRepository;
 use crate::domain::entities::Student;
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database;
+use crate::infrastructure::local_db;
 use chrono::{DateTime, Utc};
 
 /// SQLite implementation of StudentRepository
@@ -17,27 +18,27 @@ impl SqliteStudentRepository {
         Self
     }
 
-    fn row_to_student(row: &rusqlite::Row<'_>) -> rusqlite::Result<Student> {
-        let birth_date_str: Option<String> = row.get(8)?;
-        let guardian_name: Option<String> = row.get(9)?;
-        let guardian_document: Option<String> = row.get(10)?;
-        let guardian_phone: Option<String> = row.get(11)?;
-        let active: i32 = row.get(12)?;
-        let created_str: String = row.get(13)?;
-        let updated_str: String = row.get(14)?;
-        let course_id: Option<String> = row.get(15)?;
-        let group_id: Option<String> = row.get(16)?;
+    fn row_to_student(row: &libsql::Row) -> Result<Student, DomainError> {
+        let birth_date_str: Option<String> = row.get(8).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_name: Option<String> = row.get(9).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_document: Option<String> = row.get(10).map_err(|e| DomainError::Database(e.to_string()))?;
+        let guardian_phone: Option<String> = row.get(11).map_err(|e| DomainError::Database(e.to_string()))?;
+        let active: i32 = row.get(12).map_err(|e| DomainError::Database(e.to_string()))?;
+        let created_str: String = row.get(13).map_err(|e| DomainError::Database(e.to_string()))?;
+        let updated_str: String = row.get(14).map_err(|e| DomainError::Database(e.to_string()))?;
+        let course_id: Option<String> = row.get(15).map_err(|e| DomainError::Database(e.to_string()))?;
+        let group_id: Option<String> = row.get(16).map_err(|e| DomainError::Database(e.to_string()))?;
 
         Ok(Student {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            first_name: row.get(2)?,
-            last_name: row.get(3)?,
-            document_type: row.get(4)?,
-            document_number: row.get(5)?,
-            email: row.get(6)?,
-            phone: row.get(7)?,
-            address: row.get::<_, Option<String>>(17)?,
+            id: row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+            user_id: row.get(1).map_err(|e| DomainError::Database(e.to_string()))?,
+            first_name: row.get(2).map_err(|e| DomainError::Database(e.to_string()))?,
+            last_name: row.get(3).map_err(|e| DomainError::Database(e.to_string()))?,
+            document_type: row.get(4).map_err(|e| DomainError::Database(e.to_string()))?,
+            document_number: row.get(5).map_err(|e| DomainError::Database(e.to_string()))?,
+            email: row.get(6).map_err(|e| DomainError::Database(e.to_string()))?,
+            phone: row.get(7).map_err(|e| DomainError::Database(e.to_string()))?,
+            address: row.get::<Option<String>>(17).map_err(|e| DomainError::Database(e.to_string()))?,
             birth_date: birth_date_str.and_then(|s| {
                 DateTime::parse_from_rfc3339(&s)
                     .ok()
@@ -71,101 +72,104 @@ impl Default for SqliteStudentRepository {
     }
 }
 
+#[async_trait]
 impl StudentRepository for SqliteStudentRepository {
-    fn find_by_id(&self, id: &str) -> Result<Option<Student>, DomainError> {
+    async fn find_by_id(&self, id: &str) -> Result<Option<Student>, DomainError> {
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
-                   FROM students WHERE id = ?";
+                   FROM students WHERE id = ?1";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [id], Self::row_to_student) {
-            Ok(student) => Ok(Some(student)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, libsql::params![id.to_string()]).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_student(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn find_by_user_id(&self, user_id: &str) -> Result<Option<Student>, DomainError> {
+    async fn find_by_user_id(&self, user_id: &str) -> Result<Option<Student>, DomainError> {
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
-                   FROM students WHERE user_id = ?";
+                   FROM students WHERE user_id = ?1";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [user_id], Self::row_to_student) {
-            Ok(student) => Ok(Some(student)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, libsql::params![user_id.to_string()]).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_student(&row)?)),
+            None => Ok(None),
         }
     }
 
-    fn save(&self, student: &Student) -> Result<(), DomainError> {
+    async fn save(&self, student: &Student) -> Result<(), DomainError> {
         let sql = "INSERT INTO students (id, user_id, first_name, last_name, document_type, 
                                       document_number, email, phone, birth_date, 
                                       guardian_name, guardian_document, guardian_phone,
                                       active, created_at, updated_at, course_id, group_id, address)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)";
 
         let birth_date = student.birth_date.map(|dt| dt.to_rfc3339());
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         conn.execute(
             sql,
-            rusqlite::params![
-                student.id,
-                student.user_id,
-                student.first_name,
-                student.last_name,
-                student.document_type,
-                student.document_number,
-                student.email,
-                student.phone,
+            libsql::params![
+                student.id.clone(),
+                student.user_id.clone(),
+                student.first_name.clone(),
+                student.last_name.clone(),
+                student.document_type.clone(),
+                student.document_number.clone(),
+                student.email.clone(),
+                student.phone.clone(),
                 birth_date,
-                student.guardian_name,
-                student.guardian_document,
-                student.guardian_phone,
+                student.guardian_name.clone(),
+                student.guardian_document.clone(),
+                student.guardian_phone.clone(),
                 if student.active { 1 } else { 0 },
                 student.created_at.to_rfc3339(),
                 student.updated_at.to_rfc3339(),
-                student.course_id,
-                student.group_id,
-                student.address,
+                student.course_id.clone(),
+                student.group_id.clone(),
+                student.address.clone(),
             ],
         )
+        .await
         .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
 
-    fn update(&self, student: &Student) -> Result<(), DomainError> {
+    async fn update(&self, student: &Student) -> Result<(), DomainError> {
         let sql = "UPDATE students 
-                   SET first_name = ?, last_name = ?, email = ?, phone = ?, address = ?, 
-                       birth_date = ?, guardian_name = ?, guardian_document = ?, guardian_phone = ?,
-                       active = ?, updated_at = ?, course_id = ?, group_id = ?
-                   WHERE id = ?";
+                   SET first_name = ?1, last_name = ?2, email = ?3, phone = ?4, address = ?5, 
+                       birth_date = ?6, guardian_name = ?7, guardian_document = ?8, guardian_phone = ?9,
+                       active = ?10, updated_at = ?11, course_id = ?12, group_id = ?13
+                   WHERE id = ?14";
 
         let birth_date = student.birth_date.map(|dt| dt.to_rfc3339());
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         let affected = conn
             .execute(
                 sql,
-                rusqlite::params![
-                    student.first_name,
-                    student.last_name,
-                    student.email,
-                    student.phone,
-                    student.address,
+                libsql::params![
+                    student.first_name.clone(),
+                    student.last_name.clone(),
+                    student.email.clone(),
+                    student.phone.clone(),
+                    student.address.clone(),
                     birth_date,
-                    student.guardian_name,
-                    student.guardian_document,
-                    student.guardian_phone,
+                    student.guardian_name.clone(),
+                    student.guardian_document.clone(),
+                    student.guardian_phone.clone(),
                     if student.active { 1 } else { 0 },
                     Utc::now().to_rfc3339(),
-                    student.course_id,
-                    student.group_id,
-                    student.id,
+                    student.course_id.clone(),
+                    student.group_id.clone(),
+                    student.id.clone(),
                 ],
             )
+            .await
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -174,12 +178,13 @@ impl StudentRepository for SqliteStudentRepository {
         Ok(())
     }
 
-    fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let sql = "UPDATE students SET active = 0, updated_at = ? WHERE id = ?";
+    async fn delete(&self, id: &str) -> Result<(), DomainError> {
+        let sql = "UPDATE students SET active = 0, updated_at = ?1 WHERE id = ?2";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         let affected = conn
-            .execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
+            .execute(sql, libsql::params![Utc::now().to_rfc3339(), id.to_string()])
+            .await
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -188,18 +193,18 @@ impl StudentRepository for SqliteStudentRepository {
         Ok(())
     }
 
-    fn find_all(&self) -> Result<Vec<Student>, DomainError> {
+    async fn find_all(&self) -> Result<Vec<Student>, DomainError> {
         let sql = "SELECT id, user_id, first_name, last_name, document_type, document_number,
                           email, phone, birth_date, guardian_name, guardian_document, guardian_phone,
                           active, created_at, updated_at, course_id, group_id, address
                    FROM students WHERE active = 1 ORDER BY last_name, first_name";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map([], Self::row_to_student)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<_>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, libsql::params![]).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_student(&row)?);
+        }
+        Ok(results)
     }
 }

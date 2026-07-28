@@ -8,3 +8,4 @@ pub mod control_plane;
 pub mod flush_timer;
 pub mod memory_buffer;
 pub mod provisioning;
+pub mod session;

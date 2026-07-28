@@ -428,7 +428,6 @@ export async function initDatabase(): Promise<Database> {
     }
   }
   
-  console.log(`Database initialized with ${migrations.length} migrations`);
   return db;
 }
 

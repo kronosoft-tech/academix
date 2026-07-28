@@ -1,7 +1,3 @@
-//! Student Commands
-//!
-//! Tauri commands for student management.
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -11,7 +7,6 @@ use crate::infrastructure::repositories::{SqliteGroupRepository, SqliteStudentRe
 
 pub type StudentServiceState = StudentService<SqliteStudentRepository, SqliteGroupRepository>;
 
-/// Create student request payload
 #[derive(Debug, Deserialize)]
 pub struct CreateStudentCommand {
     pub user_id: String,
@@ -30,7 +25,6 @@ pub struct CreateStudentCommand {
     pub group_id: Option<String>,
 }
 
-/// Update student request payload
 #[derive(Debug, Deserialize)]
 pub struct UpdateStudentCommand {
     pub first_name: Option<String>,
@@ -46,7 +40,6 @@ pub struct UpdateStudentCommand {
     pub group_id: Option<String>,
 }
 
-/// Student response payload
 #[derive(Debug, Serialize)]
 pub struct StudentCommandResponse {
     pub success: bool,
@@ -54,7 +47,6 @@ pub struct StudentCommandResponse {
     pub error: Option<String>,
 }
 
-/// Student list response
 #[derive(Debug, Serialize)]
 pub struct StudentListCommandResponse {
     pub success: bool,
@@ -62,12 +54,11 @@ pub struct StudentListCommandResponse {
     pub error: Option<String>,
 }
 
-/// Create student command
 #[tauri::command]
-pub fn create_student(
-    state: State<StudentServiceState>,
+pub async fn create_student(
+    state: State<'_, StudentServiceState>,
     request: CreateStudentCommand,
-) -> StudentCommandResponse {
+) -> Result<StudentCommandResponse, String> {
     match state.create(CreateStudentRequest {
         user_id: request.user_id,
         first_name: request.first_name,
@@ -83,61 +74,46 @@ pub fn create_student(
         guardian_phone: request.guardian_phone,
         course_id: request.course_id,
         group_id: request.group_id,
-    }) {
-        Ok(student) => StudentCommandResponse {
+    }).await {
+        Ok(student) => Ok(StudentCommandResponse {
             success: true,
             data: Some(student),
             error: None,
-        },
-        Err(e) => StudentCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Get student by ID
 #[tauri::command]
-pub fn get_student(state: State<StudentServiceState>, id: String) -> StudentCommandResponse {
-    match state.get_by_id(&id) {
-        Ok(student) => StudentCommandResponse {
+pub async fn get_student(state: State<'_, StudentServiceState>, id: String) -> Result<StudentCommandResponse, String> {
+    match state.get_by_id(&id).await {
+        Ok(student) => Ok(StudentCommandResponse {
             success: true,
             data: Some(student),
             error: None,
-        },
-        Err(e) => StudentCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// List all students
 #[tauri::command]
-pub fn list_students(state: State<StudentServiceState>) -> StudentListCommandResponse {
-    match state.list() {
-        Ok(students) => StudentListCommandResponse {
+pub async fn list_students(state: State<'_, StudentServiceState>) -> Result<StudentListCommandResponse, String> {
+    match state.list().await {
+        Ok(students) => Ok(StudentListCommandResponse {
             success: true,
             data: Some(students),
             error: None,
-        },
-        Err(e) => StudentListCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Update student
 #[tauri::command]
-pub fn update_student(
-    state: State<StudentServiceState>,
+pub async fn update_student(
+    state: State<'_, StudentServiceState>,
     id: String,
     request: UpdateStudentCommand,
-) -> StudentCommandResponse {
+) -> Result<StudentCommandResponse, String> {
     match state.update(
         &id,
         UpdateStudentRequest {
@@ -153,33 +129,24 @@ pub fn update_student(
             course_id: request.course_id,
             group_id: request.group_id,
         },
-    ) {
-        Ok(student) => StudentCommandResponse {
+    ).await {
+        Ok(student) => Ok(StudentCommandResponse {
             success: true,
             data: Some(student),
             error: None,
-        },
-        Err(e) => StudentCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Delete student
 #[tauri::command]
-pub fn delete_student(state: State<StudentServiceState>, id: String) -> StudentCommandResponse {
-    match state.delete(&id) {
-        Ok(()) => StudentCommandResponse {
+pub async fn delete_student(state: State<'_, StudentServiceState>, id: String) -> Result<StudentCommandResponse, String> {
+    match state.delete(&id).await {
+        Ok(()) => Ok(StudentCommandResponse {
             success: true,
             data: None,
             error: None,
-        },
-        Err(e) => StudentCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }

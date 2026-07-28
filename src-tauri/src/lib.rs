@@ -45,9 +45,10 @@ use commands::users::{create_user, delete_user, get_user, list_users, list_users
 use env_loader::load_turso_config;
 use infrastructure::turso::connection_manager::ConnectionManager;
 use infrastructure::turso::control_plane::ControlPlaneRepository;
+use infrastructure::turso::flush_timer::start_flush_timer;
 use infrastructure::turso::memory_buffer::MemoryBuffer;
 use infrastructure::turso::provisioning::TursoProvisioningService;
-use infrastructure::database;
+use infrastructure::local_db;
 use infrastructure::repositories::{
     SqliteAttendanceRepository, SqliteCourseRepository, SqliteGroupRepository,
     SqliteInvoiceRepository, SqliteInvoiceLineRepository,
@@ -56,7 +57,7 @@ use infrastructure::repositories::{
 };
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, oneshot};
 
 /// Get the database path in the app data directory
 fn get_db_path() -> PathBuf {
@@ -72,31 +73,105 @@ fn get_db_path() -> PathBuf {
 
 /// Run all local SQLite migrations (for backward-compatible read operations).
 /// Phase 4: Old commands still read from local SQLite until fully migrated.
-fn run_local_migrations() {
+///
+/// Uses a `_schema_migrations` tracking table so each migration runs only once.
+/// Existing databases are treated as fully migrated up to 018 to avoid re-running
+/// non-idempotent schema migrations (010-016).
+async fn run_local_migrations() {
     let db_path = get_db_path();
-
-    // Set the global DB path for repos that use database::open_connection()
-    database::set_db_path(db_path.clone());
     println!("Database path: {:?}", db_path);
 
-    let conn = match database::open_connection() {
-        Ok(c) => c,
+    let db = match libsql::Builder::new_local(db_path)
+        .build()
+        .await
+    {
+        Ok(db) => db,
         Err(e) => {
             eprintln!("[FATAL] Cannot open database: {}", e);
             return;
         }
     };
 
-    // Helper to run migration with idempotent error handling
+    local_db::init(db);
+
+    let conn = match local_db::get_db().connect() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[FATAL] Cannot connect to database: {}", e);
+            return;
+        }
+    };
+
+    // --- Migration tracking setup ---
+    // Create the tracking table if it doesn't exist
+    if let Err(e) = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS _schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );"
+    ).await {
+        eprintln!("[WARN] Could not create _schema_migrations: {}", e);
+    }
+
+    // Load already-applied migrations
+    let mut applied: Vec<String> = Vec::new();
+    if let Ok(mut rows) = conn.query("SELECT version FROM _schema_migrations ORDER BY version", ()).await {
+        loop {
+            match rows.next().await {
+                Ok(Some(row)) => {
+                    if let Ok(ver) = row.get_str(0) {
+                        applied.push(ver.to_string());
+                    }
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+    }
+
+    // Track if this is a legacy database (no tracking table before)
+    let is_legacy = applied.is_empty();
+
+    // --- Legacy database migration: seed tracking for already-applied migrations ---
+    // For existing databases that were running before this tracking was added,
+    // we seed the tracking table with all existing migrations (001-018).
+    //
+    // This avoids re-running non-idempotent migrations (010-016) that left the
+    // database in a partially-migrated state.
+    if is_legacy {
+        println!("First run with migration tracking — seeding applied state for existing database (001-018)");
+
+        // Clean up leftover table from migration 016 partial run
+        conn.execute_batch("DROP TABLE IF EXISTS accounting_entries_new;").await.ok();
+
+        let existing: [&str; 17] = [
+            "001", "003", "004", "005", "006", "007", "008", "009",
+            "010", "011", "012", "013", "014", "015", "016", "017", "018",
+        ];
+        for ver in &existing {
+            conn.execute_batch(
+                &format!("INSERT OR IGNORE INTO _schema_migrations (version) VALUES ('{}')", ver)
+            ).await.ok();
+        }
+        println!("Legacy database seeded — {} migrations tracked", existing.len());
+        println!("Local database initialized successfully");
+        return;
+    }
+
+    // --- Helper: run a migration only if not already applied ---
     macro_rules! run_migration {
         ($name:expr, $sql:expr) => {
-            match conn.execute_batch($sql) {
-                Ok(_) => println!("Migration {} applied", $name),
-                Err(e) => {
-                    let err_str = format!("{}", e);
-                    if err_str.contains("duplicate column name") || err_str.contains("table students has no column") {
-                        println!("Migration {} already applied (idempotent)", $name);
-                    } else {
+            if applied.contains(&$name.to_string()) {
+                println!("Migration {} already applied", $name);
+            } else {
+                match conn.execute_batch($sql).await {
+                    Ok(_) => {
+                        let _ = conn.execute_batch(
+                            &format!("INSERT INTO _schema_migrations (version) VALUES ('{}')", $name)
+                        ).await;
+                        println!("Migration {} applied", $name);
+                    }
+                    Err(e) => {
                         eprintln!("WARNING running migration {}: {}", $name, e);
                     }
                 }
@@ -104,13 +179,23 @@ fn run_local_migrations() {
         };
     }
 
-    // Run initial schema migration
-    let migration_sql = include_str!("../migrations/001_initial_schema.sql");
-    if let Err(e) = conn.execute_batch(migration_sql) {
-        eprintln!("WARNING running initial migration: {}", e);
+    // --- Run migrations in order ---
+
+    // 001 — initial schema (always safe: CREATE TABLE IF NOT EXISTS)
+    if applied.contains(&"001".to_string()) {
+        println!("Migration 001 already applied");
+    } else {
+        let sql = include_str!("../migrations/001_initial_schema.sql");
+        match conn.execute_batch(sql).await {
+            Ok(_) => {
+                let _ = conn.execute_batch("INSERT INTO _schema_migrations (version) VALUES ('001')").await;
+                println!("Migration 001 applied");
+            }
+            Err(e) => eprintln!("WARNING running migration 001: {}", e),
+        }
     }
 
-    // Run migrations 003-018
+    // 003-018 via tracking table
     run_migration!("003", include_str!("../migrations/003_add_guardian_and_schedule_fields.sql"));
     run_migration!("004", include_str!("../migrations/004_add_student_enrollment_columns.sql"));
     run_migration!("005", include_str!("../migrations/005_add_course_price.sql"));
@@ -204,7 +289,7 @@ pub async fn run() {
     // Phase 4: Initialize local SQLite for backward-compatible read operations
     // Old command handlers still read from local DB until Phase 5 full migration
     println!("Initializing local database for backward compatibility...");
-    run_local_migrations();
+    run_local_migrations().await;
 
     // Initialize Turso services (control plane + provisioning)
     println!("Loading Turso configuration...");
@@ -214,6 +299,7 @@ pub async fn run() {
     let provisioning_service: Option<Arc<TursoProvisioningService>>;
     let connection_manager: Arc<Mutex<ConnectionManager>>;
     let memory_buffer: Arc<Mutex<MemoryBuffer>>;
+    let flush_timer_sender: Option<oneshot::Sender<()>>;
 
     match turso_config {
         Ok(config) => {
@@ -249,9 +335,16 @@ pub async fn run() {
                     None
                 }
             };
-            control_plane = cp;
+            control_plane = cp.clone();
             connection_manager = Arc::new(Mutex::new(ConnectionManager::new()));
             memory_buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
+            flush_timer_sender = cp.as_ref().map(|cp_arc| {
+                start_flush_timer(
+                    Arc::clone(&memory_buffer),
+                    Arc::clone(&connection_manager),
+                    Arc::clone(cp_arc),
+                )
+            });
         }
         Err(e) => {
             eprintln!("[TURSO] Turso config not available: {}", e);
@@ -262,6 +355,7 @@ pub async fn run() {
             provisioning_service = None;
             connection_manager = Arc::new(Mutex::new(ConnectionManager::new()));
             memory_buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
+            flush_timer_sender = None;
         }
     };
 
@@ -296,7 +390,7 @@ pub async fn run() {
         connection_manager: Arc::clone(&connection_manager),
         memory_buffer: Arc::clone(&memory_buffer),
         control_plane: control_plane.as_ref().map(Arc::clone),
-        flush_timer_sender: None,
+        flush_timer_sender,
     };
 
     // Build Tauri app

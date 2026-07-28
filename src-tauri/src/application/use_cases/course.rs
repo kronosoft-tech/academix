@@ -17,11 +17,11 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// Create a new course
-    pub fn create(&self, request: CreateCourseRequest) -> Result<CourseDto, ApplicationError> {
+    pub async fn create(&self, request: CreateCourseRequest) -> Result<CourseDto, ApplicationError> {
         // Check if course code already exists
         if self
             .course_repository
-            .find_by_code(&request.code)?
+            .find_by_code(&request.code).await?
             .is_some()
         {
             return Err(ApplicationError::Conflict(
@@ -45,7 +45,7 @@ impl<R: CourseRepository> CourseService<R> {
         course.price = request.price;
         course.duration = request.duration;
 
-        self.course_repository.save(&course)?;
+        self.course_repository.save(&course).await?;
 
         Ok(CourseDto {
             id: course.id,
@@ -60,10 +60,10 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// Get course by ID
-    pub fn get_by_id(&self, id: &str) -> Result<CourseDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<CourseDto, ApplicationError> {
         let course = self
             .course_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Course not found".to_string()))?;
 
         Ok(CourseDto {
@@ -79,8 +79,8 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// List all courses
-    pub fn list(&self) -> Result<Vec<CourseDto>, ApplicationError> {
-        let courses = self.course_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<CourseDto>, ApplicationError> {
+        let courses = self.course_repository.find_all().await?;
 
         Ok(courses
             .into_iter()
@@ -98,14 +98,14 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// Update course
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdateCourseRequest,
     ) -> Result<CourseDto, ApplicationError> {
         let mut course = self
             .course_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Course not found".to_string()))?;
 
         if let Some(name) = request.name {
@@ -130,7 +130,7 @@ impl<R: CourseRepository> CourseService<R> {
 
         course.updated_at = chrono::Utc::now();
 
-        self.course_repository.update(&course)?;
+        self.course_repository.update(&course).await?;
 
         Ok(CourseDto {
             id: course.id,
@@ -145,14 +145,14 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// Delete course (soft delete - marks as archived)
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
-        self.course_repository.delete(id)?;
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+        self.course_repository.delete(id).await?;
         Ok(())
     }
 
     /// List all archived courses
-    pub fn list_archived(&self) -> Result<Vec<CourseDto>, ApplicationError> {
-        let courses = self.course_repository.find_all_archived()?;
+    pub async fn list_archived(&self) -> Result<Vec<CourseDto>, ApplicationError> {
+        let courses = self.course_repository.find_all_archived().await?;
         Ok(courses
             .into_iter()
             .map(|c| CourseDto {
@@ -169,14 +169,14 @@ impl<R: CourseRepository> CourseService<R> {
     }
 
     /// Restore an archived course
-    pub fn restore(&self, id: &str) -> Result<(), ApplicationError> {
-        self.course_repository.restore(id)?;
+    pub async fn restore(&self, id: &str) -> Result<(), ApplicationError> {
+        self.course_repository.restore(id).await?;
         Ok(())
     }
 
     /// Hard delete - permanently removes from database
-    pub fn hard_delete(&self, id: &str) -> Result<(), ApplicationError> {
-        self.course_repository.hard_delete(id)?;
+    pub async fn hard_delete(&self, id: &str) -> Result<(), ApplicationError> {
+        self.course_repository.hard_delete(id).await?;
         Ok(())
     }
 }

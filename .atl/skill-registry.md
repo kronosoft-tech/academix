@@ -6,6 +6,7 @@ Last updated: 2026-07-28
 
 ## Sources scanned
 
+- skills
 - .claude/skills
 - .agents/skills
 - /home/luiferdev/.agents/skills
@@ -37,6 +38,14 @@ Last updated: 2026-07-28
 | `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `/home/luiferdev/.config/opencode/skills/skill-improver/SKILL.md` |
 | `tauri` | Cross-platform app toolkit with Rust backend and WebView frontend. Use when building or maintaining Tauri apps, configuring IPC/security, or developing plugins. | project | `/home/luiferdev/Documents/Dev/academix/.claude/skills/tauri/SKILL.md` |
 | `tauri-v2` | Tauri v2 cross-platform app development with Rust backend. Use when configuring tauri.conf.json, implementing Rust commands (#[tauri::command]), setting up IPC patterns (invoke, emit, channels), configuring permissions/capabilities, troubleshooting build issues, or deploying desktop/mobile apps. Triggers on Tauri, src-tauri, invoke, emit, capabilities.json. | project | `/home/luiferdev/Documents/Dev/academix/.claude/skills/tauri-v2/SKILL.md` |
+| `turso-api` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-api/SKILL.md` |
+| `turso-cli` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-cli/SKILL.md` |
+| `turso-cli-advanced` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-cli-advanced/SKILL.md` |
+| `turso-features` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-features/SKILL.md` |
+| `turso-sdk` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-sdk/SKILL.md` |
+| `turso-security` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-security/SKILL.md` |
+| `turso-sql` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-sql/SKILL.md` |
+| `turso-sync` | — | project | `/home/luiferdev/Documents/Dev/academix/skills/turso-sync/SKILL.md` |
 | `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `/home/luiferdev/.config/opencode/skills/work-unit-commits/SKILL.md` |
 
 ## Loading protocol

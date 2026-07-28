@@ -1,11 +1,7 @@
 //! Repository Implementations - Academix MVP
-//!
-//! MemoryBuffer-backed repositories for Turso migration with SQLite fallback.
 
 pub mod memory_backed;
-pub mod sqlite; // keep for SQLite read fallback
-
-pub use memory_backed::*;
+pub mod sqlite;
 
 // Explicit re-exports from sqlite for backward compatibility
 // (commands and lib.rs still reference Sqlite*Repository types)

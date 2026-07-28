@@ -1,12 +1,14 @@
 //! User SQLite Repository
 //!
-//! Implements UserRepository using SQLite.
+//! Implements UserRepository using libSQL (async).
 
+use async_trait::async_trait;
+use libsql::params::IntoParams;
 use crate::application::ports::UserRepository;
 use crate::domain::entities::user::{Role, User};
 use crate::domain::errors::DomainError;
 use crate::domain::value_objects::Email;
-use crate::infrastructure::database;
+use crate::infrastructure::local_db;
 use chrono::{DateTime, Utc};
 
 /// SQLite implementation of UserRepository
@@ -18,11 +20,11 @@ impl SqliteUserRepository {
         Self
     }
 
-    fn row_to_user(row: &rusqlite::Row<'_>) -> rusqlite::Result<User> {
-        let role_str: String = row.get(4)?;
-        let is_active: i32 = row.get(5)?;
-        let created_str: String = row.get(6)?;
-        let updated_str: String = row.get(7)?;
+    fn row_to_user(row: &libsql::Row) -> Result<User, DomainError> {
+        let role_str: String = row.get(4).map_err(|e| DomainError::Database(e.to_string()))?;
+        let is_active: i32 = row.get(5).map_err(|e| DomainError::Database(e.to_string()))?;
+        let created_str: String = row.get(6).map_err(|e| DomainError::Database(e.to_string()))?;
+        let updated_str: String = row.get(7).map_err(|e| DomainError::Database(e.to_string()))?;
 
         let role = match role_str.as_str() {
             "Admin" => Role::Admin,
@@ -33,10 +35,10 @@ impl SqliteUserRepository {
         };
 
         Ok(User {
-            id: row.get(0)?,
-            email: row.get(1)?,
-            password_hash: row.get(2)?,
-            name: row.get(3)?,
+            id: row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+            email: row.get(1).map_err(|e| DomainError::Database(e.to_string()))?,
+            password_hash: row.get(2).map_err(|e| DomainError::Database(e.to_string()))?,
+            name: row.get(3).map_err(|e| DomainError::Database(e.to_string()))?,
             role,
             active: is_active != 0,
             created_at: DateTime::parse_from_rfc3339(&created_str)
@@ -56,6 +58,18 @@ impl SqliteUserRepository {
             Role::Profesor => "Profesor",
         }
     }
+
+    async fn query_one<F, T>(sql: &str, params: impl IntoParams, mapper: F) -> Result<Option<T>, DomainError>
+    where
+        F: Fn(&libsql::Row) -> Result<T, DomainError>,
+    {
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, params).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(mapper(&row)?)),
+            None => Ok(None),
+        }
+    }
 }
 
 impl Default for SqliteUserRepository {
@@ -64,75 +78,66 @@ impl Default for SqliteUserRepository {
     }
 }
 
+#[async_trait]
 impl UserRepository for SqliteUserRepository {
-    fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
+    async fn find_by_id(&self, id: &str) -> Result<Option<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
-                   FROM users WHERE id = ?";
-
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [id], Self::row_to_user) {
-            Ok(user) => Ok(Some(user)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
-        }
+                   FROM users WHERE id = ?1";
+        Self::query_one(sql, libsql::params![id], Self::row_to_user).await
     }
 
-    fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError> {
+    async fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
-                   FROM users WHERE email = ?";
-
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [email.as_str()], Self::row_to_user) {
-            Ok(user) => Ok(Some(user)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
-        }
+                   FROM users WHERE email = ?1";
+        Self::query_one(sql, libsql::params![email.as_str()], Self::row_to_user).await
     }
 
-    fn save(&self, user: &User) -> Result<(), DomainError> {
+    async fn save(&self, user: &User) -> Result<(), DomainError> {
         let sql = "INSERT INTO users (id, email, password_hash, name, role, is_active, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
         let role_str = Self::role_to_string(user.role);
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         conn.execute(
             sql,
-            rusqlite::params![
-                user.id,
-                user.email,
-                user.password_hash,
-                user.name,
+            libsql::params![
+                user.id.clone(),
+                user.email.clone(),
+                user.password_hash.clone(),
+                user.name.clone(),
                 role_str,
                 if user.active { 1 } else { 0 },
                 user.created_at.to_rfc3339(),
                 user.updated_at.to_rfc3339(),
             ],
         )
+        .await
         .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         Ok(())
     }
 
-    fn update(&self, user: &User) -> Result<(), DomainError> {
+    async fn update(&self, user: &User) -> Result<(), DomainError> {
         let sql = "UPDATE users 
-                   SET email = ?, password_hash = ?, name = ?, role = ?, is_active = ?, updated_at = ?
-                   WHERE id = ?";
+                   SET email = ?1, password_hash = ?2, name = ?3, role = ?4, is_active = ?5, updated_at = ?6
+                   WHERE id = ?7";
 
         let role_str = Self::role_to_string(user.role);
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         let affected = conn
             .execute(
                 sql,
-                rusqlite::params![
-                    user.email,
-                    user.password_hash,
-                    user.name,
+                libsql::params![
+                    user.email.clone(),
+                    user.password_hash.clone(),
+                    user.name.clone(),
                     role_str,
                     if user.active { 1 } else { 0 },
                     Utc::now().to_rfc3339(),
-                    user.id,
+                    user.id.clone(),
                 ],
             )
+            .await
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -141,12 +146,13 @@ impl UserRepository for SqliteUserRepository {
         Ok(())
     }
 
-    fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let sql = "UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?";
+    async fn delete(&self, id: &str) -> Result<(), DomainError> {
+        let sql = "UPDATE users SET is_active = 0, updated_at = ?1 WHERE id = ?2";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
         let affected = conn
-            .execute(sql, rusqlite::params![Utc::now().to_rfc3339(), id])
+            .execute(sql, libsql::params![Utc::now().to_rfc3339(), id])
+            .await
             .map_err(|e| DomainError::Validation(e.to_string()))?;
 
         if affected == 0 {
@@ -155,29 +161,31 @@ impl UserRepository for SqliteUserRepository {
         Ok(())
     }
 
-    fn find_all(&self) -> Result<Vec<User>, DomainError> {
+    async fn find_all(&self) -> Result<Vec<User>, DomainError> {
         let sql = "SELECT id, email, password_hash, name, role, is_active, created_at, updated_at
                    FROM users WHERE is_active = 1 ORDER BY name";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn
-            .prepare(sql)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map([], Self::row_to_user)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<User>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, ()).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut results = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_user(&row)?);
+        }
+        Ok(results)
     }
 
-    fn exists_by_email(&self, email: &Email) -> Result<bool, DomainError> {
-        let sql = "SELECT COUNT(*) FROM users WHERE email = ?";
+    async fn exists_by_email(&self, email: &Email) -> Result<bool, DomainError> {
+        let sql = "SELECT COUNT(*) FROM users WHERE email = ?1";
 
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let count: i32 = conn
-            .query_row(sql, [email.as_str()], |row| row.get(0))
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-
-        Ok(count > 0)
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, libsql::params![email.as_str()]).await
+            .map_err(|e| DomainError::Database(e.to_string()))?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => {
+                let count: i32 = row.get(0).map_err(|e| DomainError::Database(e.to_string()))?;
+                Ok(count > 0)
+            }
+            None => Ok(false),
+        }
     }
 }

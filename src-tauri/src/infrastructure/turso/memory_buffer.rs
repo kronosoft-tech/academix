@@ -128,9 +128,93 @@ impl MemoryBuffer {
         self.pending_writes.values().map(|v| v.len()).sum()
     }
 
+    /// Find a session by token in pending writes.
+    ///
+    /// Searches through all pending Insert operations for the "sessions" table
+    /// and returns the user_id and session data if the token matches.
+    /// Phase 4: Basic linear scan. Phase 5 will add a proper token→user_id index.
+    pub fn find_session_by_token(&self, token: &str) -> Option<(String, HashMap<String, String>)> {
+        for (user_id, ops) in &self.pending_writes {
+            for op in ops {
+                if let BufferedOperation::Insert { table, data } = op {
+                    if table == "sessions" {
+                        if let Some(t) = data.get("token") {
+                            if t == token {
+                                return Some((user_id.clone(), data.clone()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Reset the idle timer (call after flush completes).
     pub fn reset_timer(&mut self) {
         self.last_write_at = Instant::now();
+    }
+
+    /// Find a pending Insert operation for a given table+id combination.
+    ///
+    /// Matches by the `id` key in the Insert data HashMap.
+    /// Returns `None` if no matching pending insert exists.
+    pub fn find_pending_insert(&self, user_id: &str, table: &str, id: &str) -> Option<&BufferedOperation> {
+        self.pending_writes.get(user_id).and_then(|ops| {
+            ops.iter().find(|op| match op {
+                BufferedOperation::Insert { table: t, data } => {
+                    t == table && data.get("id").map(|v| v.as_str()) == Some(id)
+                }
+                _ => false,
+            })
+        })
+    }
+
+    /// Find a pending Update operation for a given table+id.
+    pub fn find_pending_update(&self, user_id: &str, table: &str, id: &str) -> Option<&BufferedOperation> {
+        self.pending_writes.get(user_id).and_then(|ops| {
+            ops.iter().find(|op| match op {
+                BufferedOperation::Update { table: t, id: i, .. } => t == table && i == id,
+                _ => false,
+            })
+        })
+    }
+
+    /// Check if a pending Delete exists for a given table+id.
+    pub fn has_pending_delete(&self, user_id: &str, table: &str, id: &str) -> bool {
+        self.pending_writes.get(user_id).map_or(false, |ops| {
+            ops.iter().any(|op| match op {
+                BufferedOperation::Delete { table: t, id: i } => t == table && i == id,
+                _ => false,
+            })
+        })
+    }
+
+    /// Scan all pending Insert operations for a specific table (for listing/aggregation).
+    pub fn scan_pending_inserts<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+        self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
+            ops.iter()
+                .filter(|op| matches!(op, BufferedOperation::Insert { table: t, .. } if t == table))
+                .collect()
+        })
+    }
+
+    /// Scan all pending Update operations for a specific table.
+    pub fn scan_pending_updates<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+        self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
+            ops.iter()
+                .filter(|op| matches!(op, BufferedOperation::Update { table: t, .. } if t == table))
+                .collect()
+        })
+    }
+
+    /// Scan all pending Delete operations for a specific table.
+    pub fn scan_pending_deletes<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+        self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
+            ops.iter()
+                .filter(|op| matches!(op, BufferedOperation::Delete { table: t, .. } if t == table))
+                .collect()
+        })
     }
 }
 

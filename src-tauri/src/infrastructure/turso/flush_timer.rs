@@ -5,9 +5,9 @@
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::oneshot;
+use tokio::sync::{Mutex, oneshot};
 
 /// Idle timeout before flushing pending writes to Turso.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60); // 15 minutes
@@ -40,13 +40,13 @@ pub fn start_flush_timer(
                 }
                 _ = tokio::time::sleep(POLL_INTERVAL) => {
                     let idle = {
-                        let buf = buffer.lock().unwrap();
+                        let buf = buffer.lock().await;
                         buf.idle_duration()
                     };
 
                     if idle >= IDLE_TIMEOUT {
                         let has_pending = {
-                            let buf = buffer.lock().unwrap();
+                            let buf = buffer.lock().await;
                             buf.pending_count() > 0
                         };
 
@@ -70,7 +70,7 @@ async fn flush_now(
     _control_plane: &Arc<ControlPlaneRepository>,
 ) {
     let user_ids: Vec<String> = {
-        let buf = buffer.lock().unwrap();
+        let buf = buffer.lock().await;
         buf.users_with_pending_writes()
     };
 
@@ -82,7 +82,7 @@ async fn flush_now(
 
     for user_id in &user_ids {
         let ops = {
-            let mut buf = buffer.lock().unwrap();
+            let mut buf = buffer.lock().await;
             buf.take_pending_writes(user_id)
         };
 
@@ -94,7 +94,7 @@ async fn flush_now(
 
         // Get the user's database connection
         let maybe_db = {
-            let cm = connection_manager.lock().unwrap();
+            let cm = connection_manager.lock().await;
             cm.get_connection(user_id).map(|c| c.clone())
         };
 
@@ -129,14 +129,14 @@ async fn flush_now(
 
         // Clear cached entities for this user
         {
-            let mut buf = buffer.lock().unwrap();
+            let mut buf = buffer.lock().await;
             buf.clear_cache(user_id);
         }
     }
 
     // Reset timer
     {
-        let mut buf = buffer.lock().unwrap();
+        let mut buf = buffer.lock().await;
         buf.reset_timer();
     }
 
@@ -157,42 +157,42 @@ async fn execute_operation(
             if data.is_empty() {
                 return Err("Insert with no data".to_string());
             }
-            let cols: Vec<&str> = data.keys().map(|s| s.as_str()).collect();
+            let cols: Vec<&String> = data.keys().collect();
+            let col_strs: Vec<&str> = cols.iter().map(|k| k.as_str()).collect();
             let placeholders: Vec<String> = (0..data.len()).map(|_| "?".to_string()).collect();
 
             let sql = format!(
                 "INSERT INTO {} ({}) VALUES ({})",
                 table,
-                cols.join(", "),
+                col_strs.join(", "),
                 placeholders.join(", ")
             );
 
-            // TODO(Phase 4): Bind actual values using libsql params
-            // Current implementation uses empty params — value binding will
-            // be added when the flush integration is wired up in Phase 4.
-            conn.execute(&sql, libsql::params![])
+            let values: Vec<String> = cols.iter().map(|k| data[*k].clone()).collect();
+            conn.execute(&sql, libsql::params::params_from_iter(values))
                 .await
                 .map_err(|e| format!("Insert failed for {}: {}", table, e))?;
             Ok(())
         }
-        BufferedOperation::Update { table, id: _, data } => {
+        BufferedOperation::Update { table, id, data } => {
             if data.is_empty() {
                 return Err("Update with no data".to_string());
             }
             let sets: Vec<String> = data.keys().map(|k| format!("{} = ?", k)).collect();
             let sql = format!("UPDATE {} SET {} WHERE id = ?", table, sets.join(", "));
 
-            // TODO(Phase 4): Bind actual values using libsql params
-            conn.execute(&sql, libsql::params![])
+            let mut values: Vec<String> = data.values().cloned().collect();
+            values.push(id.clone());
+            conn.execute(&sql, libsql::params::params_from_iter(values))
                 .await
                 .map_err(|e| format!("Update failed for {}: {}", table, e))?;
             Ok(())
         }
-        BufferedOperation::Delete { table, id: _ } => {
+        BufferedOperation::Delete { table, id } => {
             let sql = format!("DELETE FROM {} WHERE id = ?", table);
 
-            // TODO(Phase 4): Bind actual id value
-            conn.execute(&sql, libsql::params![])
+            let values = vec![id.clone()];
+            conn.execute(&sql, libsql::params::params_from_iter(values))
                 .await
                 .map_err(|e| format!("Delete failed for {}: {}", table, e))?;
             Ok(())
@@ -227,18 +227,18 @@ mod tests {
     use super::*;
 
     /// Verify the flush_timer module compiles and basic types work.
-    #[test]
-    fn test_flush_timer_types() {
+    #[tokio::test]
+    async fn test_flush_timer_types() {
         let buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
         let cm = Arc::new(Mutex::new(ConnectionManager::new()));
 
         // Verify buffer is accessible through the Arc<Mutex<...>>
         {
-            let buf = buffer.lock().unwrap();
+            let buf = buffer.lock().await;
             assert_eq!(buf.pending_count(), 0);
         }
         {
-            let cm_lock = cm.lock().unwrap();
+            let cm_lock = cm.lock().await;
             assert!(cm_lock.get_connection("nonexistent").is_none());
         }
     }

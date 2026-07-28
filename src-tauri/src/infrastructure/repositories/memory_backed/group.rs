@@ -1,110 +1,60 @@
-//! MemoryBuffer-backed Group Repository
+//! MemoryBacked Group Repository
 //!
-//! Writes buffer to MemoryBuffer, reads check buffer cache first then fallback to SQLite.
+//! Implements GroupRepository using a MemoryBuffer write-back cache
+//! backed by the user's Turso database via ConnectionManager.
+//! Phase 5b: 6 MemoryBacked repositories.
+
+use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::application::ports::GroupRepository;
 use crate::domain::entities::group::{Group, GroupStatus};
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database;
-use crate::infrastructure::turso::memory_buffer::{BufferedOperation, CachedEntity, MemoryBuffer};
+use crate::infrastructure::turso::connection_manager::ConnectionManager;
+use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
+use crate::infrastructure::turso::session::CurrentSession;
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
+/// MemoryBuffer-backed implementation of GroupRepository.
 pub struct MemoryBackedGroupRepository {
-    buffer: Arc<Mutex<MemoryBuffer>>,
-    user_id: String,
+    connection_manager: Arc<Mutex<ConnectionManager>>,
+    memory_buffer: Arc<Mutex<MemoryBuffer>>,
+    session: Arc<Mutex<CurrentSession>>,
 }
 
 impl MemoryBackedGroupRepository {
-    pub fn new(buffer: Arc<Mutex<MemoryBuffer>>, user_id: String) -> Self {
-        Self { buffer, user_id }
-    }
-
-    fn to_cached(group: &Group) -> CachedEntity {
-        CachedEntity {
-            id: group.id.clone(),
-            data: HashMap::from([
-                ("id".to_string(), group.id.clone()),
-                ("course_id".to_string(), group.course_id.clone()),
-                ("name".to_string(), group.name.clone()),
-                ("professor_id".to_string(), group.professor_id.clone().unwrap_or_default()),
-                ("schedule".to_string(), group.schedule.clone().unwrap_or_default()),
-                ("days".to_string(), group.days.as_ref().map(|d| serde_json::to_string(d).unwrap_or_default()).unwrap_or_default()),
-                ("start_time".to_string(), group.start_time.clone().unwrap_or_default()),
-                ("end_time".to_string(), group.end_time.clone().unwrap_or_default()),
-                ("start_date".to_string(), group.start_date.clone().unwrap_or_default()),
-                ("end_date".to_string(), group.end_date.clone().unwrap_or_default()),
-                ("max_students".to_string(), group.max_students.to_string()),
-                ("current_students".to_string(), group.current_students.to_string()),
-                ("status".to_string(), group.status.as_str().to_string()),
-                ("created_at".to_string(), group.created_at.to_rfc3339()),
-                ("updated_at".to_string(), group.updated_at.to_rfc3339()),
-                ("class_duration".to_string(), group.class_duration.map(|d| d.to_string()).unwrap_or_default()),
-                ("skipped_dates".to_string(), serde_json::to_string(&group.skipped_dates).unwrap_or_default()),
-            ]),
+    pub fn new(
+        connection_manager: Arc<Mutex<ConnectionManager>>,
+        memory_buffer: Arc<Mutex<MemoryBuffer>>,
+        session: Arc<Mutex<CurrentSession>>,
+    ) -> Self {
+        Self {
+            connection_manager,
+            memory_buffer,
+            session,
         }
     }
 
-    fn from_cached(cached: &CachedEntity) -> Option<Group> {
-        Some(Group {
-            id: cached.data.get("id")?.clone(),
-            course_id: cached.data.get("course_id")?.clone(),
-            name: cached.data.get("name")?.clone(),
-            professor_id: Self::opt_string(cached, "professor_id"),
-            schedule: Self::opt_string(cached, "schedule"),
-            days: cached.data.get("days")
-                .and_then(|s| if s.is_empty() { None } else { serde_json::from_str(s).ok() }),
-            start_time: Self::opt_string(cached, "start_time"),
-            end_time: Self::opt_string(cached, "end_time"),
-            start_date: Self::opt_string(cached, "start_date"),
-            end_date: Self::opt_string(cached, "end_date"),
-            max_students: cached.data.get("max_students")?.parse().unwrap_or(0),
-            current_students: cached.data.get("current_students")?.parse().unwrap_or(0),
-            status: {
-                let s = cached.data.get("status")?;
-                GroupStatus::from_str(s).unwrap_or(GroupStatus::Open)
-            },
-            created_at: cached.data.get("created_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-            updated_at: cached.data.get("updated_at")
-                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|| Utc::now()),
-            class_duration: cached.data.get("class_duration")
-                .and_then(|s| if s.is_empty() { None } else { s.parse().ok() }),
-            skipped_dates: cached.data.get("skipped_dates")
-                .and_then(|s| serde_json::from_str(s).ok())
-                .unwrap_or_default(),
-        })
-    }
-
-    fn opt_string(cached: &CachedEntity, key: &str) -> Option<String> {
-        cached.data.get(key).and_then(|v| {
-            if v.is_empty() { None } else { Some(v.clone()) }
-        })
-    }
-
-    fn row_to_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<Group> {
-        let id: String = row.get(0)?;
-        let course_id: String = row.get(1)?;
-        let name: String = row.get(2)?;
-        let professor_id: Option<String> = row.get(3)?;
-        let schedule: Option<String> = row.get(4)?;
-        let days_json: Option<String> = row.get(5)?;
-        let start_time: Option<String> = row.get(6)?;
-        let end_time: Option<String> = row.get(7)?;
-        let start_date: Option<String> = row.get(8)?;
-        let end_date: Option<String> = row.get(9)?;
-        let max_students: i32 = row.get(10)?;
-        let current_students: i32 = row.get(11)?;
-        let status_str: String = row.get(12)?;
-        let created_str: String = row.get(13)?;
-        let updated_str: String = row.get(14)?;
-        let class_duration: Option<i32> = row.get(15)?;
-        let skipped_dates_json: Option<String> = row.get(16)?;
+    fn row_to_group(row: &libsql::Row) -> Result<Group, DomainError> {
+        let id: String = row.get(0).map_err(|e| DomainError::Database(e.to_string()))?;
+        let course_id: String = row.get(1).map_err(|e| DomainError::Database(e.to_string()))?;
+        let name: String = row.get(2).map_err(|e| DomainError::Database(e.to_string()))?;
+        let professor_id: Option<String> = row.get(3).map_err(|e| DomainError::Database(e.to_string()))?;
+        let schedule: Option<String> = row.get(4).map_err(|e| DomainError::Database(e.to_string()))?;
+        let days_json: Option<String> = row.get(5).map_err(|e| DomainError::Database(e.to_string()))?;
+        let start_time: Option<String> = row.get(6).map_err(|e| DomainError::Database(e.to_string()))?;
+        let end_time: Option<String> = row.get(7).map_err(|e| DomainError::Database(e.to_string()))?;
+        let start_date: Option<String> = row.get(8).map_err(|e| DomainError::Database(e.to_string()))?;
+        let end_date: Option<String> = row.get(9).map_err(|e| DomainError::Database(e.to_string()))?;
+        let max_students: i32 = row.get(10).map_err(|e| DomainError::Database(e.to_string()))?;
+        let current_students: i32 = row.get(11).map_err(|e| DomainError::Database(e.to_string()))?;
+        let status_str: String = row.get(12).map_err(|e| DomainError::Database(e.to_string()))?;
+        let created_str: String = row.get(13).map_err(|e| DomainError::Database(e.to_string()))?;
+        let updated_str: String = row.get(14).map_err(|e| DomainError::Database(e.to_string()))?;
+        let class_duration: Option<i32> = row.get(15).map_err(|e| DomainError::Database(e.to_string()))?;
+        let skipped_dates_json: Option<String> = row.get(16).map_err(|e| DomainError::Database(e.to_string()))?;
 
         let days: Option<Vec<String>> = days_json.and_then(|s| serde_json::from_str(&s).ok());
         let skipped_dates: Vec<String> = skipped_dates_json
@@ -135,63 +85,260 @@ impl MemoryBackedGroupRepository {
             skipped_dates,
         })
     }
+
+    fn group_from_data(data: &HashMap<String, String>) -> Result<Group, DomainError> {
+        let status_str = data.get("status").ok_or_else(|| DomainError::Database("missing status".into()))?;
+        let created_str = data.get("created_at").ok_or_else(|| DomainError::Database("missing created_at".into()))?;
+        let updated_str = data.get("updated_at").ok_or_else(|| DomainError::Database("missing updated_at".into()))?;
+
+        let days: Option<Vec<String>> = data
+            .get("days")
+            .and_then(|v| if v.is_empty() { None } else { Some(v.clone()) })
+            .and_then(|s| serde_json::from_str(&s).ok());
+
+        let skipped_dates: Vec<String> = data
+            .get("skipped_dates")
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+
+        Ok(Group {
+            id: data.get("id").ok_or_else(|| DomainError::Database("missing id".into()))?.clone(),
+            course_id: data.get("course_id").ok_or_else(|| DomainError::Database("missing course_id".into()))?.clone(),
+            name: data.get("name").ok_or_else(|| DomainError::Database("missing name".into()))?.clone(),
+            professor_id: data.get("professor_id").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            schedule: data.get("schedule").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            days,
+            start_time: data.get("start_time").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            end_time: data.get("end_time").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            start_date: data.get("start_date").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            end_date: data.get("end_date").and_then(|v| if v.is_empty() { None } else { Some(v.clone()) }),
+            max_students: data.get("max_students").ok_or_else(|| DomainError::Database("missing max_students".into()))?.parse().unwrap_or(0),
+            current_students: data.get("current_students").ok_or_else(|| DomainError::Database("missing current_students".into()))?.parse().unwrap_or(0),
+            status: GroupStatus::from_str(status_str).unwrap_or(GroupStatus::Open),
+            created_at: DateTime::parse_from_rfc3339(created_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            updated_at: DateTime::parse_from_rfc3339(updated_str)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now()),
+            class_duration: data.get("class_duration").and_then(|v| if v.is_empty() { None } else { v.parse().ok() }),
+            skipped_dates,
+        })
+    }
+
+    fn to_data_map(group: &Group) -> HashMap<String, String> {
+        let mut data = HashMap::new();
+        data.insert("id".to_string(), group.id.clone());
+        data.insert("course_id".to_string(), group.course_id.clone());
+        data.insert("name".to_string(), group.name.clone());
+        data.insert("professor_id".to_string(), group.professor_id.clone().unwrap_or_default());
+        data.insert("schedule".to_string(), group.schedule.clone().unwrap_or_default());
+        data.insert("days".to_string(), group.days.as_ref().map(|d| serde_json::to_string(d).unwrap_or_default()).unwrap_or_default());
+        data.insert("start_time".to_string(), group.start_time.clone().unwrap_or_default());
+        data.insert("end_time".to_string(), group.end_time.clone().unwrap_or_default());
+        data.insert("start_date".to_string(), group.start_date.clone().unwrap_or_default());
+        data.insert("end_date".to_string(), group.end_date.clone().unwrap_or_default());
+        data.insert("max_students".to_string(), group.max_students.to_string());
+        data.insert("current_students".to_string(), group.current_students.to_string());
+        data.insert("status".to_string(), group.status.as_str().to_string());
+        data.insert("created_at".to_string(), group.created_at.to_rfc3339());
+        data.insert("updated_at".to_string(), group.updated_at.to_rfc3339());
+        data.insert("class_duration".to_string(), group.class_duration.map(|d| d.to_string()).unwrap_or_default());
+        data.insert("skipped_dates".to_string(), serde_json::to_string(&group.skipped_dates).unwrap_or_default());
+        data
+    }
+
+    async fn get_user_id(&self) -> Result<String, DomainError> {
+        let session = self.session.lock().await;
+        session
+            .user_id
+            .clone()
+            .ok_or_else(|| DomainError::Authentication("Not authenticated".to_string()))
+    }
+
+    async fn find_group_internal(&self, user_id: &str, id: &str) -> Result<Option<Group>, DomainError> {
+        // Check buffer first
+        {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(op) = buf.find_pending_insert(&user_id, "groups_table", id) {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    return Ok(Some(Self::group_from_data(data)?));
+                }
+            }
+            if let Some(op) = buf.find_pending_update(&user_id, "groups_table", id) {
+                if let BufferedOperation::Update { data, .. } = op {
+                    return Ok(Some(Self::group_from_data(data)?));
+                }
+            }
+            if buf.has_pending_delete(&user_id, "groups_table", id) {
+                return Ok(None);
+            }
+        }
+
+        // Read from Turso
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days,
+                          start_time, end_time, start_date, end_date,
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
+                   FROM groups_table WHERE id = ?1";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![id]).await?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => Ok(Some(Self::row_to_group(&row)?)),
+            None => Ok(None),
+        }
+    }
+
+    async fn query_turso(&self, user_id: &str, sql: &str, params: impl libsql::params::IntoParams) -> Result<libsql::Rows, DomainError> {
+        let db = {
+            let cm = self.connection_manager.lock().await;
+            cm.get_connection(user_id)
+                .map(|c| c.db.clone())
+                .ok_or_else(|| DomainError::Database("No connection for user".to_string()))?
+        };
+        let conn = db
+            .connect()
+            .map_err(|e| DomainError::Database(e.to_string()))?;
+        conn.query(sql, params)
+            .await
+            .map_err(|e| DomainError::Database(e.to_string()))
+    }
 }
 
+#[async_trait]
 impl GroupRepository for MemoryBackedGroupRepository {
-    fn find_by_id(&self, id: &str) -> Result<Option<Group>, DomainError> {
-        let cache_key = format!("group:{}", id);
-        {
-            let buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-            if let Some(cached) = buf.get_cached(&self.user_id, &cache_key) {
-                if let Some(entity) = Self::from_cached(cached) {
-                    return Ok(Some(entity));
+    async fn find_by_id(&self, id: &str) -> Result<Option<Group>, DomainError> {
+        let user_id = self.get_user_id().await?;
+        self.find_group_internal(&user_id, id).await
+    }
+
+    async fn find_by_course_id(&self, course_id: &str) -> Result<Vec<Group>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read from Turso
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days,
+                          start_time, end_time, start_date, end_date,
+                          max_students, current_students, status, created_at, updated_at,
+                          class_duration, skipped_dates
+                   FROM groups_table WHERE course_id = ?1 ORDER BY name";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![course_id]).await?;
+
+        let mut results: Vec<Group> = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_group(&row)?);
+        }
+
+        // Merge with pending operations
+        let buf = self.memory_buffer.lock().await;
+
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "groups_table");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                if data.get("course_id").map(|v| v.as_str()) == Some(course_id) {
+                    results.push(Self::group_from_data(data)?);
                 }
             }
         }
-        // Fallback to SQLite
-        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
-                          start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at,
-                          class_duration, skipped_dates
-                   FROM groups_table WHERE id = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        match conn.query_row(sql, [id], Self::row_to_group) {
-            Ok(group) => Ok(Some(group)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+
+        let pending_updates = buf.scan_pending_updates(&user_id, "groups_table");
+        for op in &pending_updates {
+            if let BufferedOperation::Update { id: update_id, data, .. } = op {
+                if let Some(pos) = results.iter().position(|g| g.id == *update_id) {
+                    results[pos] = Self::group_from_data(data)?;
+                }
+            }
         }
+
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "groups_table");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|g| g.id != *del_id);
+            }
+        }
+
+        Ok(results)
     }
 
-    fn find_by_course_id(&self, course_id: &str) -> Result<Vec<Group>, DomainError> {
-        // No caching for list queries - go directly to SQLite
-        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
-                          start_time, end_time, start_date, end_date, 
+    async fn find_by_professor_id(&self, professor_id: &str) -> Result<Vec<Group>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read from Turso
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days,
+                          start_time, end_time, start_date, end_date,
                           max_students, current_students, status, created_at, updated_at,
                           class_duration, skipped_dates
-                   FROM groups_table WHERE course_id = ? ORDER BY name";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map(rusqlite::params![course_id], Self::row_to_group)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<_>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+                   FROM groups_table WHERE professor_id = ?1 ORDER BY name";
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![professor_id]).await?;
+
+        let mut results: Vec<Group> = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_group(&row)?);
+        }
+
+        // Merge with pending operations
+        let buf = self.memory_buffer.lock().await;
+
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "groups_table");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                if data.get("professor_id").map(|v| v.as_str()) == Some(professor_id) {
+                    results.push(Self::group_from_data(data)?);
+                }
+            }
+        }
+
+        let pending_updates = buf.scan_pending_updates(&user_id, "groups_table");
+        for op in &pending_updates {
+            if let BufferedOperation::Update { id: update_id, data, .. } = op {
+                if let Some(pos) = results.iter().position(|g| g.id == *update_id) {
+                    results[pos] = Self::group_from_data(data)?;
+                }
+            }
+        }
+
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "groups_table");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|g| g.id != *del_id);
+            }
+        }
+
+        Ok(results)
     }
 
-    fn save(&self, group: &Group) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(group).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Insert {
+    async fn save(&self, group: &Group) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+        let data = Self::to_data_map(group);
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Insert {
             table: "groups_table".to_string(),
             data,
         });
         Ok(())
     }
 
-    fn update(&self, group: &Group) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        let data = Self::to_cached(group).data;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn update(&self, group: &Group) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        let mut data = HashMap::new();
+        data.insert("name".to_string(), group.name.clone());
+        data.insert("professor_id".to_string(), group.professor_id.clone().unwrap_or_default());
+        data.insert("schedule".to_string(), group.schedule.clone().unwrap_or_default());
+        data.insert("max_students".to_string(), group.max_students.to_string());
+        data.insert("current_students".to_string(), group.current_students.to_string());
+        data.insert("status".to_string(), group.status.as_str().to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("days".to_string(), group.days.as_ref().map(|d| serde_json::to_string(d).unwrap_or_default()).unwrap_or_default());
+        data.insert("start_time".to_string(), group.start_time.clone().unwrap_or_default());
+        data.insert("end_time".to_string(), group.end_time.clone().unwrap_or_default());
+        data.insert("start_date".to_string(), group.start_date.clone().unwrap_or_default());
+        data.insert("end_date".to_string(), group.end_date.clone().unwrap_or_default());
+        data.insert("class_duration".to_string(), group.class_duration.map(|d| d.to_string()).unwrap_or_default());
+        data.insert("skipped_dates".to_string(), serde_json::to_string(&group.skipped_dates).unwrap_or_default());
+        data.insert("id".to_string(), group.id.clone()); // for deserialization
+        data.insert("course_id".to_string(), group.course_id.clone()); // for deserialization
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "groups_table".to_string(),
             id: group.id.clone(),
             data,
@@ -199,85 +346,190 @@ impl GroupRepository for MemoryBackedGroupRepository {
         Ok(())
     }
 
-    fn delete(&self, id: &str) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn delete(&self, id: &str) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Soft delete — set status to closed
+        let mut data = HashMap::new();
+        data.insert("status".to_string(), "closed".to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("id".to_string(), id.to_string());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "groups_table".to_string(),
             id: id.to_string(),
-            data: HashMap::from([
-                ("status".to_string(), "closed".to_string()),
-            ]),
+            data,
         });
         Ok(())
     }
 
-    fn find_all(&self) -> Result<Vec<Group>, DomainError> {
-        // No caching for list queries - go directly to SQLite
-        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
-                          start_time, end_time, start_date, end_date, 
+    async fn find_all(&self) -> Result<Vec<Group>, DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read from Turso
+        let sql = "SELECT id, course_id, name, professor_id, schedule, days,
+                          start_time, end_time, start_date, end_date,
                           max_students, current_students, status, created_at, updated_at,
                           class_duration, skipped_dates
                    FROM groups_table ORDER BY name";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map([], Self::row_to_group)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<_>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
+        let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
+
+        let mut results: Vec<Group> = Vec::new();
+        while let Some(row) = rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            results.push(Self::row_to_group(&row)?);
+        }
+
+        // Merge with pending operations
+        let buf = self.memory_buffer.lock().await;
+
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "groups_table");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                results.push(Self::group_from_data(data)?);
+            }
+        }
+
+        let pending_updates = buf.scan_pending_updates(&user_id, "groups_table");
+        for op in &pending_updates {
+            if let BufferedOperation::Update { id: update_id, data, .. } = op {
+                if let Some(pos) = results.iter().position(|g| g.id == *update_id) {
+                    results[pos] = Self::group_from_data(data)?;
+                }
+            }
+        }
+
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "groups_table");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|g| g.id != *del_id);
+            }
+        }
+
+        Ok(results)
     }
 
-    fn find_by_professor_id(&self, professor_id: &str) -> Result<Vec<Group>, DomainError> {
-        // No caching for list queries - go directly to SQLite
-        let sql = "SELECT id, course_id, name, professor_id, schedule, days, 
-                          start_time, end_time, start_date, end_date, 
-                          max_students, current_students, status, created_at, updated_at,
-                          class_duration, skipped_dates
-                   FROM groups_table WHERE professor_id = ? ORDER BY name";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let mut stmt = conn.prepare(sql).map_err(|e| DomainError::Validation(e.to_string()))?;
-        let rows = stmt
-            .query_map(rusqlite::params![professor_id], Self::row_to_group)
-            .map_err(|e| DomainError::Validation(e.to_string()))?;
-        let collected: Result<Vec<_>, _> = rows.collect();
-        collected.map_err(|e| DomainError::Validation(e.to_string()))
-    }
+    async fn has_capacity(&self, group_id: &str) -> Result<bool, DomainError> {
+        let user_id = self.get_user_id().await?;
 
-    fn has_capacity(&self, group_id: &str) -> Result<bool, DomainError> {
-        // No caching for aggregate queries - go directly to SQLite
-        let sql = "SELECT max_students, current_students FROM groups_table WHERE id = ?";
-        let conn = database::open_connection().map_err(|e| DomainError::Database(e))?;
-        let result = conn.query_row(sql, [group_id], |row| {
-            Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?))
-        });
-
-        match result {
-            Ok((max, current)) => Ok(current < max),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
-            Err(e) => Err(DomainError::Validation(e.to_string())),
+        // Try to get the full group object from buffer or Turso
+        if let Some(group) = self.find_group_internal(&user_id, group_id).await? {
+            Ok(group.current_students < group.max_students && group.status == GroupStatus::Open)
+        } else {
+            Ok(false)
         }
     }
 
-    fn increment_students(&self, group_id: &str) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn increment_students(&self, group_id: &str) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read current current_students from Turso or pending buffer
+        let current = {
+            let buf = self.memory_buffer.lock().await;
+
+            // Check if there's a pending insert with this group
+            if let Some(op) = buf.find_pending_insert(&user_id, "groups_table", group_id) {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    let students: i32 = data.get("current_students")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
+                    Some(students)
+                } else {
+                    None
+                }
+            // Check if there's a pending update with this group
+            } else if let Some(op) = buf.find_pending_update(&user_id, "groups_table", group_id) {
+                if let BufferedOperation::Update { data, .. } = op {
+                    let students: i32 = data.get("current_students")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0);
+                    Some(students)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        let current_students = match current {
+            Some(val) => val,
+            None => {
+                // Read from Turso
+                let sql = "SELECT current_students FROM groups_table WHERE id = ?1";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![group_id]).await?;
+                match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+                    Some(row) => row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+                    None => return Err(DomainError::not_found("Group", group_id)),
+                }
+            }
+        };
+
+        let mut data = HashMap::new();
+        data.insert("current_students".to_string(), (current_students + 1).to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("id".to_string(), group_id.to_string());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "groups_table".to_string(),
             id: group_id.to_string(),
-            data: HashMap::from([
-                ("__increment_students".to_string(), "1".to_string()),
-            ]),
+            data,
         });
         Ok(())
     }
 
-    fn decrement_students(&self, group_id: &str) -> Result<(), DomainError> {
-        let mut buf = self.buffer.lock().map_err(|e| DomainError::Database(e.to_string()))?;
-        buf.buffer_write(&self.user_id, BufferedOperation::Update {
+    async fn decrement_students(&self, group_id: &str) -> Result<(), DomainError> {
+        let user_id = self.get_user_id().await?;
+
+        // Read current current_students from Turso or pending buffer
+        let current = {
+            let buf = self.memory_buffer.lock().await;
+
+            if let Some(op) = buf.find_pending_insert(&user_id, "groups_table", group_id) {
+                if let BufferedOperation::Insert { data, .. } = op {
+                    data.get("current_students")
+                        .and_then(|v| v.parse::<i32>().ok())
+                } else {
+                    None
+                }
+            } else if let Some(op) = buf.find_pending_update(&user_id, "groups_table", group_id) {
+                if let BufferedOperation::Update { data, .. } = op {
+                    data.get("current_students")
+                        .and_then(|v| v.parse::<i32>().ok())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        let current_students = match current {
+            Some(val) => val,
+            None => {
+                // Read from Turso
+                let sql = "SELECT current_students FROM groups_table WHERE id = ?1";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![group_id]).await?;
+                match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+                    Some(row) => row.get(0).map_err(|e| DomainError::Database(e.to_string()))?,
+                    None => return Err(DomainError::not_found("Group", group_id)),
+                }
+            }
+        };
+
+        let new_count = if current_students > 0 { current_students - 1 } else { 0 };
+
+        let mut data = HashMap::new();
+        data.insert("current_students".to_string(), new_count.to_string());
+        data.insert("updated_at".to_string(), Utc::now().to_rfc3339());
+        data.insert("id".to_string(), group_id.to_string());
+
+        let mut buf = self.memory_buffer.lock().await;
+        buf.buffer_write(&user_id, BufferedOperation::Update {
             table: "groups_table".to_string(),
             id: group_id.to_string(),
-            data: HashMap::from([
-                ("__decrement_students".to_string(), "1".to_string()),
-            ]),
+            data,
         });
         Ok(())
     }
