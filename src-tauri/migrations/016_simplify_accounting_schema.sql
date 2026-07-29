@@ -71,13 +71,18 @@ CREATE INDEX IF NOT EXISTS idx_accounting_entries_type ON accounting_entries(typ
 CREATE INDEX IF NOT EXISTS idx_accounting_entries_category ON accounting_entries(category);
 CREATE INDEX IF NOT EXISTS idx_accounting_entries_reference ON accounting_entries(reference);
 
--- Drop old accounting-related tables
-DROP TABLE IF EXISTS account_categories;
-DROP TABLE IF EXISTS employees;
-DROP TABLE IF EXISTS payroll_runs;
+-- Disable FK enforcement for safe table drops (libsql/Hrana enforces FKs)
+PRAGMA foreign_keys=OFF;
+
+-- Drop child tables first (those with FK references to other tables)
 DROP TABLE IF EXISTS payroll_entries;
-DROP TABLE IF EXISTS invoices;
 DROP TABLE IF EXISTS invoice_lines;
+
+-- Drop parent tables (now safe — no remaining FK references)
+DROP TABLE IF EXISTS payroll_runs;
+DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS invoices;
+DROP TABLE IF EXISTS account_categories;
 DROP TABLE IF EXISTS liabilities;
 DROP TABLE IF EXISTS equities;
 
@@ -88,8 +93,5 @@ DROP TABLE IF EXISTS fixed_assets;
 DROP VIEW IF EXISTS trial_balance;
 DROP VIEW IF EXISTS financial_balance;
 
--- ============================================
--- STEP 4: Add reference column for backward compatibility
--- ============================================
--- Keep reference column for any existing data
--- Note: We already migrated data above, this is just for safety
+-- Re-enable FK enforcement
+PRAGMA foreign_keys=ON;
