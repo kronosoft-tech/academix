@@ -1,10 +1,13 @@
-//! In-memory write buffer with inactivity-based flush.
+//! In-memory write buffer with immediate async flush.
 //!
-//! All CRUD operations write here first. A background timer flushes to Turso
-//! after 15 minutes without any write activity.
+//! All CRUD operations write here first. A background task flushes to Turso
+//! immediately after each write. On failure, operations stay buffered and
+//! are retried with exponential backoff.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::Notify;
 
 /// A buffered database operation
 #[derive(Debug, Clone)]
@@ -21,10 +24,7 @@ pub enum BufferedOperation {
         data: HashMap<String, String>,
     },
     /// Delete a row by id
-    Delete {
-        table: String,
-        id: String,
-    },
+    Delete { table: String, id: String },
 }
 
 /// Generic cached entity (serialized as JSON)
@@ -37,8 +37,9 @@ pub struct CachedEntity {
 /// Thread-safe in-memory write buffer.
 ///
 /// All writes go through this buffer. Reads check buffer first, then Turso.
-/// A background timer monitors write activity and flushes after 15 minutes
-/// of inactivity.
+/// A background task is notified immediately on each write and flushes
+/// operations to Turso asynchronously. On flush failure, operations remain
+/// in the buffer and are retried with exponential backoff.
 pub struct MemoryBuffer {
     /// Pending writes grouped by user_id
     pending_writes: HashMap<String, Vec<BufferedOperation>>,
@@ -46,6 +47,8 @@ pub struct MemoryBuffer {
     cached_entities: HashMap<String, HashMap<String, CachedEntity>>,
     /// Timestamp of the last write operation
     last_write_at: Instant,
+    /// Notify handle — signals the flush loop to wake immediately
+    flush_notify: Arc<Notify>,
 }
 
 impl MemoryBuffer {
@@ -55,17 +58,35 @@ impl MemoryBuffer {
             pending_writes: HashMap::new(),
             cached_entities: HashMap::new(),
             last_write_at: Instant::now(),
+            flush_notify: Arc::new(Notify::new()),
         }
     }
 
+    /// Get a clone of the flush notify handle (for the flush loop).
+    pub fn flush_notify(&self) -> Arc<Notify> {
+        Arc::clone(&self.flush_notify)
+    }
+
     /// Buffer a write operation (create/update/delete).
-    /// Resets the idle timer on each write.
+    /// Immediately signals the background flush task to wake up.
     pub fn buffer_write(&mut self, user_id: &str, op: BufferedOperation) {
+        println!(
+            "[BUFFER] Write for user='{}', op={}",
+            user_id,
+            match &op {
+                BufferedOperation::Insert { table, .. } => format!("INSERT {}", table),
+                BufferedOperation::Update { table, id, .. } =>
+                    format!("UPDATE {} id={}", table, id),
+                BufferedOperation::Delete { table, id } => format!("DELETE {} id={}", table, id),
+            }
+        );
         self.pending_writes
             .entry(user_id.to_string())
             .or_default()
             .push(op);
         self.last_write_at = Instant::now();
+        // Signal flush loop to wake immediately
+        self.flush_notify.notify_one();
     }
 
     /// Get time elapsed since last write.
@@ -94,6 +115,18 @@ impl MemoryBuffer {
     /// Returns the buffered operations so the caller can flush them to Turso.
     pub fn take_pending_writes(&mut self, user_id: &str) -> Vec<BufferedOperation> {
         self.pending_writes.remove(user_id).unwrap_or_default()
+    }
+
+    /// Re-enqueue operations that failed to flush (puts them back at the front).
+    pub fn requeue_writes(&mut self, user_id: &str, ops: Vec<BufferedOperation>) {
+        if ops.is_empty() {
+            return;
+        }
+        let entry = self.pending_writes.entry(user_id.to_string()).or_default();
+        // Put failed ops at the front so they're retried first
+        let mut combined = ops;
+        combined.append(entry);
+        *entry = combined;
     }
 
     /// Cache an entity for read-through.
@@ -159,7 +192,12 @@ impl MemoryBuffer {
     ///
     /// Matches by the `id` key in the Insert data HashMap.
     /// Returns `None` if no matching pending insert exists.
-    pub fn find_pending_insert(&self, user_id: &str, table: &str, id: &str) -> Option<&BufferedOperation> {
+    pub fn find_pending_insert(
+        &self,
+        user_id: &str,
+        table: &str,
+        id: &str,
+    ) -> Option<&BufferedOperation> {
         self.pending_writes.get(user_id).and_then(|ops| {
             ops.iter().find(|op| match op {
                 BufferedOperation::Insert { table: t, data } => {
@@ -171,10 +209,17 @@ impl MemoryBuffer {
     }
 
     /// Find a pending Update operation for a given table+id.
-    pub fn find_pending_update(&self, user_id: &str, table: &str, id: &str) -> Option<&BufferedOperation> {
+    pub fn find_pending_update(
+        &self,
+        user_id: &str,
+        table: &str,
+        id: &str,
+    ) -> Option<&BufferedOperation> {
         self.pending_writes.get(user_id).and_then(|ops| {
             ops.iter().find(|op| match op {
-                BufferedOperation::Update { table: t, id: i, .. } => t == table && i == id,
+                BufferedOperation::Update {
+                    table: t, id: i, ..
+                } => t == table && i == id,
                 _ => false,
             })
         })
@@ -191,7 +236,11 @@ impl MemoryBuffer {
     }
 
     /// Scan all pending Insert operations for a specific table (for listing/aggregation).
-    pub fn scan_pending_inserts<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+    pub fn scan_pending_inserts<'a>(
+        &'a self,
+        user_id: &str,
+        table: &str,
+    ) -> Vec<&'a BufferedOperation> {
         self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
             ops.iter()
                 .filter(|op| matches!(op, BufferedOperation::Insert { table: t, .. } if t == table))
@@ -200,7 +249,11 @@ impl MemoryBuffer {
     }
 
     /// Scan all pending Update operations for a specific table.
-    pub fn scan_pending_updates<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+    pub fn scan_pending_updates<'a>(
+        &'a self,
+        user_id: &str,
+        table: &str,
+    ) -> Vec<&'a BufferedOperation> {
         self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
             ops.iter()
                 .filter(|op| matches!(op, BufferedOperation::Update { table: t, .. } if t == table))
@@ -209,7 +262,11 @@ impl MemoryBuffer {
     }
 
     /// Scan all pending Delete operations for a specific table.
-    pub fn scan_pending_deletes<'a>(&'a self, user_id: &str, table: &str) -> Vec<&'a BufferedOperation> {
+    pub fn scan_pending_deletes<'a>(
+        &'a self,
+        user_id: &str,
+        table: &str,
+    ) -> Vec<&'a BufferedOperation> {
         self.pending_writes.get(user_id).map_or(Vec::new(), |ops| {
             ops.iter()
                 .filter(|op| matches!(op, BufferedOperation::Delete { table: t, .. } if t == table))

@@ -1,59 +1,95 @@
-//! Background timer that flushes the MemoryBuffer after 15 minutes of inactivity.
+//! Immediate async flush with retry on failure.
 //!
-//! Also handles flush on app close with a configurable timeout.
+//! Replaces the old 15-minute idle timer. Now flushes immediately when
+//! notified by MemoryBuffer, with exponential backoff retry on failure.
 
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{oneshot, Mutex};
 
-/// Idle timeout before flushing pending writes to Turso.
-const IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60); // 15 minutes
+/// Maximum retry delay (caps exponential backoff)
+const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
 
-/// How often to check the idle timer.
-const POLL_INTERVAL: Duration = Duration::from_secs(30); // check every 30s
+/// Initial retry delay after a flush failure
+const INITIAL_RETRY_DELAY: Duration = Duration::from_secs(1);
 
-/// Start the background flush timer.
+/// Start the background flush loop.
 ///
-/// Polls every 30 seconds. When idle for 15+ minutes and writes are pending,
-/// flushes all buffered operations to Turso.
+/// Waits on a `Notify` signal from `MemoryBuffer::buffer_write()`.
+/// Each write triggers an immediate flush attempt. On failure, operations
+/// are requeued and retried with exponential backoff.
 ///
-/// Returns a `oneshot::Sender<()>` that can be used to signal graceful shutdown.
-/// On shutdown signal, the timer flushes immediately and exits.
+/// Returns a `oneshot::Sender<()>` for graceful shutdown.
 pub fn start_flush_timer(
     buffer: Arc<Mutex<MemoryBuffer>>,
     connection_manager: Arc<Mutex<ConnectionManager>>,
-    control_plane: Arc<ControlPlaneRepository>,
+    _control_plane: Arc<ControlPlaneRepository>,
 ) -> oneshot::Sender<()> {
+    println!("[FLUSH] start_flush_timer called — spawning background task...");
     let (tx, mut rx) = oneshot::channel::<()>();
 
     tokio::spawn(async move {
+        println!("[FLUSH] Spawn started, acquiring buffer lock...");
+        // Get the notify handle from the buffer
+        let flush_notify = {
+            let buf = buffer.lock().await;
+            buf.flush_notify()
+        };
+
+        println!("[FLUSH] Background flush loop started — waiting for writes...");
+
+        let mut retry_delay = INITIAL_RETRY_DELAY;
+        let mut has_failures = false;
+
         loop {
             tokio::select! {
+                biased;
+
                 _ = &mut rx => {
-                    // Shutdown signal received — flush and exit
-                    eprintln!("[FLUSH] Shutdown signal received, flushing...");
-                    flush_now(&buffer, &connection_manager, &control_plane).await;
+                    // Shutdown signal — flush everything and exit
+                    println!("[FLUSH] Shutdown signal received, flushing...");
+                    flush_all(&buffer, &connection_manager).await;
                     break;
                 }
-                _ = tokio::time::sleep(POLL_INTERVAL) => {
-                    let idle = {
+
+                _ = flush_notify.notified() => {
+                    // A write just happened — flush immediately
+                    // Small debounce: wait 5ms to batch rapid consecutive writes
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                    println!("[FLUSH] Notify received, flushing...");
+                    let success = flush_all(&buffer, &connection_manager).await;
+                    if success {
+                        retry_delay = INITIAL_RETRY_DELAY;
+                        has_failures = false;
+                    } else {
+                        has_failures = true;
+                    }
+                }
+
+                _ = tokio::time::sleep(retry_delay), if has_failures => {
+                    // Retry failed operations with backoff
+                    let has_pending = {
                         let buf = buffer.lock().await;
-                        buf.idle_duration()
+                        buf.pending_count() > 0
                     };
 
-                    if idle >= IDLE_TIMEOUT {
-                        let has_pending = {
-                            let buf = buffer.lock().await;
-                            buf.pending_count() > 0
-                        };
-
-                        if has_pending {
-                            eprintln!("[FLUSH] Idle timeout reached, flushing pending writes...");
-                            flush_now(&buffer, &connection_manager, &control_plane).await;
+                    if has_pending {
+                        println!("[FLUSH] Retrying failed operations (delay: {:?})...", retry_delay);
+                        let success = flush_all(&buffer, &connection_manager).await;
+                        if success {
+                            retry_delay = INITIAL_RETRY_DELAY;
+                            has_failures = false;
+                        } else {
+                            // Exponential backoff, capped
+                            retry_delay = (retry_delay * 2).min(MAX_RETRY_DELAY);
+                            has_failures = true;
                         }
+                    } else {
+                        has_failures = false;
+                        retry_delay = INITIAL_RETRY_DELAY;
                     }
                 }
             }
@@ -63,21 +99,21 @@ pub fn start_flush_timer(
     tx
 }
 
-/// Flush all pending writes to Turso immediately.
-async fn flush_now(
+/// Flush all pending writes to Turso. Returns true if ALL operations succeeded.
+async fn flush_all(
     buffer: &Arc<Mutex<MemoryBuffer>>,
     connection_manager: &Arc<Mutex<ConnectionManager>>,
-    _control_plane: &Arc<ControlPlaneRepository>,
-) {
+) -> bool {
     let user_ids: Vec<String> = {
         let buf = buffer.lock().await;
         buf.users_with_pending_writes()
     };
 
     if user_ids.is_empty() {
-        return;
+        return true;
     }
 
+    let mut all_success = true;
     let mut total_ops = 0;
 
     for user_id in &user_ids {
@@ -103,48 +139,64 @@ async fn flush_now(
 
             match libsql_conn {
                 Ok(libsql_conn) => {
-                    // Build and execute batch SQL from buffered operations
-                    for op in &ops {
-                        if let Err(e) = execute_operation(&libsql_conn, op).await {
-                            eprintln!(
+                    let mut failed_ops: Vec<BufferedOperation> = Vec::new();
+
+                    for op in ops {
+                        if let Err(e) = execute_operation(&libsql_conn, &op).await {
+                            println!(
                                 "[FLUSH ERROR] Failed to flush operation for user {}: {}",
                                 user_id, e
                             );
+                            failed_ops.push(op);
                         }
+                    }
+
+                    if !failed_ops.is_empty() {
+                        // Requeue failed operations for retry
+                        let mut buf = buffer.lock().await;
+                        buf.requeue_writes(user_id, failed_ops);
+                        all_success = false;
+                    } else {
+                        // All ops succeeded — clear cache for this user
+                        let mut buf = buffer.lock().await;
+                        buf.clear_cache(user_id);
                     }
                 }
                 Err(e) => {
-                    eprintln!(
+                    println!(
                         "[FLUSH ERROR] Failed to connect to Turso DB for user {}: {}",
                         user_id, e
                     );
+                    // Requeue ALL ops for this user
+                    let mut buf = buffer.lock().await;
+                    buf.requeue_writes(user_id, ops);
+                    all_success = false;
                 }
             }
         } else {
-            eprintln!(
-                "[FLUSH WARNING] No connection found for user '{}' — operations will be lost",
+            println!(
+                "[FLUSH WARNING] No connection found for user '{}' — requeueing operations",
                 user_id
             );
-        }
-
-        // Clear cached entities for this user
-        {
+            // Requeue — connection might become available later (e.g. after login)
             let mut buf = buffer.lock().await;
-            buf.clear_cache(user_id);
+            buf.requeue_writes(user_id, ops);
+            all_success = false;
         }
     }
 
-    // Reset timer
-    {
+    if all_success && total_ops > 0 {
+        // Reset timer
         let mut buf = buffer.lock().await;
         buf.reset_timer();
+        println!(
+            "[FLUSH] Synced {} operations for {} user(s) to Turso",
+            total_ops,
+            user_ids.len()
+        );
     }
 
-    println!(
-        "[FLUSH] Completed — flushed {} operations for {} user(s) to Turso",
-        total_ops,
-        user_ids.len()
-    );
+    all_success
 }
 
 /// Execute a single buffered operation against a Turso DB connection.
@@ -202,23 +254,26 @@ async fn execute_operation(
 
 /// Flush immediately (called on app close).
 ///
-/// Has a 5-second timeout. If the flush takes longer than 5 seconds,
-/// the remaining operations are logged and the app closes anyway.
+/// Has a 5-second timeout. If the flush takes longer, remaining operations
+/// are logged and the app closes anyway.
 pub async fn flush_on_close(
     buffer: Arc<Mutex<MemoryBuffer>>,
     connection_manager: Arc<Mutex<ConnectionManager>>,
-    control_plane: Arc<ControlPlaneRepository>,
+    _control_plane: Arc<ControlPlaneRepository>,
 ) {
     println!("[FLUSH] App closing — flushing pending writes...");
     let result = tokio::time::timeout(
         Duration::from_secs(5),
-        flush_now(&buffer, &connection_manager, &control_plane),
+        flush_all(&buffer, &connection_manager),
     )
     .await;
 
     match result {
-        Ok(()) => println!("[FLUSH] Close flush complete"),
-        Err(_) => eprintln!("[FLUSH] Timeout reached on close flush — some data may be lost"),
+        Ok(true) => println!("[FLUSH] Close flush complete"),
+        Ok(false) => {
+            println!("[FLUSH] Close flush had errors — some data may retry on next launch")
+        }
+        Err(_) => println!("[FLUSH] Timeout reached on close flush — some data may be lost"),
     }
 }
 
