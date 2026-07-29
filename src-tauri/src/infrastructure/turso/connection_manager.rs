@@ -173,14 +173,24 @@ impl ConnectionManager {
     }
 
     /// Internal: create a remote-only libsql connection and cache it.
+    /// Also runs any pending migrations on the user's database.
     async fn init_connection(
         &mut self,
         mapping: UserDbMapping,
     ) -> Result<&CachedConnection, String> {
+        println!("[CM] Caching connection for user_id='{}'", mapping.user_id);
         let db = libsql::Builder::new_remote(mapping.db_url.clone(), mapping.db_token.clone())
             .build()
             .await
             .map_err(|e| format!("Failed to connect to Turso DB: {}", e))?;
+
+        // Run pending migrations on the user's DB (idempotent — skips already-applied ones)
+        if let Err(e) = run_migrations_on_db(&db).await {
+            eprintln!(
+                "[CM] Warning: migration on user DB failed (non-fatal): {}",
+                e
+            );
+        }
 
         let conn = CachedConnection {
             db: Arc::new(db),
@@ -193,7 +203,15 @@ impl ConnectionManager {
 
     /// Get a cached connection by user_id (for flush operations).
     pub fn get_connection(&self, user_id: &str) -> Option<&CachedConnection> {
-        self.connections.get(user_id)
+        let result = self.connections.get(user_id);
+        if result.is_none() && !self.connections.is_empty() {
+            println!(
+                "[CM] get_connection('{}') → None. Cached keys: {:?}",
+                user_id,
+                self.connections.keys().collect::<Vec<_>>()
+            );
+        }
+        result
     }
 
     /// Run all migrations against a newly created database.
