@@ -20,6 +20,7 @@ pub struct RegisterUserUseCase<R: UserRepository> {
     user_repository: R,
     control_plane: Option<Arc<ControlPlaneRepository>>,
     provisioning: Option<Arc<TursoProvisioningService>>,
+    org: Option<String>,
 }
 
 impl<R: UserRepository> RegisterUserUseCase<R> {
@@ -32,13 +33,22 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
             user_repository,
             control_plane,
             provisioning,
+            org: None,
         }
     }
 
-    /// Register a new user with default role (not admin).
+    /// Set the Turso organization slug for per-user database provisioning.
+    pub fn with_org(mut self, org: String) -> Self {
+        self.org = Some(org);
+        self
+    }
+
+    /// Register a new user as the academy owner (Admin role).
     ///
     /// If Turso services are configured, also provisions a per-user database
     /// and saves the mapping to the control plane.
+    /// The registering user is always Admin — they are creating their own academy.
+    /// Additional users (employees, professors) are added by the admin inside the app.
     pub async fn execute(
         &self,
         request: RegisterUserRequest,
@@ -49,15 +59,28 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
         let name = request.name.clone();
 
         // Validate email format
-        let email =
-            Email::new(&email_str).map_err(|e| ApplicationError::Validation(e))?;
+        let email = Email::new(&email_str).map_err(|e| ApplicationError::Validation(e))?;
 
         // Validate password minimum 8 characters
         Password::validate_strength(&request.password)
             .map_err(|e| ApplicationError::Validation(e))?;
 
-        // Check if email already exists
-        if self.user_repository.exists_by_email(&email).await? {
+        // Check if email already exists — via control plane when Turso is configured,
+        // otherwise fall back to the user repository
+        if let Some(cp) = &self.control_plane {
+            if cp
+                .find_by_email(&email_str)
+                .await
+                .map_err(|e| {
+                    ApplicationError::Infrastructure(format!("control plane error: {}", e))
+                })?
+                .is_some()
+            {
+                return Err(ApplicationError::Conflict(
+                    "Email already registered".to_string(),
+                ));
+            }
+        } else if self.user_repository.exists_by_email(&email).await? {
             return Err(ApplicationError::Conflict(
                 "Email already registered".to_string(),
             ));
@@ -74,8 +97,12 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
         if let (Some(cp), Some(prov)) = (&self.control_plane, &self.provisioning) {
             let slug = generate_db_slug(&academy_name);
 
+            println!(
+                "[REGISTER] Step 1: Creating Turso database... slug={}, org={:?}",
+                slug, self.org
+            );
             let db_info = prov
-                .create_database(&slug)
+                .create_database(&slug, self.org.as_deref())
                 .await
                 .map_err(|e| {
                     ApplicationError::Infrastructure(format!(
@@ -84,18 +111,23 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                     ))
                 })?;
 
-            let token = prov
-                .create_auth_token(&slug)
-                .await
-                .map_err(|e| {
-                    ApplicationError::Infrastructure(format!(
-                        "turso: failed to create auth token: {}",
-                        e
-                    ))
-                })?;
+            println!(
+                "[REGISTER] Step 2: DB created! hostname={}. Creating auth token...",
+                db_info.hostname
+            );
+            let token = prov.create_auth_token(&slug).await.map_err(|e| {
+                ApplicationError::Infrastructure(format!(
+                    "turso: failed to create auth token: {}",
+                    e
+                ))
+            })?;
 
             let now = chrono::Utc::now().to_rfc3339();
 
+            println!(
+                "[REGISTER] Step 3: Auth token created. Connecting to libsql://{}...",
+                db_info.hostname
+            );
             // Connect to the newly created Turso DB and initialize it
             let db_url = format!("libsql://{}", db_info.hostname);
             let new_db = libsql::Builder::new_remote(db_url.clone(), token.clone())
@@ -108,6 +140,7 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                     ))
                 })?;
 
+            println!("[REGISTER] Step 4: Connected to Turso DB. Running migrations...");
             // Run all 18 migrations on the new DB
             run_migrations_on_db(&new_db).await.map_err(|e| {
                 ApplicationError::Infrastructure(format!(
@@ -116,7 +149,10 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                 ))
             })?;
 
-            // Save user record directly to the new Turso DB
+            println!("[REGISTER] Step 5: Migrations done. Saving user as Admin (academy owner)...");
+            // Save user record directly to the new Turso DB.
+            // The registering user is ALWAYS Admin — they are the academy owner.
+            // Additional users (employees, professors) are added later by the admin.
             {
                 let conn = new_db.connect().map_err(|e| {
                     ApplicationError::Infrastructure(format!(
@@ -133,8 +169,8 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                         email_str.clone(),
                         password_hash.clone(),
                         name.clone(),
-                        "Empleado", // Default role for self-registration
-                        1,          // is_active = true
+                        "Admin", // Academy owner is always Admin (capitalized per DB CHECK constraint)
+                        1,       // is_active = true
                         now.clone(),
                         now.clone(),
                     ],
@@ -148,7 +184,7 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                 })?;
 
                 println!(
-                    "[TURSO] User '{}' saved to new Turso DB '{}'",
+                    "[TURSO] User '{}' saved as Admin to new Turso DB '{}'",
                     email_str, db_info.hostname
                 );
             }
@@ -165,10 +201,7 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
 
             // Save user→DB mapping to control plane
             if let Err(e) = cp.save_user_db(&mapping).await {
-                eprintln!(
-                    "[TURSO] Failed to save user DB mapping (non-fatal): {}",
-                    e
-                );
+                eprintln!("[TURSO] Failed to save user DB mapping (non-fatal): {}", e);
             }
 
             // Register the connection in ConnectionManager so login can find it
@@ -176,17 +209,15 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
             // but login will resolve via control plane → init_connection lazily.
         }
 
-        // Create user with default role (empleado - not admin)
-        let user = User::new(
-            user_id,
-            email_str,
-            password_hash,
-            name,
-            Role::Empleado, // Default role - not admin for self-registration
-        );
+        // Create user with Admin role — the registering user owns this academy.
+        // Employees/professors are added later via the admin panel inside the app.
+        let user = User::new(user_id, email_str, password_hash, name, Role::Admin);
 
-        // Save to local SQLite repository
-        self.user_repository.save(&user).await?;
+        // When Turso is configured, the user was already saved directly to their DB above.
+        // Only save via the repository for the non-Turso fallback path.
+        if self.control_plane.is_none() {
+            self.user_repository.save(&user).await?;
+        }
 
         Ok(RegisterUserResponse {
             id: user.id,
