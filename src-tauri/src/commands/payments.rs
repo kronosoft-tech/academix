@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use chrono::Utc;
-use crate::application::dto::accounting::{CreateEntryRequest, AccountingEntryDto};
+use crate::application::dto::accounting::{AccountingEntryDto, CreateEntryRequest};
 use crate::application::dto::{
     CreatePaymentRequest, PaymentDto, PaymentStatusDto, UpdatePaymentRequest,
 };
@@ -12,9 +11,13 @@ use crate::infrastructure::repositories::{
     MemoryBackedAccountingEntryRepository, MemoryBackedCourseRepository,
     MemoryBackedGroupRepository, MemoryBackedPaymentRepository,
 };
+use chrono::Utc;
 
-pub type PaymentServiceState =
-    PaymentService<MemoryBackedPaymentRepository, MemoryBackedGroupRepository, MemoryBackedCourseRepository>;
+pub type PaymentServiceState = PaymentService<
+    MemoryBackedPaymentRepository,
+    MemoryBackedGroupRepository,
+    MemoryBackedCourseRepository,
+>;
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePaymentCommand {
@@ -25,6 +28,7 @@ pub struct CreatePaymentCommand {
     pub due_date: Option<String>,
     pub description: Option<String>,
     pub paid: Option<bool>,
+    pub payment_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -73,28 +77,70 @@ pub struct SyncPaymentsAccountingResponse {
 #[tauri::command]
 pub async fn create_payment(
     state: State<'_, PaymentServiceState>,
+    accounting_state: State<'_, MemoryBackedAccountingEntryRepository>,
     request: CreatePaymentCommand,
 ) -> Result<PaymentCommandResponse, String> {
-    match state.create(CreatePaymentRequest {
-        student_id: request.student_id,
-        group_id: request.group_id,
-        amount: request.amount,
-        method: request.method,
-        due_date: request.due_date.unwrap_or_default(),
-        description: request.description,
-        paid: request.paid,
-    }).await {
-        Ok(payment) => Ok(PaymentCommandResponse {
-            success: true,
-            data: Some(payment),
-            error: None,
-        }),
+    let is_paid = request.paid.unwrap_or(false);
+    let payment_type_str = request
+        .payment_type
+        .clone()
+        .unwrap_or_else(|| "tuition".to_string());
+
+    match state
+        .create(CreatePaymentRequest {
+            student_id: request.student_id,
+            group_id: request.group_id,
+            amount: request.amount,
+            method: request.method,
+            due_date: request.due_date.unwrap_or_default(),
+            description: request.description,
+            paid: Some(is_paid),
+            payment_type: Some(payment_type_str.clone()),
+        })
+        .await
+    {
+        Ok(payment) => {
+            // Auto-create accounting income entry when payment is immediately paid
+            if is_paid {
+                let accounting_service = AccountingService::new(accounting_state.inner().clone());
+
+                let category = match payment_type_str.as_str() {
+                    "enrollment" => "enrollment",
+                    _ => "tuition",
+                };
+
+                let entry_request = CreateEntryRequest {
+                    date: Utc::now().format("%Y-%m-%d").to_string(),
+                    entry_type: "income".to_string(),
+                    category: category.to_string(),
+                    description: format!("Pago estudiante - {}", payment.student_id),
+                    amount: payment.amount,
+                    reference: Some(format!("PAG-{}", &payment.id[..8.min(payment.id.len())])),
+                };
+
+                if let Err(e) = accounting_service.create_entry(entry_request).await {
+                    eprintln!(
+                        "[ACCOUNTING] Auto-income failed for payment {}: {}",
+                        payment.id, e
+                    );
+                }
+            }
+
+            Ok(PaymentCommandResponse {
+                success: true,
+                data: Some(payment),
+                error: None,
+            })
+        }
         Err(e) => Err(e.to_string()),
     }
 }
 
 #[tauri::command]
-pub async fn get_payment(state: State<'_, PaymentServiceState>, id: String) -> Result<PaymentCommandResponse, String> {
+pub async fn get_payment(
+    state: State<'_, PaymentServiceState>,
+    id: String,
+) -> Result<PaymentCommandResponse, String> {
     match state.get_by_id(&id).await {
         Ok(payment) => Ok(PaymentCommandResponse {
             success: true,
@@ -106,7 +152,9 @@ pub async fn get_payment(state: State<'_, PaymentServiceState>, id: String) -> R
 }
 
 #[tauri::command]
-pub async fn list_payments(state: State<'_, PaymentServiceState>) -> Result<PaymentListCommandResponse, String> {
+pub async fn list_payments(
+    state: State<'_, PaymentServiceState>,
+) -> Result<PaymentListCommandResponse, String> {
     match state.list().await {
         Ok(payments) => Ok(PaymentListCommandResponse {
             success: true,
@@ -139,26 +187,28 @@ pub async fn update_payment(
     request: UpdatePaymentRequest,
     accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
-    let update_result = state.update(
-        &id,
-        UpdatePaymentRequest {
-            status: request.status.clone(),
-            reference: request.reference.clone(),
-            paid_date: request.paid_date.clone(),
-        },
-    ).await;
+    let update_result = state
+        .update(
+            &id,
+            UpdatePaymentRequest {
+                status: request.status.clone(),
+                reference: request.reference.clone(),
+                paid_date: request.paid_date.clone(),
+            },
+        )
+        .await;
 
     match update_result {
         Ok(payment) => {
             if request.status.as_deref() == Some("paid") {
-                let accounting_service = AccountingService::new(
-                    accounting_entry_state.inner().clone(),
-                );
+                let accounting_service =
+                    AccountingService::new(accounting_entry_state.inner().clone());
 
                 let existing_entries = list_accounting_entries_by_reference(
                     accounting_entry_state.inner(),
                     &payment.id,
-                ).await;
+                )
+                .await;
 
                 if existing_entries.is_empty() {
                     let entry_request = CreateEntryRequest {
@@ -199,7 +249,9 @@ pub async fn delete_payment(
     id: String,
     accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
-    if let Err(e) = delete_accounting_entries_by_reference(accounting_entry_state.inner(), &id).await {
+    if let Err(e) =
+        delete_accounting_entries_by_reference(accounting_entry_state.inner(), &id).await
+    {
         eprintln!("[DEBUG] Failed to delete related accounting entries: {}", e);
     }
 
@@ -220,20 +272,20 @@ pub async fn register_payment_with_income(
     reference: String,
     accounting_entry_state: State<'_, MemoryBackedAccountingEntryRepository>,
 ) -> Result<PaymentCommandResponse, String> {
-    let update_result = state.update(
-        &payment_id,
-        UpdatePaymentRequest {
-            status: Some("paid".to_string()),
-            reference: Some(reference.clone()),
-            paid_date: Some(Utc::now().format("%Y-%m-%d").to_string()),
-        },
-    ).await;
+    let update_result = state
+        .update(
+            &payment_id,
+            UpdatePaymentRequest {
+                status: Some("paid".to_string()),
+                reference: Some(reference.clone()),
+                paid_date: Some(Utc::now().format("%Y-%m-%d").to_string()),
+            },
+        )
+        .await;
 
     match update_result {
         Ok(_payment) => {
-            let accounting_service = AccountingService::new(
-                accounting_entry_state.inner().clone(),
-            );
+            let accounting_service = AccountingService::new(accounting_entry_state.inner().clone());
 
             let entry_request = CreateEntryRequest {
                 date: Utc::now().format("%Y-%m-%d").to_string(),
@@ -250,16 +302,14 @@ pub async fn register_payment_with_income(
                     data: Some(_payment),
                     error: None,
                 }),
-                Err(e) => {
-                    Ok(PaymentCommandResponse {
-                        success: true,
-                        data: Some(_payment),
-                        error: Some(format!(
-                            "Warning: Payment updated but accounting entry failed: {}",
-                            e
-                        )),
-                    })
-                }
+                Err(e) => Ok(PaymentCommandResponse {
+                    success: true,
+                    data: Some(_payment),
+                    error: Some(format!(
+                        "Warning: Payment updated but accounting entry failed: {}",
+                        e
+                    )),
+                }),
             }
         }
         Err(e) => Err(e.to_string()),
@@ -308,9 +358,7 @@ pub async fn sync_payments_to_accounting(
         }
     };
 
-    let accounting_service = AccountingService::new(
-        accounting_entry_state.inner().clone(),
-    );
+    let accounting_service = AccountingService::new(accounting_entry_state.inner().clone());
 
     let mut synced = 0;
     let mut skipped = 0;
@@ -321,10 +369,8 @@ pub async fn sync_payments_to_accounting(
             continue;
         }
 
-        let existing = list_accounting_entries_by_reference(
-            accounting_entry_state.inner(),
-            &payment.id,
-        ).await;
+        let existing =
+            list_accounting_entries_by_reference(accounting_entry_state.inner(), &payment.id).await;
 
         if !existing.is_empty() {
             skipped += 1;
@@ -336,7 +382,9 @@ pub async fn sync_payments_to_accounting(
             .map(|dt| dt.format("%Y-%m-%d").to_string())
             .unwrap_or_else(|| Utc::now().format("%Y-%m-%d").to_string());
 
-        let reference = payment.reference.clone()
+        let reference = payment
+            .reference
+            .clone()
             .or_else(|| Some(format!("PAG-{}", &payment.id[..8.min(payment.id.len())])));
 
         let entry_request = CreateEntryRequest {
@@ -379,8 +427,12 @@ async fn list_accounting_entries_by_reference(
         Ok(entries) => entries
             .into_iter()
             .filter(|e| {
-                e.reference.as_ref().map(|r| r.starts_with("PAG-")).unwrap_or(false)
-                    && e.description.contains(&payment_id[..8.min(payment_id.len())])
+                e.reference
+                    .as_ref()
+                    .map(|r| r.starts_with("PAG-"))
+                    .unwrap_or(false)
+                    && e.description
+                        .contains(&payment_id[..8.min(payment_id.len())])
             })
             .map(|e| AccountingEntryDto::from(e))
             .collect(),

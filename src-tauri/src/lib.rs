@@ -11,17 +11,19 @@ pub mod env_loader;
 pub mod infrastructure;
 
 use application::use_cases::{
-    AttendanceService, CourseService, GroupService, InvoiceService,
-    PaymentService, SettingsService, StudentService, UserService,
+    AttendanceService, CourseService, GroupService, InvoiceService, PaymentService,
+    SettingsService, StudentService, UserService,
 };
-use commands::accounting::{create_entry, get_entry, get_accounting_summary, list_entries, delete_entry};
+use commands::accounting::{
+    create_entry, delete_entry, get_accounting_summary, get_entry, list_entries,
+};
+use commands::admin::list_client_databases;
 use commands::attendance::{
     count_group_absences, count_student_absences, create_attendance, delete_attendance,
     get_attendance, get_group_attendance_stats, list_attendance_by_group_date,
     list_attendance_by_student, list_attendances, update_attendance,
 };
 use commands::auth::{change_password, login, logout, update_profile, AppState as TursoAppState};
-use commands::admin::list_client_databases;
 use commands::base::health;
 use commands::courses::{
     archive_course, create_course, delete_course, get_course, hard_delete_course,
@@ -41,26 +43,26 @@ use commands::settings::{get_absence_threshold, set_absence_threshold};
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
 };
-use commands::users::{create_user, delete_user, get_user, list_users, list_users_by_role, update_user};
+use commands::users::{
+    create_user, delete_user, get_user, list_users, list_users_by_role, update_user,
+};
 use env_loader::load_turso_config;
+use infrastructure::local_db;
+use infrastructure::repositories::{
+    MemoryBackedAccountingEntryRepository, MemoryBackedAttendanceRepository,
+    MemoryBackedCourseRepository, MemoryBackedGroupRepository, MemoryBackedInvoiceLineRepository,
+    MemoryBackedInvoiceRepository, MemoryBackedPaymentRepository, MemoryBackedSettingsRepository,
+    MemoryBackedStudentRepository, MemoryBackedUserRepository,
+};
 use infrastructure::turso::connection_manager::ConnectionManager;
 use infrastructure::turso::control_plane::ControlPlaneRepository;
 use infrastructure::turso::flush_timer::start_flush_timer;
 use infrastructure::turso::memory_buffer::MemoryBuffer;
 use infrastructure::turso::provisioning::TursoProvisioningService;
 use infrastructure::turso::session::CurrentSession;
-use infrastructure::local_db;
-use infrastructure::repositories::{
-    MemoryBackedUserRepository,
-    MemoryBackedStudentRepository, MemoryBackedGroupRepository,
-    MemoryBackedCourseRepository, MemoryBackedPaymentRepository,
-    MemoryBackedAttendanceRepository, MemoryBackedInvoiceRepository,
-    MemoryBackedInvoiceLineRepository, MemoryBackedAccountingEntryRepository,
-    MemoryBackedSettingsRepository,
-};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::Mutex;
 
 /// Get the database path in the app data directory
 fn get_db_path() -> PathBuf {
@@ -84,10 +86,7 @@ async fn run_local_migrations() {
     let db_path = get_db_path();
     println!("Database path: {:?}", db_path);
 
-    let db = match libsql::Builder::new_local(db_path)
-        .build()
-        .await
-    {
+    let db = match libsql::Builder::new_local(db_path).build().await {
         Ok(db) => db,
         Err(e) => {
             eprintln!("[FATAL] Cannot open database: {}", e);
@@ -107,18 +106,27 @@ async fn run_local_migrations() {
 
     // --- Migration tracking setup ---
     // Create the tracking table if it doesn't exist
-    if let Err(e) = conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS _schema_migrations (
+    if let Err(e) = conn
+        .execute_batch(
+            "CREATE TABLE IF NOT EXISTS _schema_migrations (
             version TEXT PRIMARY KEY,
             applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );"
-    ).await {
+        );",
+        )
+        .await
+    {
         eprintln!("[WARN] Could not create _schema_migrations: {}", e);
     }
 
     // Load already-applied migrations
     let mut applied: Vec<String> = Vec::new();
-    if let Ok(mut rows) = conn.query("SELECT version FROM _schema_migrations ORDER BY version", ()).await {
+    if let Ok(mut rows) = conn
+        .query(
+            "SELECT version FROM _schema_migrations ORDER BY version",
+            (),
+        )
+        .await
+    {
         loop {
             match rows.next().await {
                 Ok(Some(row)) => {
@@ -145,18 +153,26 @@ async fn run_local_migrations() {
         println!("First run with migration tracking — seeding applied state for existing database (001-018)");
 
         // Clean up leftover table from migration 016 partial run
-        conn.execute_batch("DROP TABLE IF EXISTS accounting_entries_new;").await.ok();
+        conn.execute_batch("DROP TABLE IF EXISTS accounting_entries_new;")
+            .await
+            .ok();
 
         let existing: [&str; 17] = [
-            "001", "003", "004", "005", "006", "007", "008", "009",
-            "010", "011", "012", "013", "014", "015", "016", "017", "018",
+            "001", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012", "013",
+            "014", "015", "016", "017", "018",
         ];
         for ver in &existing {
-            conn.execute_batch(
-                &format!("INSERT OR IGNORE INTO _schema_migrations (version) VALUES ('{}')", ver)
-            ).await.ok();
+            conn.execute_batch(&format!(
+                "INSERT OR IGNORE INTO _schema_migrations (version) VALUES ('{}')",
+                ver
+            ))
+            .await
+            .ok();
         }
-        println!("Legacy database seeded — {} migrations tracked", existing.len());
+        println!(
+            "Legacy database seeded — {} migrations tracked",
+            existing.len()
+        );
         println!("Local database initialized successfully");
         return;
     }
@@ -169,9 +185,12 @@ async fn run_local_migrations() {
             } else {
                 match conn.execute_batch($sql).await {
                     Ok(_) => {
-                        let _ = conn.execute_batch(
-                            &format!("INSERT INTO _schema_migrations (version) VALUES ('{}')", $name)
-                        ).await;
+                        let _ = conn
+                            .execute_batch(&format!(
+                                "INSERT INTO _schema_migrations (version) VALUES ('{}')",
+                                $name
+                            ))
+                            .await;
                         println!("Migration {} applied", $name);
                     }
                     Err(e) => {
@@ -191,7 +210,9 @@ async fn run_local_migrations() {
         let sql = include_str!("../migrations/001_initial_schema.sql");
         match conn.execute_batch(sql).await {
             Ok(_) => {
-                let _ = conn.execute_batch("INSERT INTO _schema_migrations (version) VALUES ('001')").await;
+                let _ = conn
+                    .execute_batch("INSERT INTO _schema_migrations (version) VALUES ('001')")
+                    .await;
                 println!("Migration 001 applied");
             }
             Err(e) => eprintln!("WARNING running migration 001: {}", e),
@@ -199,28 +220,78 @@ async fn run_local_migrations() {
     }
 
     // 003-018 via tracking table
-    run_migration!("003", include_str!("../migrations/003_add_guardian_and_schedule_fields.sql"));
-    run_migration!("004", include_str!("../migrations/004_add_student_enrollment_columns.sql"));
-    run_migration!("005", include_str!("../migrations/005_add_course_price.sql"));
-    run_migration!("006", include_str!("../migrations/006_add_group_schedule_fields.sql"));
-    run_migration!("007", include_str!("../migrations/007_add_start_date_to_groups.sql"));
-    run_migration!("008", include_str!("../migrations/008_fix_groups_table_schema.sql"));
-    run_migration!("009", include_str!("../migrations/009_make_payments_due_date_nullable.sql"));
-    run_migration!("010", include_str!("../migrations/010_accounting_schema.sql"));
+    run_migration!(
+        "003",
+        include_str!("../migrations/003_add_guardian_and_schedule_fields.sql")
+    );
+    run_migration!(
+        "004",
+        include_str!("../migrations/004_add_student_enrollment_columns.sql")
+    );
+    run_migration!(
+        "005",
+        include_str!("../migrations/005_add_course_price.sql")
+    );
+    run_migration!(
+        "006",
+        include_str!("../migrations/006_add_group_schedule_fields.sql")
+    );
+    run_migration!(
+        "007",
+        include_str!("../migrations/007_add_start_date_to_groups.sql")
+    );
+    run_migration!(
+        "008",
+        include_str!("../migrations/008_fix_groups_table_schema.sql")
+    );
+    run_migration!(
+        "009",
+        include_str!("../migrations/009_make_payments_due_date_nullable.sql")
+    );
+    run_migration!(
+        "010",
+        include_str!("../migrations/010_accounting_schema.sql")
+    );
     run_migration!("011", include_str!("../migrations/011_accounting_seed.sql"));
-    run_migration!("012", include_str!("../migrations/012_liabilities_equity_schema.sql"));
-    run_migration!("013", include_str!("../migrations/013_fixed_assets_schema.sql"));
-    run_migration!("014", include_str!("../migrations/014_fixed_assets_accounts.sql"));
-    run_migration!("015", include_str!("../migrations/015_pasivos_accounts.sql"));
-    run_migration!("016", include_str!("../migrations/016_simplify_accounting_schema.sql"));
-    run_migration!("017", include_str!("../migrations/017_add_app_settings.sql"));
-    run_migration!("018", include_str!("../migrations/018_add_class_duration_and_skipped_dates.sql"));
+    run_migration!(
+        "012",
+        include_str!("../migrations/012_liabilities_equity_schema.sql")
+    );
+    run_migration!(
+        "013",
+        include_str!("../migrations/013_fixed_assets_schema.sql")
+    );
+    run_migration!(
+        "014",
+        include_str!("../migrations/014_fixed_assets_accounts.sql")
+    );
+    run_migration!(
+        "015",
+        include_str!("../migrations/015_pasivos_accounts.sql")
+    );
+    run_migration!(
+        "016",
+        include_str!("../migrations/016_simplify_accounting_schema.sql")
+    );
+    run_migration!(
+        "017",
+        include_str!("../migrations/017_add_app_settings.sql")
+    );
+    run_migration!(
+        "018",
+        include_str!("../migrations/018_add_class_duration_and_skipped_dates.sql")
+    );
+    run_migration!(
+        "019",
+        include_str!("../migrations/019_add_payment_type.sql")
+    );
 
     println!("Local database initialized successfully");
 }
 
 /// Seed admin/superadmin in control plane Turso DB on startup.
 /// Also provisions a per-user Turso database for the admin so they can log in.
+#[allow(dead_code)]
 async fn seed_control_plane_admin(
     cp: &ControlPlaneRepository,
     prov: Option<&Arc<TursoProvisioningService>>,
@@ -228,11 +299,13 @@ async fn seed_control_plane_admin(
 ) {
     use env_loader::{get_env_var, is_production};
 
-    let admin_email = get_env_var("ADMIN_EMAIL", Some("admin@academix.com")).unwrap_or_else(|_| "admin@academix.com".to_string());
+    let admin_email = get_env_var("ADMIN_EMAIL", Some("admin@academix.com"))
+        .unwrap_or_else(|_| "admin@academix.com".to_string());
     let admin_password_hash = get_env_var(
         "ADMIN_PASSWORD_HASH",
         Some("$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy"),
-    ).unwrap_or_else(|_| "$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy".to_string());
+    )
+    .unwrap_or_else(|_| "$2b$12$gghetCr2w7EqfgK5u8jMru4Malw8kQZcXMUQfp2dwOsac2xlo5gYy".to_string());
 
     if !is_production() {
         eprintln!("[WARNING] Using default admin credentials. Set ADMIN_EMAIL and ADMIN_PASSWORD_HASH env vars for production.");
@@ -275,7 +348,7 @@ async fn seed_control_plane_admin(
         if cp.find_by_user_id(&user_id).await.ok().flatten().is_none() {
             eprintln!("[ADMIN] Provisioning per-user Turso database for admin...");
             let slug = format!("academix-admin-{}", user_id);
-            match prov.create_database(&slug).await {
+            match prov.create_database(&slug, Some(&config.turso_group)).await {
                 Ok(db_info) => {
                     let db_name = format!("libsql://{}", db_info.hostname);
                     match prov.create_auth_token(&db_name).await {
@@ -297,12 +370,23 @@ async fn seed_control_plane_admin(
                             println!("[ADMIN] Per-user Turso DB provisioned");
 
                             // Seed admin user record in the new per-user DB
-                            let db = match libsql::Builder::new_remote(db_name.clone(), mapping.db_token.clone()).build().await {
+                            let db = match libsql::Builder::new_remote(
+                                db_name.clone(),
+                                mapping.db_token.clone(),
+                            )
+                            .build()
+                            .await
+                            {
                                 Ok(db) => db,
-                                Err(e) => { eprintln!("[ADMIN] Failed to connect to new DB: {}", e); return; }
+                                Err(e) => {
+                                    eprintln!("[ADMIN] Failed to connect to new DB: {}", e);
+                                    return;
+                                }
                             };
                             let conn = db.connect().unwrap();
-                            let _ = conn.execute_batch(include_str!("../migrations/001_initial_schema.sql"));
+                            let _ = conn.execute_batch(include_str!(
+                                "../migrations/001_initial_schema.sql"
+                            ));
                             let _ = conn
                                 .execute(
                                     "INSERT OR IGNORE INTO users (id, email, password_hash, name, role, is_active, created_at, updated_at)
@@ -340,13 +424,14 @@ pub async fn run() {
     println!("Loading Turso configuration...");
     let turso_config = load_turso_config();
 
-    let control_plane: Option<Arc<ControlPlaneRepository>>;
-    let provisioning_service: Option<Arc<TursoProvisioningService>>;
-    let connection_manager: Arc<Mutex<ConnectionManager>>;
-    let memory_buffer: Arc<Mutex<MemoryBuffer>>;
-    let flush_timer_sender: Option<oneshot::Sender<()>>;
-
-    match turso_config {
+    let (
+        config,
+        control_plane,
+        provisioning_service,
+        connection_manager,
+        memory_buffer,
+        flush_timer_sender,
+    ) = match turso_config {
         Ok(config) => {
             println!("[TURSO] Turso config loaded, initializing services...");
 
@@ -354,7 +439,6 @@ pub async fn run() {
                 config.turso_api_token.clone(),
                 config.turso_org.clone(),
             ));
-            provisioning_service = Some(prov.clone());
 
             let cp = match ControlPlaneRepository::new(
                 &config.control_plane_db_url,
@@ -368,8 +452,9 @@ pub async fn run() {
                     } else {
                         println!("[TURSO] Control plane schema ready");
                     }
-                    seed_control_plane_admin(&cp, Some(&prov), Some(&config)).await;
-                    Some(Arc::new(cp))
+                    // seed_control_plane_admin is now disabled — user registers themselves
+                    // seed_control_plane_admin(&cp, Some(&prov), Some(&config)).await;
+                    (Some(Arc::new(cp)), Some(prov))
                 }
                 Err(e) => {
                     eprintln!("[TURSO] Failed to connect to control plane: {}", e);
@@ -377,30 +462,37 @@ pub async fn run() {
                         "[TURSO] Control plane features disabled. Set CONTROL_PLANE_DB_URL \
                          and CONTROL_PLANE_DB_TOKEN to enable."
                     );
-                    None
+                    (None, Some(prov))
                 }
             };
-            control_plane = cp.clone();
-            connection_manager = Arc::new(Mutex::new(ConnectionManager::new()));
-            memory_buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
-            flush_timer_sender = cp.as_ref().map(|cp_arc| {
+
+            let (control_plane, provisioning) = cp;
+
+            let connection_manager = Arc::new(Mutex::new(ConnectionManager::new()));
+            let memory_buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
+            let flush_timer_sender = control_plane.as_ref().map(|cp_arc| {
                 start_flush_timer(
                     Arc::clone(&memory_buffer),
                     Arc::clone(&connection_manager),
                     Arc::clone(cp_arc),
                 )
             });
+
+            (
+                Some(config),
+                control_plane,
+                provisioning,
+                connection_manager,
+                memory_buffer,
+                flush_timer_sender,
+            )
         }
         Err(e) => {
             eprintln!("[TURSO] Turso config not available: {}", e);
-            eprintln!(
-                "[TURSO] Turso features disabled. Set env vars to enable (see README)."
-            );
-            control_plane = None;
-            provisioning_service = None;
-            connection_manager = Arc::new(Mutex::new(ConnectionManager::new()));
-            memory_buffer = Arc::new(Mutex::new(MemoryBuffer::new()));
-            flush_timer_sender = None;
+            eprintln!("[TURSO] Turso features disabled. Set env vars to enable (see README).");
+            let cm = Arc::new(Mutex::new(ConnectionManager::new()));
+            let mb = Arc::new(Mutex::new(MemoryBuffer::new()));
+            (None, None, None, cm, mb, None)
         }
     };
 
@@ -458,12 +550,11 @@ pub async fn run() {
             Arc::clone(&session),
         ),
     );
-    let attendance_service =
-        AttendanceService::new(MemoryBackedAttendanceRepository::new(
-            Arc::clone(&connection_manager),
-            Arc::clone(&memory_buffer),
-            Arc::clone(&session),
-        ));
+    let attendance_service = AttendanceService::new(MemoryBackedAttendanceRepository::new(
+        Arc::clone(&connection_manager),
+        Arc::clone(&memory_buffer),
+        Arc::clone(&session),
+    ));
     let invoice_service = InvoiceService::new(
         MemoryBackedInvoiceRepository::new(
             Arc::clone(&connection_manager),
@@ -476,14 +567,13 @@ pub async fn run() {
             Arc::clone(&session),
         ),
     );
+    let accounting_repo = MemoryBackedAccountingEntryRepository::new(
+        Arc::clone(&connection_manager),
+        Arc::clone(&memory_buffer),
+        Arc::clone(&session),
+    );
     let accounting_service =
-        crate::application::use_cases::AccountingService::new(
-            MemoryBackedAccountingEntryRepository::new(
-                Arc::clone(&connection_manager),
-                Arc::clone(&memory_buffer),
-                Arc::clone(&session),
-            ),
-        );
+        crate::application::use_cases::AccountingService::new(accounting_repo.clone());
     let settings_service = SettingsService::new(MemoryBackedSettingsRepository::new(
         Arc::clone(&connection_manager),
         Arc::clone(&memory_buffer),
@@ -497,6 +587,7 @@ pub async fn run() {
         control_plane: control_plane.as_ref().map(Arc::clone),
         flush_timer_sender,
         session: Arc::clone(&session),
+        turso_config: config.clone(),
     };
 
     // Build Tauri app
@@ -515,6 +606,7 @@ pub async fn run() {
         .manage(attendance_service)
         .manage(invoice_service)
         .manage(accounting_service)
+        .manage(accounting_repo)
         .manage(settings_service)
         // Register optional Turso services (None when not configured)
         .manage(control_plane)

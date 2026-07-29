@@ -6,7 +6,7 @@ use crate::application::dto::{
 };
 use crate::application::errors::ApplicationError;
 use crate::application::ports::{CourseRepository, GroupRepository, PaymentRepository};
-use crate::domain::entities::{Payment, PaymentMethod};
+use crate::domain::entities::{Payment, PaymentMethod, PaymentType};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -27,7 +27,10 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
     }
 
     /// Create a new payment
-    pub async fn create(&self, request: CreatePaymentRequest) -> Result<PaymentDto, ApplicationError> {
+    pub async fn create(
+        &self,
+        request: CreatePaymentRequest,
+    ) -> Result<PaymentDto, ApplicationError> {
         // Default to "cash" if method is not provided
         let method_str = request.method.unwrap_or_else(|| "cash".to_string());
         let method = PaymentMethod::from_str(&method_str)
@@ -83,6 +86,8 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             request.group_id,
             request.amount,
             method,
+            PaymentType::from_str(request.payment_type.as_deref().unwrap_or("tuition"))
+                .unwrap_or(PaymentType::Tuition),
         );
 
         // Set the calculated due_date
@@ -115,6 +120,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date,
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
@@ -136,6 +142,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date: payment.due_date.unwrap_or_default(),
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
@@ -155,13 +162,20 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
                 due_date: p.due_date.unwrap_or_default(),
                 paid_at: p.paid_at.map(|dt| dt.to_rfc3339()),
                 description: p.description,
+                payment_type: p.payment_type.as_str().to_string(),
             })
             .collect())
     }
 
     /// List payments by student
-    pub async fn list_by_student(&self, student_id: &str) -> Result<Vec<PaymentDto>, ApplicationError> {
-        let payments = self.payment_repository.find_by_student_id(student_id).await?;
+    pub async fn list_by_student(
+        &self,
+        student_id: &str,
+    ) -> Result<Vec<PaymentDto>, ApplicationError> {
+        let payments = self
+            .payment_repository
+            .find_by_student_id(student_id)
+            .await?;
 
         Ok(payments
             .into_iter()
@@ -175,6 +189,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
                 due_date: p.due_date.unwrap_or_default(),
                 paid_at: p.paid_at.map(|dt| dt.to_rfc3339()),
                 description: p.description,
+                payment_type: p.payment_type.as_str().to_string(),
             })
             .collect())
     }
@@ -223,6 +238,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date: payment.due_date.unwrap_or_default(),
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
@@ -259,7 +275,10 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             .unwrap_or(0.0);
 
         // Get student payments
-        let payments = self.payment_repository.find_by_student_id(student_id).await?;
+        let payments = self
+            .payment_repository
+            .find_by_student_id(student_id)
+            .await?;
 
         // Calculate total paid (only completed payments)
         let total_paid: f64 = payments
