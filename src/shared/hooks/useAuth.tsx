@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 
 type UserRole = "admin" | "gerente" | "empleado" | "profesor";
 
@@ -60,6 +60,17 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, setState] = useState<AuthState>(getStoredAuth);
+
+  // Clear session on app close to force re-login on restart
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
