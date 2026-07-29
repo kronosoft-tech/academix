@@ -1,8 +1,9 @@
 // useAccounting Hook - Simplified
 // Handles income/expense CRUD and summary
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { appEvents, APP_EVENTS } from "../../../shared/utils/appEvents";
 import type {
   AccountingEntry,
   AccountingSummary,
@@ -15,6 +16,7 @@ export function useAccounting() {
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFilters, setLastFilters] = useState<EntryFilters | undefined>();
 
   const createIncomeEntry = useCallback(async (payload: CreateEntryPayload) => {
     setLoading(true);
@@ -67,6 +69,7 @@ export function useAccounting() {
   const listEntries = useCallback(async (filters?: EntryFilters) => {
     setLoading(true);
     setError(null);
+    setLastFilters(filters);
     try {
       const result = await invoke<AccountingEntry[]>("list_entries", {
         date_from: filters?.date_from,
@@ -121,6 +124,23 @@ export function useAccounting() {
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // Listen for cross-module data changes (e.g., payment created auto-income)
+  useEffect(() => {
+    const handleChange = () => {
+      if (lastFilters) {
+        listEntries(lastFilters);
+        if (lastFilters.date_from && lastFilters.date_to) {
+          getSummary(lastFilters.date_from, lastFilters.date_to);
+        }
+      }
+    };
+
+    appEvents.on(APP_EVENTS.ACCOUNTING_CHANGED, handleChange);
+    return () => {
+      appEvents.off(APP_EVENTS.ACCOUNTING_CHANGED, handleChange);
+    };
+  }, [lastFilters, listEntries, getSummary]);
 
   return {
     entries,
