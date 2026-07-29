@@ -90,6 +90,7 @@ pub struct TursoConfig {
     pub control_plane_db_token: String,
     pub turso_api_token: String,
     pub turso_org: String,
+    pub turso_group: String,
 }
 
 /// Load all Turso configuration from environment variables.
@@ -105,6 +106,7 @@ pub fn load_turso_config() -> Result<TursoConfig, EnvError> {
         control_plane_db_token: get_env_var("CONTROL_PLANE_DB_TOKEN", None)?,
         turso_api_token: get_env_var("TURSO_API_TOKEN", None)?,
         turso_org: get_env_var("TURSO_ORG", None)?,
+        turso_group: get_env_var("TURSO_GROUP", Some("default"))?,
     })
 }
 

@@ -39,6 +39,7 @@ export function RegisterForm() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleChange =
@@ -134,6 +135,9 @@ export function RegisterForm() {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      // TEMP: show raw error to debug
+      setApiError(errorMessage);
+
       if (
         errorMessage.toLowerCase().includes("email") ||
         errorMessage.toLowerCase().includes("duplicate")
@@ -177,6 +181,11 @@ export function RegisterForm() {
         </p>
       </div>
 
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md text-red-800 text-sm break-all">
+          <strong>Error (debug):</strong> {apiError}
+        </div>
+      )}
       {successMessage && (
         <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-md text-green-800 text-sm text-center">
           {successMessage}

@@ -119,7 +119,9 @@ impl TursoProvisioningService {
     ///
     /// If the name conflicts (already exists), retries up to 2 more times
     /// with a new slug suffix.
-    pub async fn create_database(&self, name: &str) -> Result<DatabaseInfo, ProvisioningError> {
+    ///
+    /// The `group` parameter is required by Turso API (either `group` or `seed` must be set).
+    pub async fn create_database(&self, name: &str, group: Option<&str>) -> Result<DatabaseInfo, ProvisioningError> {
         let url = format!(
             "https://api.turso.tech/v1/organizations/{}/databases",
             self.org
@@ -128,6 +130,8 @@ impl TursoProvisioningService {
         #[derive(Serialize)]
         struct CreateRequest {
             name: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            group: Option<String>,
         }
 
         // Try to create — if name exists, retry with a new slug
@@ -135,8 +139,10 @@ impl TursoProvisioningService {
         for _ in 0..3 {
             let body = CreateRequest {
                 name: attempt_name.clone(),
+                group: group.map(|s| s.to_string()),
             };
 
+            eprintln!("[TURSO] POST {} name={} group={:?}", url, attempt_name, group);
             let response = self
                 .client
                 .post(&url)
@@ -146,11 +152,27 @@ impl TursoProvisioningService {
                 .await
                 .map_err(|e| ProvisioningError::Http(e.to_string()))?;
 
+            eprintln!("[TURSO] Response status: {}", response.status());
             if response.status().is_success() {
-                return response
+                #[derive(Deserialize)]
+                struct CreateDbResp {
+                    database: CreateDbInfo,
+                }
+                #[derive(Deserialize)]
+                struct CreateDbInfo {
+                    #[serde(rename = "Name")]
+                    name: String,
+                    #[serde(rename = "Hostname")]
+                    hostname: String,
+                }
+                let resp: CreateDbResp = response
                     .json()
                     .await
-                    .map_err(|e| ProvisioningError::Http(e.to_string()));
+                    .map_err(|e| ProvisioningError::Http(e.to_string()))?;
+                return Ok(DatabaseInfo {
+                    name: resp.database.name,
+                    hostname: resp.database.hostname,
+                });
             }
 
             if response.status() == reqwest::StatusCode::CONFLICT {
