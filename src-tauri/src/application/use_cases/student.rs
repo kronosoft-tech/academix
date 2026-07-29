@@ -72,7 +72,7 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
     }
 
     /// Create a new student
-    pub fn create(&self, request: CreateStudentRequest) -> Result<StudentDto, ApplicationError> {
+    pub async fn create(&self, request: CreateStudentRequest) -> Result<StudentDto, ApplicationError> {
         let birth_date = parse_birth_date(&request.birth_date);
 
         validate_guardian_fields(
@@ -86,6 +86,7 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
             let has_capacity = self
                 .group_repository
                 .has_capacity(group_id)
+                .await
                 .map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
             if !has_capacity {
@@ -114,11 +115,12 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
         student.course_id = request.course_id;
         student.group_id = request.group_id.clone();
 
-        self.student_repository.save(&student)?;
+        self.student_repository.save(&student).await?;
 
         if let Some(ref group_id) = student.group_id {
             self.group_repository
                 .increment_students(group_id)
+                .await
                 .map_err(|e| ApplicationError::Validation(e.to_string()))?;
         }
 
@@ -151,18 +153,18 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
     }
 
     /// Get student by ID
-    pub fn get_by_id(&self, id: &str) -> Result<StudentDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<StudentDto, ApplicationError> {
         let student = self
             .student_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Student not found".to_string()))?;
 
         Ok(self.student_to_dto(&student))
     }
 
     /// List all students
-    pub fn list(&self) -> Result<Vec<StudentDto>, ApplicationError> {
-        let students = self.student_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<StudentDto>, ApplicationError> {
+        let students = self.student_repository.find_all().await?;
 
         Ok(students
             .into_iter()
@@ -171,14 +173,14 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
     }
 
     /// Update student
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdateStudentRequest,
     ) -> Result<StudentDto, ApplicationError> {
         let mut student = self
             .student_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Student not found".to_string()))?;
 
         let birth_date = parse_birth_date(&request.birth_date).or(student.birth_date);
@@ -212,6 +214,7 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
                 let has_capacity = self
                     .group_repository
                     .has_capacity(new_gid)
+                    .await
                     .map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
                 if !has_capacity {
@@ -243,18 +246,20 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
             new_group_id.clone(),
         );
 
-        self.student_repository.update(&student)?;
+        self.student_repository.update(&student).await?;
 
         if new_group_id != previous_group_id {
             if let Some(ref old_gid) = previous_group_id {
                 self.group_repository
                     .decrement_students(old_gid)
+                    .await
                     .map_err(|e| ApplicationError::Validation(e.to_string()))?;
             }
 
             if let Some(ref new_gid) = new_group_id {
                 self.group_repository
                     .increment_students(new_gid)
+                    .await
                     .map_err(|e| ApplicationError::Validation(e.to_string()))?;
             }
         }
@@ -263,19 +268,20 @@ impl<R: StudentRepository, G: GroupRepository> StudentService<R, G> {
     }
 
     /// Delete student (soft delete)
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
         let student = self
             .student_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("Student not found".to_string()))?;
 
         if let Some(ref group_id) = student.group_id {
             self.group_repository
                 .decrement_students(group_id)
+                .await
                 .map_err(|e| ApplicationError::Validation(e.to_string()))?;
         }
 
-        self.student_repository.delete(id)?;
+        self.student_repository.delete(id).await?;
         Ok(())
     }
 }

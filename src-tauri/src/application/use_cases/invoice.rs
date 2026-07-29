@@ -27,7 +27,7 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
     }
 
     /// Create a new invoice with lines
-    pub fn create_invoice(
+    pub async fn create_invoice(
         &self,
         request: CreateInvoiceRequest,
     ) -> Result<InvoiceWithLinesDto, String> {
@@ -57,7 +57,7 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
 
         // Get next invoice number
         let series = "F001".to_string(); // Default series
-        let number = self.invoice_repo.get_next_number(&series)?;
+        let number = self.invoice_repo.get_next_number(&series).await?;
 
         // Calculate totals
         let subtotal: f64 = request
@@ -87,7 +87,7 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
         invoice.calculate_totals(subtotal);
 
         // Save invoice
-        let invoice = self.invoice_repo.create(invoice)?;
+        let invoice = self.invoice_repo.create(invoice).await?;
 
         // Create invoice lines
         let mut line_dtos = Vec::new();
@@ -110,7 +110,7 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
                 line_req.unit_price,
             );
 
-            let saved_line = self.line_repo.create(line)?;
+            let saved_line = self.line_repo.create(line).await?;
             line_dtos.push(InvoiceLineDto::from(saved_line));
         }
 
@@ -121,11 +121,11 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
     }
 
     /// Get invoice by ID with lines
-    pub fn get_invoice(&self, id: &str) -> Result<Option<InvoiceWithLinesDto>, String> {
-        let invoice = self.invoice_repo.get_by_id(id)?;
+    pub async fn get_invoice(&self, id: &str) -> Result<Option<InvoiceWithLinesDto>, String> {
+        let invoice = self.invoice_repo.get_by_id(id).await?;
 
         if let Some(invoice) = invoice {
-            let lines = self.line_repo.get_by_invoice(&invoice.id)?;
+            let lines = self.line_repo.get_by_invoice(&invoice.id).await?;
             let line_dtos: Vec<InvoiceLineDto> =
                 lines.into_iter().map(InvoiceLineDto::from).collect();
 
@@ -139,24 +139,25 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
     }
 
     /// List invoices with filters
-    pub fn list_invoices(
+    pub async fn list_invoices(
         &self,
         status: Option<InvoiceStatus>,
         client_ruc: Option<&str>,
     ) -> Result<Vec<InvoiceDto>, String> {
-        let invoices = self.invoice_repo.list(status, client_ruc, None, None)?;
+        let invoices = self.invoice_repo.list(status, client_ruc, None, None).await?;
         Ok(invoices.into_iter().map(InvoiceDto::from).collect())
     }
 
     /// Register payment for an invoice
-    pub fn register_payment(
+    pub async fn register_payment(
         &self,
         id: &str,
         request: RegisterPaymentRequest,
     ) -> Result<InvoiceDto, String> {
         let mut invoice = self
             .invoice_repo
-            .get_by_id(id)?
+            .get_by_id(id)
+            .await?
             .ok_or_else(|| format!("Invoice not found: {}", id))?;
 
         if invoice.status == InvoiceStatus::Paid {
@@ -172,15 +173,16 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
 
         invoice.register_payment(request.payment_method, paid_date);
 
-        let updated = self.invoice_repo.update(invoice)?;
+        let updated = self.invoice_repo.update(invoice).await?;
         Ok(InvoiceDto::from(updated))
     }
 
     /// Cancel an invoice
-    pub fn cancel_invoice(&self, id: &str) -> Result<InvoiceDto, String> {
+    pub async fn cancel_invoice(&self, id: &str) -> Result<InvoiceDto, String> {
         let mut invoice = self
             .invoice_repo
-            .get_by_id(id)?
+            .get_by_id(id)
+            .await?
             .ok_or_else(|| format!("Invoice not found: {}", id))?;
 
         if invoice.status == InvoiceStatus::Paid {
@@ -189,13 +191,13 @@ impl<R: InvoiceRepository, L: InvoiceLineRepository> InvoiceService<R, L> {
 
         invoice.cancel();
 
-        let updated = self.invoice_repo.update(invoice)?;
+        let updated = self.invoice_repo.update(invoice).await?;
         Ok(InvoiceDto::from(updated))
     }
 
     /// Get invoice summary for dashboard
-    pub fn get_summary(&self) -> Result<InvoiceSummary, String> {
-        let invoices = self.invoice_repo.list(None, None, None, None)?;
+    pub async fn get_summary(&self) -> Result<InvoiceSummary, String> {
+        let invoices = self.invoice_repo.list(None, None, None, None).await?;
 
         let total_invoiced: f64 = invoices.iter().map(|i| i.total).sum();
         let total_pending: f64 = invoices

@@ -6,7 +6,7 @@ use crate::application::dto::{
 };
 use crate::application::errors::ApplicationError;
 use crate::application::ports::{CourseRepository, GroupRepository, PaymentRepository};
-use crate::domain::entities::{Payment, PaymentMethod};
+use crate::domain::entities::{Payment, PaymentMethod, PaymentType};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
@@ -27,7 +27,10 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
     }
 
     /// Create a new payment
-    pub fn create(&self, request: CreatePaymentRequest) -> Result<PaymentDto, ApplicationError> {
+    pub async fn create(
+        &self,
+        request: CreatePaymentRequest,
+    ) -> Result<PaymentDto, ApplicationError> {
         // Default to "cash" if method is not provided
         let method_str = request.method.unwrap_or_else(|| "cash".to_string());
         let method = PaymentMethod::from_str(&method_str)
@@ -36,13 +39,15 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
         // Get the group to find start_date
         let group = self
             .group_repository
-            .find_by_id(&request.group_id)?
+            .find_by_id(&request.group_id)
+            .await?
             .ok_or_else(|| ApplicationError::NotFound("Group not found".to_string()))?;
 
         // Get existing payments count for this student in this group to calculate sequence
         let existing_payments = self
             .payment_repository
-            .find_by_student_id(&request.student_id)?
+            .find_by_student_id(&request.student_id)
+            .await?
             .into_iter()
             .filter(|p| p.group_id == request.group_id)
             .collect::<Vec<_>>();
@@ -81,6 +86,8 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             request.group_id,
             request.amount,
             method,
+            PaymentType::from_str(request.payment_type.as_deref().unwrap_or("tuition"))
+                .unwrap_or(PaymentType::Tuition),
         );
 
         // Set the calculated due_date
@@ -101,7 +108,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             payment.description = request.description;
         }
 
-        self.payment_repository.save(&payment)?;
+        self.payment_repository.save(&payment).await?;
 
         Ok(PaymentDto {
             id: payment.id,
@@ -113,14 +120,16 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date,
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
     /// Get payment by ID
-    pub fn get_by_id(&self, id: &str) -> Result<PaymentDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<PaymentDto, ApplicationError> {
         let payment = self
             .payment_repository
-            .find_by_id(id)?
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| ApplicationError::NotFound("Payment not found".to_string()))?;
 
         Ok(PaymentDto {
@@ -133,12 +142,13 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date: payment.due_date.unwrap_or_default(),
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
     /// List all payments
-    pub fn list(&self) -> Result<Vec<PaymentDto>, ApplicationError> {
-        let payments = self.payment_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<PaymentDto>, ApplicationError> {
+        let payments = self.payment_repository.find_all().await?;
 
         Ok(payments
             .into_iter()
@@ -152,13 +162,20 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
                 due_date: p.due_date.unwrap_or_default(),
                 paid_at: p.paid_at.map(|dt| dt.to_rfc3339()),
                 description: p.description,
+                payment_type: p.payment_type.as_str().to_string(),
             })
             .collect())
     }
 
     /// List payments by student
-    pub fn list_by_student(&self, student_id: &str) -> Result<Vec<PaymentDto>, ApplicationError> {
-        let payments = self.payment_repository.find_by_student_id(student_id)?;
+    pub async fn list_by_student(
+        &self,
+        student_id: &str,
+    ) -> Result<Vec<PaymentDto>, ApplicationError> {
+        let payments = self
+            .payment_repository
+            .find_by_student_id(student_id)
+            .await?;
 
         Ok(payments
             .into_iter()
@@ -172,19 +189,21 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
                 due_date: p.due_date.unwrap_or_default(),
                 paid_at: p.paid_at.map(|dt| dt.to_rfc3339()),
                 description: p.description,
+                payment_type: p.payment_type.as_str().to_string(),
             })
             .collect())
     }
 
     /// Update payment (e.g., mark as paid)
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdatePaymentRequest,
     ) -> Result<PaymentDto, ApplicationError> {
         let mut payment = self
             .payment_repository
-            .find_by_id(id)?
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| ApplicationError::NotFound("Payment not found".to_string()))?;
 
         if let Some(status) = request.status {
@@ -207,7 +226,7 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             }
         }
 
-        self.payment_repository.update(&payment)?;
+        self.payment_repository.update(&payment).await?;
 
         Ok(PaymentDto {
             id: payment.id,
@@ -219,22 +238,23 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
             due_date: payment.due_date.unwrap_or_default(),
             paid_at: payment.paid_at.map(|dt| dt.to_rfc3339()),
             description: payment.description,
+            payment_type: payment.payment_type.as_str().to_string(),
         })
     }
 
     /// Delete payment
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
-        self.payment_repository.delete(id)?;
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+        self.payment_repository.delete(id).await?;
         Ok(())
     }
 
     /// List all payments as domain entities (with all fields including reference)
-    pub fn list_domain(&self) -> Result<Vec<Payment>, ApplicationError> {
-        Ok(self.payment_repository.find_all()?)
+    pub async fn list_domain(&self) -> Result<Vec<Payment>, ApplicationError> {
+        Ok(self.payment_repository.find_all().await?)
     }
 
     /// Calculate payment status based on due_date and payment history
-    pub fn calculate_payment_status(
+    pub async fn calculate_payment_status(
         &self,
         student_id: &str,
         group_id: &str,
@@ -242,18 +262,23 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
         // Get the group to find start_date
         let group = self
             .group_repository
-            .find_by_id(group_id)?
+            .find_by_id(group_id)
+            .await?
             .ok_or_else(|| ApplicationError::NotFound("Group not found".to_string()))?;
 
         // Get the course to find price
         let course_price = self
             .course_repository
-            .find_by_id(&group.course_id)?
+            .find_by_id(&group.course_id)
+            .await?
             .map(|c| c.price)
             .unwrap_or(0.0);
 
         // Get student payments
-        let payments = self.payment_repository.find_by_student_id(student_id)?;
+        let payments = self
+            .payment_repository
+            .find_by_student_id(student_id)
+            .await?;
 
         // Calculate total paid (only completed payments)
         let total_paid: f64 = payments
@@ -341,22 +366,23 @@ impl<R: PaymentRepository, G: GroupRepository, C: CourseRepository> PaymentServi
     }
 
     /// Get all students with payment summary
-    pub fn get_all_students_payment_summary(
+    pub async fn get_all_students_payment_summary(
         &self,
     ) -> Result<Vec<PaymentStatusDto>, ApplicationError> {
         let mut summaries = Vec::new();
 
-        let groups = self.group_repository.find_all()?;
+        let groups = self.group_repository.find_all().await?;
 
         for group in groups {
             // Get course price
             let course_price = self
                 .course_repository
-                .find_by_id(&group.course_id)?
+                .find_by_id(&group.course_id)
+                .await?
                 .map(|c| c.price)
                 .unwrap_or(0.0);
 
-            let payments = self.payment_repository.find_by_group_id(&group.id)?;
+            let payments = self.payment_repository.find_by_group_id(&group.id).await?;
 
             let mut student_payments: std::collections::HashMap<String, Vec<Payment>> =
                 std::collections::HashMap::new();

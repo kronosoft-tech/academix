@@ -6,6 +6,7 @@ import { validateEmailWithMessage } from "../../../shared/utils/validateEmail";
 import { validatePassword } from "../../../shared/utils/validatePassword";
 
 interface RegisterFormData {
+  academyName: string;
   name: string;
   email: string;
   password: string;
@@ -13,14 +14,23 @@ interface RegisterFormData {
 }
 
 interface FormErrors {
+  academyName?: string;
   name?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
 }
 
+interface RegisterResponse {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
 export function RegisterForm() {
   const [formData, setFormData] = useState<RegisterFormData>({
+    academyName: "",
     name: "",
     email: "",
     password: "",
@@ -29,18 +39,33 @@ export function RegisterForm() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleChange = (field: keyof RegisterFormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
+  const handleChange =
+    (field: keyof RegisterFormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+      // Clear error when user starts typing
+      if (errors[field]) {
+        setErrors((prev) => ({ ...prev, [field]: undefined }));
+      }
+    };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+
+    // Academy name validation
+    const academyName = formData.academyName.trim();
+    if (!academyName) {
+      newErrors.academyName = "El nombre de la academia es requerido";
+    } else if (academyName.length < 3 || academyName.length > 100) {
+      newErrors.academyName =
+        "El nombre de la academia debe tener entre 3 y 100 caracteres";
+    } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s]+$/.test(academyName)) {
+      newErrors.academyName =
+        "El nombre de la academia solo puede contener letras, números y espacios";
+    }
 
     // Name validation
     if (!formData.name.trim()) {
@@ -82,40 +107,64 @@ export function RegisterForm() {
 
     setIsLoading(true);
     try {
-      const response = await invoke<{
-        success: boolean;
-        user?: {
-          id: string;
-          email: string;
-          name: string;
-        };
-        error?: string;
-      }>("register_user", {
+      await invoke<RegisterResponse>("register_user", {
         request: {
+          academy_name: formData.academyName.trim(),
           name: formData.name.trim(),
           email: formData.email.trim().toLowerCase(),
           password: formData.password,
         },
       });
 
-      if (response.success) {
-        setSuccessMessage("¡Cuenta creada exitosamente! Redirigiendo al login...");
-        // Clear form
-        setFormData({ name: "", email: "", password: "", confirmPassword: "" });
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
-      } else {
-        // Handle backend errors
-        if (response.error?.toLowerCase().includes("email") || response.error?.toLowerCase().includes("duplicate")) {
-          setErrors({ email: "Este correo electrónico ya está registrado" });
-        } else {
-          setErrors({ email: response.error || "Error al crear la cuenta" });
-        }
-      }
+      // Success
+      setSuccessMessage(
+        "¡Cuenta creada exitosamente! Redirigiendo al login..."
+      );
+      setFormData({
+        academyName: "",
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (error) {
-      setErrors({ email: error instanceof Error ? error.message : "Error al crear la cuenta" });
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // TEMP: show raw error to debug
+      setApiError(errorMessage);
+
+      if (
+        errorMessage.toLowerCase().includes("email") ||
+        errorMessage.toLowerCase().includes("duplicate")
+      ) {
+        setErrors({ email: "Este correo electrónico ya está registrado" });
+      } else if (
+        errorMessage.toLowerCase().includes("turso") ||
+        errorMessage.toLowerCase().includes("database") ||
+        errorMessage.toLowerCase().includes("provision")
+      ) {
+        setErrors({
+          academyName:
+            "Error al crear la base de datos. Intenta de nuevo.",
+        });
+      } else if (
+        errorMessage.toLowerCase().includes("slug") ||
+        errorMessage.toLowerCase().includes("academy")
+      ) {
+        setErrors({
+          academyName:
+            "El nombre de la academia no está disponible",
+        });
+      } else {
+        setErrors({
+          email: "Error al crear la cuenta. Intenta de nuevo.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -124,10 +173,19 @@ export function RegisterForm() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Academix</h1>
-        <p className="text-[var(--color-foreground)]/60 mt-1">Crea tu cuenta</p>
+        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
+          Academix
+        </h1>
+        <p className="text-[var(--color-foreground)]/60 mt-1">
+          Crea tu cuenta
+        </p>
       </div>
 
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-md text-red-800 text-sm break-all">
+          <strong>Error (debug):</strong> {apiError}
+        </div>
+      )}
       {successMessage && (
         <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-md text-green-800 text-sm text-center">
           {successMessage}
@@ -143,6 +201,15 @@ export function RegisterForm() {
           error={errors.name}
           placeholder="Tu nombre"
           autoComplete="name"
+        />
+        <Input
+          label="Nombre de la academia"
+          type="text"
+          value={formData.academyName}
+          onChange={handleChange("academyName")}
+          error={errors.academyName}
+          placeholder="Ej: Academia de Música"
+          autoComplete="organization"
         />
         <Input
           label="Correo electrónico"
@@ -172,12 +239,14 @@ export function RegisterForm() {
           autoComplete="new-password"
         />
         <Button type="submit" className="w-full" loading={isLoading}>
-          Crear cuenta
+          {isLoading ? "Creando tu academia..." : "Crear cuenta"}
         </Button>
       </form>
 
       <div className="mt-4 text-center text-sm">
-        <span className="text-[var(--color-foreground)]/60">¿Ya tienes cuenta? </span>
+        <span className="text-[var(--color-foreground)]/60">
+          ¿Ya tienes cuenta?{" "}
+        </span>
         <button
           type="button"
           onClick={() => navigate("/login")}

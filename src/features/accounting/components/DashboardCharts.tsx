@@ -118,3 +118,43 @@ export function ExpenseBreakdownChart({ data, className }: ExpenseBreakdownChart
     </div>
   );
 }
+
+interface IncomeBreakdownChartProps {
+  data: Array<{ category_name: string; amount: number }>;
+  className?: string;
+}
+
+export function IncomeBreakdownChart({ data, className }: IncomeBreakdownChartProps) {
+  const renderLabel = (props: { category_name?: string; percent?: number }) => {
+    const { category_name, percent } = props;
+    if (!category_name || percent === undefined) return "";
+    return `${category_name} ${(percent * 100).toFixed(0)}%`;
+  };
+
+  return (
+    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Desglose de Ingresos</h3>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="amount"
+              nameKey="category_name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label={renderLabel}
+            >
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => [`S/ ${Number(value).toFixed(2)}`, ""]} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}

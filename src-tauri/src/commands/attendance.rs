@@ -1,7 +1,3 @@
-//! Attendance Commands
-//!
-//! Tauri commands for attendance management.
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -10,11 +6,10 @@ use crate::application::dto::{
     UpdateAttendanceRequest,
 };
 use crate::application::use_cases::AttendanceService;
-use crate::infrastructure::repositories::SqliteAttendanceRepository;
+use crate::infrastructure::repositories::MemoryBackedAttendanceRepository;
 
-pub type AttendanceServiceState = AttendanceService<SqliteAttendanceRepository>;
+pub type AttendanceServiceState = AttendanceService<MemoryBackedAttendanceRepository>;
 
-/// Create attendance request payload
 #[derive(Debug, Deserialize)]
 pub struct CreateAttendanceCommand {
     pub student_id: String,
@@ -24,14 +19,12 @@ pub struct CreateAttendanceCommand {
     pub notes: Option<String>,
 }
 
-/// Update attendance request payload
 #[derive(Debug, Deserialize)]
 pub struct UpdateAttendanceCommand {
     pub status: Option<String>,
     pub notes: Option<String>,
 }
 
-/// Attendance response payload
 #[derive(Debug, Serialize)]
 pub struct AttendanceCommandResponse {
     pub success: bool,
@@ -39,7 +32,6 @@ pub struct AttendanceCommandResponse {
     pub error: Option<String>,
 }
 
-/// Attendance list response
 #[derive(Debug, Serialize)]
 pub struct AttendanceListCommandResponse {
     pub success: bool,
@@ -47,7 +39,6 @@ pub struct AttendanceListCommandResponse {
     pub error: Option<String>,
 }
 
-/// Group attendance stats response
 #[derive(Debug, Serialize)]
 pub struct GroupAttendanceStatsResponse {
     pub success: bool,
@@ -55,7 +46,6 @@ pub struct GroupAttendanceStatsResponse {
     pub error: Option<String>,
 }
 
-/// Absence count response
 #[derive(Debug, Serialize)]
 pub struct AbsenceCountResponse {
     pub success: bool,
@@ -63,7 +53,6 @@ pub struct AbsenceCountResponse {
     pub error: Option<String>,
 }
 
-/// Group absence counts response
 #[derive(Debug, Serialize)]
 pub struct GroupAbsenceCountsResponse {
     pub success: bool,
@@ -71,225 +60,165 @@ pub struct GroupAbsenceCountsResponse {
     pub error: Option<String>,
 }
 
-/// Create attendance command
 #[tauri::command]
-pub fn create_attendance(
-    state: State<AttendanceServiceState>,
+pub async fn create_attendance(
+    state: State<'_, AttendanceServiceState>,
     request: CreateAttendanceCommand,
-) -> AttendanceCommandResponse {
+) -> Result<AttendanceCommandResponse, String> {
     match state.create(CreateAttendanceRequest {
         student_id: request.student_id,
         group_id: request.group_id,
         date: request.date,
         status: request.status,
         notes: request.notes,
-    }) {
-        Ok(attendance) => AttendanceCommandResponse {
+    }).await {
+        Ok(attendance) => Ok(AttendanceCommandResponse {
             success: true,
             data: Some(attendance),
             error: None,
-        },
-        Err(e) => AttendanceCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Get attendance by ID
 #[tauri::command]
-pub fn get_attendance(
-    state: State<AttendanceServiceState>,
+pub async fn get_attendance(
+    state: State<'_, AttendanceServiceState>,
     id: String,
-) -> AttendanceCommandResponse {
-    match state.get_by_id(&id) {
-        Ok(attendance) => AttendanceCommandResponse {
+) -> Result<AttendanceCommandResponse, String> {
+    match state.get_by_id(&id).await {
+        Ok(attendance) => Ok(AttendanceCommandResponse {
             success: true,
             data: Some(attendance),
             error: None,
-        },
-        Err(e) => AttendanceCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// List all attendance records
 #[tauri::command]
-pub fn list_attendances(state: State<AttendanceServiceState>) -> AttendanceListCommandResponse {
-    println!("[DEBUG] list_attendances called");
-    match state.list() {
-        Ok(attendances) => {
-            println!(
-                "[DEBUG] list_attendances returned {} records",
-                attendances.len()
-            );
-            AttendanceListCommandResponse {
-                success: true,
-                data: Some(attendances),
-                error: None,
-            }
-        }
-        Err(e) => {
-            println!("[DEBUG] list_attendances error: {}", e);
-            AttendanceListCommandResponse {
-                success: false,
-                data: None,
-                error: Some(e.to_string()),
-            }
-        }
+pub async fn list_attendances(state: State<'_, AttendanceServiceState>) -> Result<AttendanceListCommandResponse, String> {
+    match state.list().await {
+        Ok(attendances) => Ok(AttendanceListCommandResponse {
+            success: true,
+            data: Some(attendances),
+            error: None,
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// List attendance by group and date
 #[tauri::command]
-pub fn list_attendance_by_group_date(
-    state: State<AttendanceServiceState>,
+pub async fn list_attendance_by_group_date(
+    state: State<'_, AttendanceServiceState>,
     group_id: String,
     date: String,
-) -> AttendanceListCommandResponse {
-    match state.list_by_group_and_date(&group_id, &date) {
-        Ok(attendances) => AttendanceListCommandResponse {
+) -> Result<AttendanceListCommandResponse, String> {
+    match state.list_by_group_and_date(&group_id, &date).await {
+        Ok(attendances) => Ok(AttendanceListCommandResponse {
             success: true,
             data: Some(attendances),
             error: None,
-        },
-        Err(e) => AttendanceListCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// List attendance by student
 #[tauri::command]
-pub fn list_attendance_by_student(
-    state: State<AttendanceServiceState>,
+pub async fn list_attendance_by_student(
+    state: State<'_, AttendanceServiceState>,
     student_id: String,
-) -> AttendanceListCommandResponse {
-    match state.list_by_student(&student_id) {
-        Ok(attendances) => AttendanceListCommandResponse {
+) -> Result<AttendanceListCommandResponse, String> {
+    match state.list_by_student(&student_id).await {
+        Ok(attendances) => Ok(AttendanceListCommandResponse {
             success: true,
             data: Some(attendances),
             error: None,
-        },
-        Err(e) => AttendanceListCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Update attendance
 #[tauri::command]
-pub fn update_attendance(
-    state: State<AttendanceServiceState>,
+pub async fn update_attendance(
+    state: State<'_, AttendanceServiceState>,
     id: String,
     request: UpdateAttendanceCommand,
-) -> AttendanceCommandResponse {
+) -> Result<AttendanceCommandResponse, String> {
     match state.update(
         &id,
         UpdateAttendanceRequest {
             status: request.status,
             notes: request.notes,
         },
-    ) {
-        Ok(attendance) => AttendanceCommandResponse {
+    ).await {
+        Ok(attendance) => Ok(AttendanceCommandResponse {
             success: true,
             data: Some(attendance),
             error: None,
-        },
-        Err(e) => AttendanceCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Delete attendance
 #[tauri::command]
-pub fn delete_attendance(
-    state: State<AttendanceServiceState>,
+pub async fn delete_attendance(
+    state: State<'_, AttendanceServiceState>,
     id: String,
-) -> AttendanceCommandResponse {
-    match state.delete(&id) {
-        Ok(()) => AttendanceCommandResponse {
+) -> Result<AttendanceCommandResponse, String> {
+    match state.delete(&id).await {
+        Ok(()) => Ok(AttendanceCommandResponse {
             success: true,
             data: None,
             error: None,
-        },
-        Err(e) => AttendanceCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Get group attendance statistics
 #[tauri::command]
-pub fn get_group_attendance_stats(
-    state: State<AttendanceServiceState>,
+pub async fn get_group_attendance_stats(
+    state: State<'_, AttendanceServiceState>,
     group_id: String,
     total_students: i32,
-) -> GroupAttendanceStatsResponse {
-    match state.get_group_stats(&group_id, total_students) {
-        Ok(stats) => GroupAttendanceStatsResponse {
+) -> Result<GroupAttendanceStatsResponse, String> {
+    match state.get_group_stats(&group_id, total_students).await {
+        Ok(stats) => Ok(GroupAttendanceStatsResponse {
             success: true,
             data: Some(stats),
             error: None,
-        },
-        Err(e) => GroupAttendanceStatsResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Count student absences in a group
 #[tauri::command]
-pub fn count_student_absences(
-    state: State<AttendanceServiceState>,
+pub async fn count_student_absences(
+    state: State<'_, AttendanceServiceState>,
     student_id: String,
     group_id: String,
-) -> AbsenceCountResponse {
-    match state.count_student_absences(&student_id, &group_id) {
-        Ok(count) => AbsenceCountResponse {
+) -> Result<AbsenceCountResponse, String> {
+    match state.count_student_absences(&student_id, &group_id).await {
+        Ok(count) => Ok(AbsenceCountResponse {
             success: true,
             data: Some(count),
             error: None,
-        },
-        Err(e) => AbsenceCountResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Count group absences (all students)
 #[tauri::command]
-pub fn count_group_absences(
-    state: State<AttendanceServiceState>,
+pub async fn count_group_absences(
+    state: State<'_, AttendanceServiceState>,
     group_id: String,
-) -> GroupAbsenceCountsResponse {
-    match state.count_group_absences(&group_id) {
-        Ok(counts) => GroupAbsenceCountsResponse {
+) -> Result<GroupAbsenceCountsResponse, String> {
+    match state.count_group_absences(&group_id).await {
+        Ok(counts) => Ok(GroupAbsenceCountsResponse {
             success: true,
             data: Some(counts),
             error: None,
-        },
-        Err(e) => GroupAbsenceCountsResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }

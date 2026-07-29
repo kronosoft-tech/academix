@@ -29,12 +29,6 @@ pub enum DomainError {
     Database(String),
 }
 
-impl From<rusqlite::Error> for DomainError {
-    fn from(err: rusqlite::Error) -> Self {
-        DomainError::Database(err.to_string())
-    }
-}
-
 impl DomainError {
     /// Create a not found error
     pub fn not_found(entity: &str, id: &str) -> Self {

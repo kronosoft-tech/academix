@@ -21,7 +21,7 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
     }
 
     /// Create a new accounting entry
-    pub fn create_entry(
+    pub async fn create_entry(
         &self,
         request: CreateEntryRequest,
     ) -> Result<AccountingEntryDto, String> {
@@ -48,12 +48,15 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
         let entry_id = Uuid::new_v7(ts).to_string();
 
         // Generate reference if not provided
-        let reference = request.reference.or_else(|| {
+        let reference = if request.reference.as_deref().unwrap_or("").is_empty() {
             self.entry_repo
                 .get_next_reference("AS")
+                .await
                 .map(|n| format!("AS-{:04}", n))
                 .ok()
-        });
+        } else {
+            request.reference.clone()
+        };
 
         let entry = AccountingEntry {
             id: entry_id,
@@ -66,35 +69,35 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
             created_at: chrono::Utc::now().to_rfc3339(),
         };
 
-        let created = self.entry_repo.create(entry)?;
+        let created = self.entry_repo.create(entry).await?;
 
         Ok(AccountingEntryDto::from(created))
     }
 
     /// Get accounting entry by ID
-    pub fn get_entry(&self, id: &str) -> Result<Option<AccountingEntryDto>, String> {
-        let entry = self.entry_repo.get_by_id(id)?;
+    pub async fn get_entry(&self, id: &str) -> Result<Option<AccountingEntryDto>, String> {
+        let entry = self.entry_repo.get_by_id(id).await?;
         Ok(entry.map(AccountingEntryDto::from))
     }
 
     /// List accounting entries with filters
-    pub fn list_entries(
+    pub async fn list_entries(
         &self,
         date_from: Option<&str>,
         date_to: Option<&str>,
         entry_type: Option<EntryType>,
     ) -> Result<Vec<AccountingEntryDto>, String> {
-        let entries = self.entry_repo.list(date_from, date_to, entry_type)?;
+        let entries = self.entry_repo.list(date_from, date_to, entry_type).await?;
         Ok(entries.into_iter().map(AccountingEntryDto::from).collect())
     }
 
     /// Delete accounting entry
-    pub fn delete_entry(&self, id: &str) -> Result<bool, String> {
-        self.entry_repo.delete(id)
+    pub async fn delete_entry(&self, id: &str) -> Result<bool, String> {
+        self.entry_repo.delete(id).await
     }
 
     /// Get accounting summary for dashboard
-    pub fn get_summary(
+    pub async fn get_summary(
         &self,
         date_from: Option<&str>,
         date_to: Option<&str>,
@@ -109,7 +112,7 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
             (start, end)
         };
 
-        let entries = self.entry_repo.list(Some(&start_date), Some(&end_date), None)?;
+        let entries = self.entry_repo.list(Some(&start_date), Some(&end_date), None).await?;
 
         // Calculate totals
         let total_income: f64 = entries

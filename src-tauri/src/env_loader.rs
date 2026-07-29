@@ -2,8 +2,15 @@
 //!
 //! Provides a consistent way to load environment variables with optional defaults
 //! and production-vs-development mode handling.
+//!
+//! Loads `.env` file at startup via `dotenv` (ignored if `.env` is not present).
 
 use std::env;
+
+/// Load `.env` file if present (dev convenience, ignored in production).
+fn load_dotenv() {
+    let _ = dotenv::dotenv();
+}
 
 /// Environment error types
 #[derive(Debug, Clone)]
@@ -74,6 +81,33 @@ pub fn is_production() -> bool {
         Ok(val) => !val.is_empty() && val != default_identifier,
         Err(_) => false,
     }
+}
+
+/// Turso configuration loaded from environment variables.
+#[derive(Debug, Clone)]
+pub struct TursoConfig {
+    pub control_plane_db_url: String,
+    pub control_plane_db_token: String,
+    pub turso_api_token: String,
+    pub turso_org: String,
+    pub turso_group: String,
+}
+
+/// Load all Turso configuration from environment variables.
+///
+/// All four are required — the app cannot start without them
+/// because the control plane is a Turso database.
+///
+/// Before reading env vars, attempts to load `.env` from the project root.
+pub fn load_turso_config() -> Result<TursoConfig, EnvError> {
+    load_dotenv();
+    Ok(TursoConfig {
+        control_plane_db_url: get_env_var("CONTROL_PLANE_DB_URL", None)?,
+        control_plane_db_token: get_env_var("CONTROL_PLANE_DB_TOKEN", None)?,
+        turso_api_token: get_env_var("TURSO_API_TOKEN", None)?,
+        turso_org: get_env_var("TURSO_ORG", None)?,
+        turso_group: get_env_var("TURSO_GROUP", Some("default"))?,
+    })
 }
 
 #[cfg(test)]
