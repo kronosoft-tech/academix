@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::application::dto::UserDto;
 use crate::domain::entities::user::{Role, User};
+use crate::env_loader;
 use crate::infrastructure::password;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
@@ -26,6 +27,7 @@ pub struct AppState {
     pub control_plane: Option<Arc<ControlPlaneRepository>>,
     pub flush_timer_sender: Option<tokio::sync::oneshot::Sender<()>>,
     pub session: Arc<Mutex<CurrentSession>>,
+    pub turso_config: Option<env_loader::TursoConfig>,
 }
 
 /// Login request payload
@@ -55,10 +57,9 @@ pub async fn login(
     let password = request.password.clone();
 
     // Step 1: Get control plane reference
-    let cp = state
-        .control_plane
-        .clone()
-        .ok_or_else(|| "Turso not configured — set CONTROL_PLANE_DB_URL and CONTROL_PLANE_DB_TOKEN".to_string())?;
+    let cp = state.control_plane.clone().ok_or_else(|| {
+        "Turso not configured — set CONTROL_PLANE_DB_URL and CONTROL_PLANE_DB_TOKEN".to_string()
+    })?;
 
     // Step 2: Look up user's Turso DB mapping via control plane
     let _mapping = cp
@@ -97,24 +98,12 @@ pub async fn login(
         .map_err(|e| format!("Row fetch error: {}", e))?
         .ok_or_else(|| "Invalid credentials".to_string())?;
 
-    let user_id: String = user_row
-        .get(0)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    let user_email: String = user_row
-        .get(1)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    let password_hash: String = user_row
-        .get(2)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    let user_name: String = user_row
-        .get(3)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    let user_role: String = user_row
-        .get(4)
-        .map_err(|e| format!("Parse error: {}", e))?;
-    let is_active: i32 = user_row
-        .get(5)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let user_id: String = user_row.get(0).map_err(|e| format!("Parse error: {}", e))?;
+    let user_email: String = user_row.get(1).map_err(|e| format!("Parse error: {}", e))?;
+    let password_hash: String = user_row.get(2).map_err(|e| format!("Parse error: {}", e))?;
+    let user_name: String = user_row.get(3).map_err(|e| format!("Parse error: {}", e))?;
+    let user_role: String = user_row.get(4).map_err(|e| format!("Parse error: {}", e))?;
+    let is_active: i32 = user_row.get(5).map_err(|e| format!("Parse error: {}", e))?;
 
     // Step 6: Verify password
     if !password::verify_password(&password, &password_hash) {
@@ -134,10 +123,7 @@ pub async fn login(
 
     // Buffer session write in MemoryBuffer
     {
-        let mut buffer = state
-            .memory_buffer
-            .lock()
-            .await;
+        let mut buffer = state.memory_buffer.lock().await;
         let mut session_data = HashMap::new();
         session_data.insert("id".to_string(), session_id.clone());
         session_data.insert("user_id".to_string(), user_id.clone());
@@ -158,6 +144,7 @@ pub async fn login(
     {
         let mut sess = state.session.lock().await;
         sess.user_id = Some(user_id.clone());
+        println!("[LOGIN] Session user_id set to '{}'", user_id);
     }
 
     // Step 9: Return login response
@@ -266,7 +253,12 @@ pub async fn update_profile(
 
     conn.execute(
         "UPDATE users SET name = ?1, email = ?2, updated_at = ?3 WHERE id = ?4",
-        libsql::params![request.name.clone(), request.email.clone(), now, user.id.clone()],
+        libsql::params![
+            request.name.clone(),
+            request.email.clone(),
+            now,
+            user.id.clone()
+        ],
     )
     .await
     .map_err(|e| format!("Update failed: {}", e))?;
@@ -343,8 +335,7 @@ pub async fn change_password(
     }
 
     // Hash new password
-    let new_hash =
-        password::hash_password(&request.new_password).map_err(|e| e.to_string())?;
+    let new_hash = password::hash_password(&request.new_password).map_err(|e| e.to_string())?;
 
     let conn = db
         .connect()
@@ -372,18 +363,11 @@ fn user_from_row(row: libsql::Row) -> Result<User, String> {
         .map_err(|e| format!("Parse password_hash: {}", e))?;
     let name: String = row.get(3).map_err(|e| format!("Parse name: {}", e))?;
     let role_str: String = row.get(4).map_err(|e| format!("Parse role: {}", e))?;
-    let is_active: i32 = row
-        .get(5)
-        .map_err(|e| format!("Parse is_active: {}", e))?;
-    let created_at_str: String = row
-        .get(6)
-        .map_err(|e| format!("Parse created_at: {}", e))?;
-    let updated_at_str: String = row
-        .get(7)
-        .map_err(|e| format!("Parse updated_at: {}", e))?;
+    let is_active: i32 = row.get(5).map_err(|e| format!("Parse is_active: {}", e))?;
+    let created_at_str: String = row.get(6).map_err(|e| format!("Parse created_at: {}", e))?;
+    let updated_at_str: String = row.get(7).map_err(|e| format!("Parse updated_at: {}", e))?;
 
-    let role =
-        Role::from_str(&role_str).ok_or_else(|| format!("Invalid role: {}", role_str))?;
+    let role = Role::from_str(&role_str).ok_or_else(|| format!("Invalid role: {}", role_str))?;
     let created_at = DateTime::parse_from_rfc3339(&created_at_str)
         .map_err(|e| format!("Parse created_at: {}", e))?
         .with_timezone(&chrono::Utc);
@@ -468,9 +452,7 @@ pub async fn resolve_authenticated_user(
             .map_err(|e| format!("Session query error: {}", e))?;
 
         if let Some(row) = rows.next().await.map_err(|e| format!("Row error: {}", e))? {
-            let user_id: String = row
-                .get(0)
-                .map_err(|e| format!("Parse user_id: {}", e))?;
+            let user_id: String = row.get(0).map_err(|e| format!("Parse user_id: {}", e))?;
 
             // Found the session — now get the user
             let mut user_rows = libsql_conn
@@ -481,7 +463,11 @@ pub async fn resolve_authenticated_user(
                 .await
                 .map_err(|e| format!("User query error: {}", e))?;
 
-            if let Some(user_row) = user_rows.next().await.map_err(|e| format!("Row error: {}", e))? {
+            if let Some(user_row) = user_rows
+                .next()
+                .await
+                .map_err(|e| format!("Row error: {}", e))?
+            {
                 let user = user_from_row(user_row)?;
                 return Ok((user, Arc::clone(&cached.db)));
             }

@@ -28,7 +28,10 @@ pub async fn register_user(
     let cp: Option<Arc<ControlPlaneRepository>> = control_plane.inner().clone();
     let prov: Option<Arc<TursoProvisioningService>> = provisioning.inner().clone();
 
-    let use_case = RegisterUserUseCase::new(repository, cp, prov);
+    let group = state.turso_config.as_ref().map(|c| c.turso_group.clone()).unwrap_or_default();
+
+    let use_case = RegisterUserUseCase::new(repository, cp, prov)
+        .with_org(group);
 
     use_case
         .execute(request)
