@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::application::ports::AccountingEntryRepository;
 use crate::domain::entities::accounting::{AccountingCategory, AccountingEntry, EntryType};
+use crate::domain::errors::DomainError;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
 use crate::infrastructure::turso::session::CurrentSession;
@@ -87,6 +88,56 @@ impl MemoryBackedAccountingEntryRepository {
             created_at,
         })
     }
+
+    /// Convert a libsql::Row into a HashMap<String, String> for cache storage.
+    /// Column indices must match the SELECT statement order used in queries:
+    /// id(0), date(1), type(2), category(3), description(4), amount(5), reference(6), created_at(7)
+    fn row_to_hash_map(row: &libsql::Row) -> Result<HashMap<String, String>, DomainError> {
+        let mut map = HashMap::new();
+        map.insert(
+            "id".to_string(),
+            row.get::<String>(0)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "date".to_string(),
+            row.get::<String>(1)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "type".to_string(),
+            row.get::<String>(2)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "category".to_string(),
+            row.get::<String>(3)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "description".to_string(),
+            row.get::<String>(4)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "amount".to_string(),
+            row.get::<f64>(5)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .to_string(),
+        );
+        map.insert(
+            "reference".to_string(),
+            row.get::<Option<String>>(6)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .unwrap_or_default(),
+        );
+        map.insert(
+            "created_at".to_string(),
+            row.get::<String>(7)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        Ok(map)
+    }
 }
 
 #[async_trait]
@@ -118,6 +169,7 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
             .clone()
             .ok_or("Not authenticated")?;
 
+        // Check pending inserts/updates first
         {
             let buf = self.memory_buffer.lock().await;
             if let Some(op) = buf.find_pending_insert(&user_id, "accounting_entries", id) {
@@ -130,21 +182,45 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
                     return Self::entry_from_data(data).map(Some);
                 }
             }
+            if buf.has_pending_delete(&user_id, "accounting_entries", id) {
+                return Ok(None);
+            }
         }
 
-        let cm = self.connection_manager.lock().await;
-        let conn = cm
-            .get_connection(&user_id)
-            .ok_or("No connection".to_string())?;
-        let db = conn.db.clone();
-        let conn = db.connect().map_err(|e| e.to_string())?;
-        let sql = "SELECT id, date, type, category, description, amount, reference, created_at FROM accounting_entries WHERE id = ?1";
-        let mut rows = conn
-            .query(sql, libsql::params![id])
-            .await
-            .map_err(|e| e.to_string())?;
-        match rows.next().await.map_err(|e| e.to_string())? {
-            Some(row) => Self::row_to_entry(&row).map(Some),
+        // Check entity cache or query Turso
+        let row_data: Option<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_entity(&user_id, "accounting_entries", id) {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
+
+                let cm = self.connection_manager.lock().await;
+                let conn = cm
+                    .get_connection(&user_id)
+                    .ok_or("No connection".to_string())?;
+                let db = conn.db.clone();
+                drop(cm);
+                let conn = db.connect().map_err(|e| e.to_string())?;
+                let sql = "SELECT id, date, type, category, description, amount, reference, created_at FROM accounting_entries WHERE id = ?1";
+                let mut rows = conn
+                    .query(sql, libsql::params![id])
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let data = match rows.next().await.map_err(|e| e.to_string())? {
+                    Some(row) => Some(Self::row_to_hash_map(&row).map_err(|e| e.to_string())?),
+                    None => None,
+                };
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_entity(&user_id, "accounting_entries", id, data.clone());
+                data
+            }
+        };
+
+        match row_data {
+            Some(data) => Self::entry_from_data(&data).map(Some),
             None => Ok(None),
         }
     }
@@ -163,23 +239,46 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
             .clone()
             .ok_or("Not authenticated")?;
 
-        let cm = self.connection_manager.lock().await;
-        let conn = cm
-            .get_connection(&user_id)
-            .ok_or("No connection".to_string())?;
-        let db = conn.db.clone();
-        let conn = db.connect().map_err(|e| e.to_string())?;
-        let sql = "SELECT id, date, type, category, description, amount, reference, created_at FROM accounting_entries ORDER BY date";
-        let mut rows = conn
-            .query(sql, libsql::params![])
-            .await
-            .map_err(|e| e.to_string())?;
-        let mut results: Vec<AccountingEntry> = Vec::new();
-        while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
-            results.push(Self::row_to_entry(&row)?);
-        }
+        // Step 1: Check cache or query Turso
+        let base_rows: Vec<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_list(&user_id, "accounting_entries") {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
 
-        // Filter in-memory
+                let cm = self.connection_manager.lock().await;
+                let conn = cm
+                    .get_connection(&user_id)
+                    .ok_or("No connection".to_string())?;
+                let db = conn.db.clone();
+                drop(cm);
+                let conn = db.connect().map_err(|e| e.to_string())?;
+                let sql = "SELECT id, date, type, category, description, amount, reference, created_at FROM accounting_entries ORDER BY date";
+                let mut rows = conn
+                    .query(sql, libsql::params![])
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
+                while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
+                    raw_rows.push(Self::row_to_hash_map(&row).map_err(|e| e.to_string())?);
+                }
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_list(&user_id, "accounting_entries", raw_rows.clone());
+                raw_rows
+            }
+        };
+
+        // Step 2: Convert rows to domain entities
+        let mut results: Vec<AccountingEntry> = base_rows
+            .iter()
+            .map(|data| Self::entry_from_data(data))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Step 3: Filter in-memory
         if let Some(et) = entry_type {
             let et_str = et.as_str().to_string();
             results.retain(|e| e.entry_type.as_str() == et_str);
@@ -191,7 +290,7 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
             results.retain(|e| e.date.as_str() <= to);
         }
 
-        // Merge pending inserts
+        // Step 4: Merge pending inserts
         let buf = self.memory_buffer.lock().await;
         let pending_data: Vec<HashMap<String, String>> = buf
             .scan_pending_inserts(&user_id, "accounting_entries")
@@ -248,34 +347,5 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
 
     async fn get_next_reference(&self, _prefix: &str) -> Result<u32, String> {
         Ok(1)
-    }
-}
-
-impl MemoryBackedAccountingEntryRepository {
-    fn row_to_entry(row: &libsql::Row) -> Result<AccountingEntry, String> {
-        let id: String = row.get(0).map_err(|e| e.to_string())?;
-        let date: String = row.get(1).map_err(|e| e.to_string())?;
-        let entry_type_str: String = row.get(2).map_err(|e| e.to_string())?;
-        let category_str: String = row.get(3).map_err(|e| e.to_string())?;
-        let description: String = row.get(4).map_err(|e| e.to_string())?;
-        let amount: f64 = row.get(5).map_err(|e| e.to_string())?;
-        let reference: Option<String> = row.get(6).map_err(|e| e.to_string())?;
-        let created_at: String = row.get(7).map_err(|e| e.to_string())?;
-
-        let entry_type = EntryType::from_str(&entry_type_str)
-            .ok_or_else(|| format!("invalid entry type: {}", entry_type_str))?;
-        let category = AccountingCategory::from_str(&category_str, &entry_type)
-            .ok_or_else(|| format!("invalid category: {}", category_str))?;
-
-        Ok(AccountingEntry {
-            id,
-            date,
-            entry_type,
-            category,
-            description,
-            amount,
-            reference,
-            created_at,
-        })
     }
 }

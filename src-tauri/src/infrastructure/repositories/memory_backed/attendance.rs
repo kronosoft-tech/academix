@@ -109,6 +109,7 @@ impl AttendanceRepository for MemoryBackedAttendanceRepository {
             .clone()
             .ok_or_else(|| DomainError::Authentication("Not authenticated".to_string()))?;
 
+        // Check pending buffer writes first (existing behavior)
         {
             let buf = self.memory_buffer.lock().await;
             if let Some(op) = buf.find_pending_insert(&user_id, "attendance", id) {
@@ -130,25 +131,48 @@ impl AttendanceRepository for MemoryBackedAttendanceRepository {
             }
         }
 
-        let cm = self.connection_manager.lock().await;
-        let conn = cm
-            .get_connection(&user_id)
-            .ok_or_else(|| DomainError::Database("No connection".to_string()))?;
-        let db = conn.db.clone();
-        let conn = db
-            .connect()
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let sql = "SELECT id, student_id, group_id, date, status, notes, created_at FROM attendance WHERE id = ?1";
-        let mut rows = conn
-            .query(sql, libsql::params![id])
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        match rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            Some(row) => Self::row_to_attendance(&row).map(Some),
+        // Check entity cache or query Turso
+        let row_data: Option<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_entity(&user_id, "attendance", id) {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
+
+                let cm = self.connection_manager.lock().await;
+                let conn = cm
+                    .get_connection(&user_id)
+                    .ok_or_else(|| DomainError::Database("No connection".to_string()))?;
+                let db = conn.db.clone();
+                drop(cm);
+                let conn = db
+                    .connect()
+                    .map_err(|e| DomainError::Database(e.to_string()))?;
+                let sql = "SELECT id, student_id, group_id, date, status, notes, created_at FROM attendance WHERE id = ?1";
+                let mut rows = conn
+                    .query(sql, libsql::params![id])
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?;
+                let data = match rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    Some(row) => Some(Self::row_to_hash_map(&row)?),
+                    None => None,
+                };
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_entity(&user_id, "attendance", id, data.clone());
+                data
+            }
+        };
+
+        match row_data {
+            Some(data) => Self::attendance_from_data(&data)
+                .map_err(|e| DomainError::Database(e))
+                .map(Some),
             None => Ok(None),
         }
     }
@@ -217,44 +241,88 @@ impl AttendanceRepository for MemoryBackedAttendanceRepository {
             .clone()
             .ok_or_else(|| DomainError::Authentication("Not authenticated".to_string()))?;
 
-        let cm = self.connection_manager.lock().await;
-        let conn = cm
-            .get_connection(&user_id)
-            .ok_or_else(|| DomainError::Database("No connection".to_string()))?;
-        let db = conn.db.clone();
-        let conn = db
-            .connect()
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let sql = "SELECT id, student_id, group_id, date, status, notes, created_at FROM attendance ORDER BY date DESC";
-        let mut rows = conn
-            .query(sql, libsql::params![])
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let mut results: Vec<Attendance> = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            results.push(Self::row_to_attendance(&row)?);
+        // Step 1: Check cache or query Turso
+        let base_rows: Vec<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_list(&user_id, "attendance") {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
+
+                let cm = self.connection_manager.lock().await;
+                let conn = cm
+                    .get_connection(&user_id)
+                    .ok_or_else(|| DomainError::Database("No connection".to_string()))?;
+                let db = conn.db.clone();
+                drop(cm);
+                let conn = db
+                    .connect()
+                    .map_err(|e| DomainError::Database(e.to_string()))?;
+                let sql = "SELECT id, student_id, group_id, date, status, notes, created_at FROM attendance ORDER BY date DESC";
+                let mut rows = conn
+                    .query(sql, libsql::params![])
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?;
+
+                let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    raw_rows.push(Self::row_to_hash_map(&row)?);
+                }
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_list(&user_id, "attendance", raw_rows.clone());
+                raw_rows
+            }
+        };
+
+        // Step 2: Convert rows to domain entities
+        let mut results: Vec<Attendance> = base_rows
+            .iter()
+            .filter_map(|data| Self::attendance_from_data(data).ok())
+            .collect();
+
+        // Step 3: Merge with pending writes
+        let buf = self.memory_buffer.lock().await;
+
+        // Add pending inserts
+        let pending_inserts = buf.scan_pending_inserts(&user_id, "attendance");
+        for op in pending_inserts {
+            if let BufferedOperation::Insert { data, .. } = op {
+                if let Ok(attendance) = Self::attendance_from_data(data) {
+                    results.push(attendance);
+                }
+            }
         }
 
-        let buf = self.memory_buffer.lock().await;
-        let pending_data: Vec<HashMap<String, String>> = buf
-            .scan_pending_inserts(&user_id, "attendance")
-            .into_iter()
-            .filter_map(|op| {
-                if let BufferedOperation::Insert { data, .. } = op {
-                    Some(data.clone())
-                } else {
-                    None
+        // Apply pending updates
+        let pending_updates = buf.scan_pending_updates(&user_id, "attendance");
+        for op in &pending_updates {
+            if let BufferedOperation::Update {
+                id: update_id,
+                data,
+                ..
+            } = op
+            {
+                if let Ok(updated) = Self::attendance_from_data(data) {
+                    if let Some(pos) = results.iter().position(|a| a.id == *update_id) {
+                        results[pos] = updated;
+                    } else {
+                        results.push(updated);
+                    }
                 }
-            })
-            .collect();
-        drop(buf);
-        for data in pending_data {
-            if let Ok(attendance) = Self::attendance_from_data(&data) {
-                results.push(attendance);
+            }
+        }
+
+        // Remove pending deletes
+        let pending_deletes = buf.scan_pending_deletes(&user_id, "attendance");
+        for op in &pending_deletes {
+            if let BufferedOperation::Delete { id: del_id, .. } = op {
+                results.retain(|a| a.id != *del_id);
             }
         }
 
@@ -405,6 +473,50 @@ impl AttendanceRepository for MemoryBackedAttendanceRepository {
 }
 
 impl MemoryBackedAttendanceRepository {
+    /// Convert a libsql::Row into a HashMap<String, String> for cache storage.
+    /// Column indices must match the SELECT statement order used in queries.
+    fn row_to_hash_map(row: &libsql::Row) -> Result<HashMap<String, String>, DomainError> {
+        let mut map = HashMap::new();
+        map.insert(
+            "id".to_string(),
+            row.get::<String>(0)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "student_id".to_string(),
+            row.get::<String>(1)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "group_id".to_string(),
+            row.get::<String>(2)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "date".to_string(),
+            row.get::<String>(3)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "status".to_string(),
+            row.get::<String>(4)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        // notes is nullable
+        let notes: Option<String> = row
+            .get(5)
+            .map_err(|e| DomainError::Database(e.to_string()))?;
+        if let Some(ref n) = notes {
+            map.insert("notes".to_string(), n.clone());
+        }
+        map.insert(
+            "created_at".to_string(),
+            row.get::<String>(6)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        Ok(map)
+    }
+
     fn row_to_attendance(row: &libsql::Row) -> Result<Attendance, DomainError> {
         let id: String = row
             .get(0)

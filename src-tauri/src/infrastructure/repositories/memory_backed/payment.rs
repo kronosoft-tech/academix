@@ -38,62 +38,81 @@ impl MemoryBackedPaymentRepository {
         }
     }
 
-    fn row_to_payment(row: &libsql::Row) -> Result<Payment, DomainError> {
-        let due_date_str: Option<String> = row
-            .get(4)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let paid_at_str: Option<String> = row
-            .get(5)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let status_str: String = row
-            .get(6)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let method_str: String = row
-            .get(7)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let reference_str: Option<String> = row
-            .get(8)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let description_str: Option<String> = row
-            .get(9)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let payment_type_str: String = row.get(10).unwrap_or_else(|_| "tuition".to_string());
-        let created_str: String = row
-            .get(11)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-        let updated_str: String = row
-            .get(12)
-            .map_err(|e| DomainError::Database(e.to_string()))?;
-
-        Ok(Payment {
-            id: row
-                .get(0)
+    /// Convert a libsql::Row into a HashMap<String, String> for cache storage.
+    /// Column indices must match the SELECT statement order used in queries.
+    fn row_to_hash_map(row: &libsql::Row) -> Result<HashMap<String, String>, DomainError> {
+        let mut map = HashMap::new();
+        map.insert(
+            "id".to_string(),
+            row.get::<String>(0)
                 .map_err(|e| DomainError::Database(e.to_string()))?,
-            student_id: row
-                .get(1)
+        );
+        map.insert(
+            "student_id".to_string(),
+            row.get::<String>(1)
                 .map_err(|e| DomainError::Database(e.to_string()))?,
-            group_id: row
-                .get(2)
+        );
+        map.insert(
+            "group_id".to_string(),
+            row.get::<String>(2)
                 .map_err(|e| DomainError::Database(e.to_string()))?,
-            amount: row
-                .get(3)
+        );
+        map.insert(
+            "amount".to_string(),
+            row.get::<f64>(3)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .to_string(),
+        );
+        map.insert(
+            "due_date".to_string(),
+            row.get::<Option<String>>(4)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .unwrap_or_default(),
+        );
+        map.insert(
+            "paid_date".to_string(),
+            row.get::<Option<String>>(5)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .unwrap_or_default(),
+        );
+        map.insert(
+            "status".to_string(),
+            row.get::<String>(6)
                 .map_err(|e| DomainError::Database(e.to_string()))?,
-            method: PaymentMethod::from_str(&method_str).unwrap_or(PaymentMethod::Cash),
-            payment_type: PaymentType::from_str(&payment_type_str).unwrap_or(PaymentType::Tuition),
-            status: PaymentStatus::from_str(&status_str).unwrap_or(PaymentStatus::Pending),
-            due_date: due_date_str,
-            paid_at: paid_at_str
-                .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                .map(|dt| dt.with_timezone(&Utc)),
-            reference: reference_str,
-            description: description_str,
-            created_at: DateTime::parse_from_rfc3339(&created_str)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-            updated_at: DateTime::parse_from_rfc3339(&updated_str)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now()),
-        })
+        );
+        map.insert(
+            "method".to_string(),
+            row.get::<String>(7)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "reference".to_string(),
+            row.get::<Option<String>>(8)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .unwrap_or_default(),
+        );
+        map.insert(
+            "description".to_string(),
+            row.get::<Option<String>>(9)
+                .map_err(|e| DomainError::Database(e.to_string()))?
+                .unwrap_or_default(),
+        );
+        map.insert(
+            "payment_type".to_string(),
+            row.get::<String>(10)
+                .unwrap_or_else(|_| "tuition".to_string()),
+        );
+        map.insert(
+            "created_at".to_string(),
+            row.get::<String>(11)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        map.insert(
+            "updated_at".to_string(),
+            row.get::<String>(12)
+                .map_err(|e| DomainError::Database(e.to_string()))?,
+        );
+        Ok(map)
     }
 
     fn payment_from_data(data: &HashMap<String, String>) -> Result<Payment, DomainError> {
@@ -258,17 +277,37 @@ impl PaymentRepository for MemoryBackedPaymentRepository {
             }
         }
 
-        // Read from Turso
-        let sql = "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
-                          reference, description, payment_type, created_at, updated_at
-                   FROM payments WHERE id = ?1";
-        let mut rows = self.query_turso(&user_id, sql, libsql::params![id]).await?;
-        match rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            Some(row) => Ok(Some(Self::row_to_payment(&row)?)),
+        // Check entity cache or query Turso
+        let row_data: Option<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_entity(&user_id, "payments", id) {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
+
+                let sql =
+                    "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
+                                  reference, description, payment_type, created_at, updated_at
+                           FROM payments WHERE id = ?1";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![id]).await?;
+                let data = match rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    Some(row) => Some(Self::row_to_hash_map(&row)?),
+                    None => None,
+                };
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_entity(&user_id, "payments", id, data.clone());
+                data
+            }
+        };
+
+        match row_data {
+            Some(data) => Ok(Some(Self::payment_from_data(&data)?)),
             None => Ok(None),
         }
     }
@@ -276,24 +315,44 @@ impl PaymentRepository for MemoryBackedPaymentRepository {
     async fn find_by_student_id(&self, student_id: &str) -> Result<Vec<Payment>, DomainError> {
         let user_id = self.get_user_id().await?;
 
-        // Read from Turso
-        let sql = "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
-                          reference, description, payment_type, created_at, updated_at
-                   FROM payments WHERE student_id = ?1 ORDER BY created_at DESC";
-        let mut rows = self
-            .query_turso(&user_id, sql, libsql::params![student_id])
-            .await?;
+        // Step 1: Check cache or query Turso for ALL payments, then filter
+        let base_rows: Vec<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_list(&user_id, "payments") {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
 
-        let mut results: Vec<Payment> = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            results.push(Self::row_to_payment(&row)?);
-        }
+                let sql =
+                    "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
+                                  reference, description, payment_type, created_at, updated_at
+                           FROM payments ORDER BY created_at DESC";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
 
-        // Merge with pending operations
+                let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    raw_rows.push(Self::row_to_hash_map(&row)?);
+                }
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_list(&user_id, "payments", raw_rows.clone());
+                raw_rows
+            }
+        };
+
+        // Step 2: Filter by student_id and convert to domain entities
+        let mut results: Vec<Payment> = base_rows
+            .iter()
+            .filter(|data| data.get("student_id").map(|v| v.as_str()) == Some(student_id))
+            .map(|data| Self::payment_from_data(data))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Step 3: Merge with pending operations
         let buf = self.memory_buffer.lock().await;
 
         let pending_inserts = buf.scan_pending_inserts(&user_id, "payments");
@@ -335,24 +394,44 @@ impl PaymentRepository for MemoryBackedPaymentRepository {
     async fn find_by_group_id(&self, group_id: &str) -> Result<Vec<Payment>, DomainError> {
         let user_id = self.get_user_id().await?;
 
-        // Read from Turso
-        let sql = "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
-                          reference, description, payment_type, created_at, updated_at
-                   FROM payments WHERE group_id = ?1 ORDER BY created_at DESC";
-        let mut rows = self
-            .query_turso(&user_id, sql, libsql::params![group_id])
-            .await?;
+        // Step 1: Check cache or query Turso for ALL payments, then filter
+        let base_rows: Vec<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_list(&user_id, "payments") {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
 
-        let mut results: Vec<Payment> = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            results.push(Self::row_to_payment(&row)?);
-        }
+                let sql =
+                    "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
+                                  reference, description, payment_type, created_at, updated_at
+                           FROM payments ORDER BY created_at DESC";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
 
-        // Merge with pending operations
+                let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    raw_rows.push(Self::row_to_hash_map(&row)?);
+                }
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_list(&user_id, "payments", raw_rows.clone());
+                raw_rows
+            }
+        };
+
+        // Step 2: Filter by group_id and convert to domain entities
+        let mut results: Vec<Payment> = base_rows
+            .iter()
+            .filter(|data| data.get("group_id").map(|v| v.as_str()) == Some(group_id))
+            .map(|data| Self::payment_from_data(data))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Step 3: Merge with pending operations
         let buf = self.memory_buffer.lock().await;
 
         let pending_inserts = buf.scan_pending_inserts(&user_id, "payments");
@@ -466,22 +545,43 @@ impl PaymentRepository for MemoryBackedPaymentRepository {
     async fn find_all(&self) -> Result<Vec<Payment>, DomainError> {
         let user_id = self.get_user_id().await?;
 
-        // Read from Turso
-        let sql = "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
-                          reference, description, payment_type, created_at, updated_at
-                   FROM payments ORDER BY created_at DESC";
-        let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
+        // Step 1: Check cache or query Turso
+        let base_rows: Vec<HashMap<String, String>> = {
+            let buf = self.memory_buffer.lock().await;
+            if let Some(cached) = buf.get_cached_list(&user_id, "payments") {
+                cached.clone()
+            } else {
+                drop(buf); // Release lock before network call
 
-        let mut results: Vec<Payment> = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| DomainError::Database(e.to_string()))?
-        {
-            results.push(Self::row_to_payment(&row)?);
-        }
+                let sql =
+                    "SELECT id, student_id, group_id, amount, due_date, paid_date, status, method,
+                                  reference, description, payment_type, created_at, updated_at
+                           FROM payments ORDER BY created_at DESC";
+                let mut rows = self.query_turso(&user_id, sql, libsql::params![]).await?;
 
-        // Merge with pending operations
+                let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
+                while let Some(row) = rows
+                    .next()
+                    .await
+                    .map_err(|e| DomainError::Database(e.to_string()))?
+                {
+                    raw_rows.push(Self::row_to_hash_map(&row)?);
+                }
+
+                // Store in cache
+                let mut buf = self.memory_buffer.lock().await;
+                buf.set_cached_list(&user_id, "payments", raw_rows.clone());
+                raw_rows
+            }
+        };
+
+        // Step 2: Convert rows to domain entities
+        let mut results: Vec<Payment> = base_rows
+            .iter()
+            .map(|data| Self::payment_from_data(data))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Step 3: Merge with pending operations
         let buf = self.memory_buffer.lock().await;
 
         let pending_inserts = buf.scan_pending_inserts(&user_id, "payments");
