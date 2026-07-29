@@ -159,7 +159,7 @@ async fn flush_all(
                     } else {
                         // All ops succeeded — clear cache for this user
                         let mut buf = buffer.lock().await;
-                        buf.clear_cache(user_id);
+                        buf.clear_user_cache(user_id);
                     }
                 }
                 Err(e) => {

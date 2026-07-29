@@ -27,12 +27,25 @@ pub enum BufferedOperation {
     Delete { table: String, id: String },
 }
 
-/// Generic cached entity (serialized as JSON)
+/// Cached read result for a table query or entity lookup.
 #[derive(Debug, Clone)]
-pub struct CachedEntity {
-    pub id: String,
-    pub data: HashMap<String, String>,
+pub enum ReadCacheEntry {
+    /// Full-table list query result (e.g., find_all)
+    List(Vec<HashMap<String, String>>),
+    /// Single entity lookup result (e.g., find_by_id)
+    Entity(Option<HashMap<String, String>>),
 }
+
+/// Tables that support read caching.
+pub const CACHEABLE_TABLES: &[&str] = &[
+    "students",
+    "courses",
+    "groups_table",
+    "payments",
+    "attendance",
+    "accounting_entries",
+    "users",
+];
 
 /// Thread-safe in-memory write buffer.
 ///
@@ -43,8 +56,9 @@ pub struct CachedEntity {
 pub struct MemoryBuffer {
     /// Pending writes grouped by user_id
     pending_writes: HashMap<String, Vec<BufferedOperation>>,
-    /// Cached read results (user_id → entity_key → CachedEntity)
-    cached_entities: HashMap<String, HashMap<String, CachedEntity>>,
+    /// Read cache: user_id → cache_key → entry
+    /// cache_key format: "{table}" for lists, "{table}:{id}" for entities
+    read_cache: HashMap<String, HashMap<String, ReadCacheEntry>>,
     /// Timestamp of the last write operation
     last_write_at: Instant,
     /// Notify handle — signals the flush loop to wake immediately
@@ -56,7 +70,7 @@ impl MemoryBuffer {
     pub fn new() -> Self {
         Self {
             pending_writes: HashMap::new(),
-            cached_entities: HashMap::new(),
+            read_cache: HashMap::new(),
             last_write_at: Instant::now(),
             flush_notify: Arc::new(Notify::new()),
         }
@@ -70,6 +84,13 @@ impl MemoryBuffer {
     /// Buffer a write operation (create/update/delete).
     /// Immediately signals the background flush task to wake up.
     pub fn buffer_write(&mut self, user_id: &str, op: BufferedOperation) {
+        // Extract table name before pushing
+        let table = match &op {
+            BufferedOperation::Insert { table, .. } => table.clone(),
+            BufferedOperation::Update { table, .. } => table.clone(),
+            BufferedOperation::Delete { table, .. } => table.clone(),
+        };
+
         println!(
             "[BUFFER] Write for user='{}', op={}",
             user_id,
@@ -80,11 +101,16 @@ impl MemoryBuffer {
                 BufferedOperation::Delete { table, id } => format!("DELETE {} id={}", table, id),
             }
         );
+
         self.pending_writes
             .entry(user_id.to_string())
             .or_default()
             .push(op);
         self.last_write_at = Instant::now();
+
+        // Invalidate read cache for the affected table
+        self.invalidate_table_cache(user_id, &table);
+
         // Signal flush loop to wake immediately
         self.flush_notify.notify_one();
     }
@@ -127,33 +153,6 @@ impl MemoryBuffer {
         let mut combined = ops;
         combined.append(entry);
         *entry = combined;
-    }
-
-    /// Cache an entity for read-through.
-    pub fn cache_entity(&mut self, user_id: &str, key: &str, entity: CachedEntity) {
-        self.cached_entities
-            .entry(user_id.to_string())
-            .or_default()
-            .insert(key.to_string(), entity);
-    }
-
-    /// Get a cached entity by user_id and key.
-    pub fn get_cached(&self, user_id: &str, key: &str) -> Option<&CachedEntity> {
-        self.cached_entities
-            .get(user_id)
-            .and_then(|entities| entities.get(key))
-    }
-
-    /// Clear all cached entities for a user (after flush).
-    pub fn clear_cache(&mut self, user_id: &str) {
-        if let Some(entities) = self.cached_entities.get_mut(user_id) {
-            entities.clear();
-        }
-    }
-
-    /// Clear all cached entities (after full flush).
-    pub fn clear_all_caches(&mut self) {
-        self.cached_entities.clear();
     }
 
     /// Total number of pending operations across all users.
@@ -273,6 +272,102 @@ impl MemoryBuffer {
                 .collect()
         })
     }
+
+    /// Get cached list result for a table.
+    /// Returns None on cache miss.
+    pub fn get_cached_list(
+        &self,
+        user_id: &str,
+        table: &str,
+    ) -> Option<&Vec<HashMap<String, String>>> {
+        if !CACHEABLE_TABLES.contains(&table) {
+            return None;
+        }
+        self.read_cache
+            .get(user_id)
+            .and_then(|entries| entries.get(table))
+            .and_then(|entry| match entry {
+                ReadCacheEntry::List(data) => Some(data),
+                _ => None,
+            })
+    }
+
+    /// Store a list result in the cache.
+    pub fn set_cached_list(
+        &mut self,
+        user_id: &str,
+        table: &str,
+        data: Vec<HashMap<String, String>>,
+    ) {
+        if !CACHEABLE_TABLES.contains(&table) {
+            return;
+        }
+        self.read_cache
+            .entry(user_id.to_string())
+            .or_default()
+            .insert(table.to_string(), ReadCacheEntry::List(data));
+    }
+
+    /// Get a cached single-entity lookup result.
+    /// Returns None on cache miss.
+    pub fn get_cached_entity(
+        &self,
+        user_id: &str,
+        table: &str,
+        id: &str,
+    ) -> Option<&Option<HashMap<String, String>>> {
+        if !CACHEABLE_TABLES.contains(&table) {
+            return None;
+        }
+        let key = format!("{}:{}", table, id);
+        self.read_cache
+            .get(user_id)
+            .and_then(|entries| entries.get(&key))
+            .and_then(|entry| match entry {
+                ReadCacheEntry::Entity(data) => Some(data),
+                _ => None,
+            })
+    }
+
+    /// Store a single-entity lookup result in the cache.
+    pub fn set_cached_entity(
+        &mut self,
+        user_id: &str,
+        table: &str,
+        id: &str,
+        data: Option<HashMap<String, String>>,
+    ) {
+        if !CACHEABLE_TABLES.contains(&table) {
+            return;
+        }
+        let key = format!("{}:{}", table, id);
+        self.read_cache
+            .entry(user_id.to_string())
+            .or_default()
+            .insert(key, ReadCacheEntry::Entity(data));
+    }
+
+    /// Invalidate all cached entries for a specific table.
+    /// Called inside `buffer_write` after pushing the operation.
+    pub fn invalidate_table_cache(&mut self, user_id: &str, table: &str) {
+        if let Some(entries) = self.read_cache.get_mut(user_id) {
+            // Remove the list entry for this table
+            entries.remove(table);
+            // Remove all entity entries for this table (keys starting with "{table}:")
+            let prefix = format!("{}:", table);
+            entries.retain(|key, _| !key.starts_with(&prefix));
+        }
+    }
+
+    /// Clear all read cache entries for a user (on session end/disconnect).
+    pub fn clear_user_cache(&mut self, user_id: &str) {
+        self.read_cache.remove(user_id);
+    }
+
+    /// Clear all read cache entries (on full reset).
+    pub fn clear_all_read_cache(&mut self) {
+        self.read_cache.clear();
+    }
 }
 
 impl Default for MemoryBuffer {
@@ -366,35 +461,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cache_entity_and_retrieve() {
-        let mut buffer = MemoryBuffer::new();
-        let entity = CachedEntity {
-            id: "u1".to_string(),
-            data: HashMap::from([("name".to_string(), "Alice".to_string())]),
-        };
-
-        buffer.cache_entity("user-1", "profile", entity.clone());
-        let cached = buffer.get_cached("user-1", "profile");
-        assert!(cached.is_some());
-        assert_eq!(cached.unwrap().id, "u1");
-    }
-
-    #[test]
-    fn test_clear_cache() {
-        let mut buffer = MemoryBuffer::new();
-        let entity = CachedEntity {
-            id: "u1".to_string(),
-            data: HashMap::new(),
-        };
-
-        buffer.cache_entity("user-1", "key1", entity);
-        assert!(buffer.get_cached("user-1", "key1").is_some());
-
-        buffer.clear_cache("user-1");
-        assert!(buffer.get_cached("user-1", "key1").is_none());
-    }
-
-    #[test]
     fn test_write_resets_timer() {
         let mut buffer = MemoryBuffer::new();
         std::thread::sleep(std::time::Duration::from_millis(10));
@@ -410,5 +476,114 @@ mod tests {
 
         let after = buffer.idle_duration();
         assert!(after < before);
+    }
+
+    #[test]
+    fn test_set_and_get_cached_list() {
+        let mut buf = MemoryBuffer::new();
+        let data = vec![{
+            let mut m = HashMap::new();
+            m.insert("id".to_string(), "1".to_string());
+            m.insert("name".to_string(), "Test".to_string());
+            m
+        }];
+        buf.set_cached_list("user1", "students", data.clone());
+        let cached = buf.get_cached_list("user1", "students");
+        assert_eq!(cached, Some(&data));
+    }
+
+    #[test]
+    fn test_set_and_get_cached_entity() {
+        let mut buf = MemoryBuffer::new();
+        let mut entity = HashMap::new();
+        entity.insert("id".to_string(), "abc".to_string());
+        buf.set_cached_entity("user1", "students", "abc", Some(entity.clone()));
+        let cached = buf.get_cached_entity("user1", "students", "abc");
+        assert_eq!(cached, Some(&Some(entity)));
+    }
+
+    #[test]
+    fn test_cache_miss_returns_none() {
+        let buf = MemoryBuffer::new();
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+        assert_eq!(buf.get_cached_entity("user1", "students", "123"), None);
+    }
+
+    #[test]
+    fn test_invalidate_table_clears_list_and_entities() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "students", vec![HashMap::new()]);
+        buf.set_cached_entity("user1", "students", "id1", Some(HashMap::new()));
+        buf.set_cached_entity("user1", "students", "id2", Some(HashMap::new()));
+
+        buf.invalidate_table_cache("user1", "students");
+
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+        assert_eq!(buf.get_cached_entity("user1", "students", "id1"), None);
+        assert_eq!(buf.get_cached_entity("user1", "students", "id2"), None);
+    }
+
+    #[test]
+    fn test_invalidate_preserves_other_tables() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "students", vec![HashMap::new()]);
+        buf.set_cached_list("user1", "courses", vec![HashMap::new()]);
+
+        buf.invalidate_table_cache("user1", "students");
+
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+        assert!(buf.get_cached_list("user1", "courses").is_some());
+    }
+
+    #[test]
+    fn test_buffer_write_invalidates_cache() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "students", vec![HashMap::new()]);
+
+        let mut data = HashMap::new();
+        data.insert("id".to_string(), "new-id".to_string());
+        buf.buffer_write(
+            "user1",
+            BufferedOperation::Insert {
+                table: "students".to_string(),
+                data,
+            },
+        );
+
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+    }
+
+    #[test]
+    fn test_non_cacheable_table_bypasses_cache() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "sessions", vec![HashMap::new()]);
+        assert_eq!(buf.get_cached_list("user1", "sessions"), None);
+
+        buf.set_cached_entity("user1", "sessions", "id1", Some(HashMap::new()));
+        assert_eq!(buf.get_cached_entity("user1", "sessions", "id1"), None);
+    }
+
+    #[test]
+    fn test_clear_user_cache() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "students", vec![HashMap::new()]);
+        buf.set_cached_list("user2", "students", vec![HashMap::new()]);
+
+        buf.clear_user_cache("user1");
+
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+        assert!(buf.get_cached_list("user2", "students").is_some());
+    }
+
+    #[test]
+    fn test_clear_all_read_cache() {
+        let mut buf = MemoryBuffer::new();
+        buf.set_cached_list("user1", "students", vec![HashMap::new()]);
+        buf.set_cached_list("user2", "courses", vec![HashMap::new()]);
+
+        buf.clear_all_read_cache();
+
+        assert_eq!(buf.get_cached_list("user1", "students"), None);
+        assert_eq!(buf.get_cached_list("user2", "courses"), None);
     }
 }
