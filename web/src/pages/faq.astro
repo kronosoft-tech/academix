@@ -1,0 +1,45 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export const prerender = true;
+
+const faqEntries = await getCollection('faq');
+const sorted = faqEntries.sort((a, b) => a.data.order - b.data.order);
+
+const rendered = await Promise.all(
+  sorted.map(async (entry) => {
+    const { Content } = await render(entry);
+    return { entry, Content };
+  })
+);
+---
+
+<Base title="Preguntas Frecuentes">
+  <section class="py-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-center mb-12">Preguntas Frecuentes</h1>
+      <div class="space-y-4">
+        {rendered.map(({ entry, Content }) => (
+          <details class="group rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+            <summary class="flex items-center justify-between cursor-pointer px-6 py-4 text-left font-medium text-white hover:bg-slate-800 transition-colors">
+              <span>{entry.data.question}</span>
+              <svg
+                class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform shrink-0 ml-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </summary>
+            <div class="px-6 pb-4 text-slate-300 text-sm prose prose-invert prose-sm max-w-none">
+              <Content />
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>

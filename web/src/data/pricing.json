@@ -1,0 +1,6 @@
+[
+  { "country_code": "CO", "currency_code": "COP", "symbol": "$", "display_name": "Colombia", "rate": 4150, "prices": { "basic": 83000, "pro": 124500, "premium": 249000 } },
+  { "country_code": "MX", "currency_code": "MXN", "symbol": "$", "display_name": "México", "rate": 17.5, "prices": { "basic": 350, "pro": 525, "premium": 1050 } },
+  { "country_code": "CL", "currency_code": "CLP", "symbol": "$", "display_name": "Chile", "rate": 950, "prices": { "basic": 19000, "pro": 28500, "premium": 57000 } },
+  { "country_code": "AR", "currency_code": "ARS", "symbol": "$", "display_name": "Argentina", "rate": 1050, "prices": { "basic": 21000, "pro": 31500, "premium": 63000 } }
+]

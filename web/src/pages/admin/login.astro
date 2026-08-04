@@ -1,0 +1,68 @@
+---
+export const prerender = false;
+
+import Base from "../../layouts/Base.astro";
+import { actions } from "astro:actions";
+
+const result = Astro.getActionResult(actions.adminLogin);
+if (result && !result.error) {
+  return Astro.redirect("/admin");
+}
+---
+
+<Base title="Admin - Iniciar Sesión">
+  <div class="flex items-center justify-center min-h-[calc(100vh-12rem)] px-4">
+    <div class="w-full max-w-md">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8">
+        <div class="flex items-center gap-2 mb-6">
+          <div class="w-2 h-2 rounded-full bg-red-500"></div>
+          <h1 class="text-2xl font-bold text-white">Panel Interno</h1>
+        </div>
+        <p class="text-slate-400 mb-6">Acceso exclusivo para equipo Academix</p>
+
+        {result?.error && (
+          <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {result.error.message}
+          </div>
+        )}
+
+        <form method="POST" action={actions.adminLogin} class="space-y-4">
+          <div>
+            <label for="email" class="block text-sm font-medium text-slate-300 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="admin@academix.dev"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-300 mb-1">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors"
+          >
+            Ingresar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</Base>
