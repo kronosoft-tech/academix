@@ -1,0 +1,602 @@
+{
+  "pbtResults": {
+    "2.3 Write property tests for SemVer comparison": {
+      "status": "passed",
+      "lastRunTimestamp": 1785873935094
+    },
+    "2.5 Write property tests for platform key construction": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874078013
+    },
+    "2.6 Write property tests for platform matching": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874097747
+    },
+    "2.7 Write property tests for URL validation": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874116761
+    },
+    "2.4 Write property tests for manifest parsing": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874176428
+    },
+    "2.10 Write property tests for HTTPS-only enforcement": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874574246
+    },
+    "2.9 Write property tests for check interval validation": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874589310
+    },
+    "2.8 Write property tests for release notes truncation": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874782047
+    },
+    "2.11 Write property tests for public key validation": {
+      "status": "passed",
+      "lastRunTimestamp": 1785874885741
+    },
+    "5.2 Write property test for dismissed version suppression": {
+      "status": "passed",
+      "lastRunTimestamp": 1785875272634
+    },
+    "5.4 Write property test for retry backoff timing": {
+      "status": "passed",
+      "lastRunTimestamp": 1785875445585
+    }
+  },
+  "executionHistory": {
+    "1.1 Add `tauri-plugin-updater` to Rust dependencies and register the plugin": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681238
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872692485
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872947959
+      }
+    ],
+    "1.2 Configure updater in `tauri.conf.json`": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681358
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872693087
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872948542
+      }
+    ],
+    "1.3 Install frontend dependencies": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681466
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872693889
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872949239
+      }
+    ],
+    "2.1 Create TypeScript types and interfaces": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681519
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872958410
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873018072
+      }
+    ],
+    "2.2 Implement validation utility functions": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681587
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873023401
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873766770
+      }
+    ],
+    "2.3 Write property tests for SemVer comparison": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681637
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873774062
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874192708
+      }
+    ],
+    "2.4 Write property tests for manifest parsing": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681687
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873774744
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874193477
+      }
+    ],
+    "2.5 Write property tests for platform key construction": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681738
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873775529
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874194232
+      }
+    ],
+    "2.6 Write property tests for platform matching": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681781
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873776903
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874195181
+      }
+    ],
+    "2.7 Write property tests for URL validation": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681822
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873778142
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874195859
+      }
+    ],
+    "2.8 Write property tests for release notes truncation": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681876
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874201609
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874899807
+      }
+    ],
+    "2.9 Write property tests for check interval validation": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681910
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874202329
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874900252
+      }
+    ],
+    "2.10 Write property tests for HTTPS-only enforcement": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681955
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874202969
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874900961
+      }
+    ],
+    "2.11 Write property tests for public key validation": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872681994
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874203696
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874901753
+      }
+    ],
+    "3. Checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682037
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874916084
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874970290
+      }
+    ],
+    "4.1 Create Tauri IPC commands for the updater": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682077
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873024279
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873768160
+      }
+    ],
+    "4.2 Implement update scheduler infrastructure": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682145
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873025010
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785873768561
+      }
+    ],
+    "4.3 Wire the scheduler into application startup": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682189
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874204517
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874902737
+      }
+    ],
+    "5.1 Create the Zustand updater store": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682240
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874976045
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875161885
+      }
+    ],
+    "5.2 Write property test for dismissed version suppression": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682291
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875167082
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875294833
+      }
+    ],
+    "5.3 Create the `useUpdater` hook": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682327
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875168138
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875295777
+      }
+    ],
+    "5.4 Write property test for retry backoff timing": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682376
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875301776
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875457714
+      }
+    ],
+    "6. Checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682425
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877604345
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785878139227
+      }
+    ],
+    "7.1 Create the `DownloadProgress` component": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682475
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875302501
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875458398
+      }
+    ],
+    "7.2 Create the `UpdateNotification` component": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682510
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875463148
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785876089600
+      }
+    ],
+    "7.3 Create feature barrel export and integrate into app layout": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682557
+      },
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785876095372
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877599063
+      }
+    ],
+    "8. Checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682594
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877609385
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785878139950
+      }
+    ],
+    "9.1 Write unit tests for UpdateNotification component": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682681
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877615743
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877746312
+      }
+    ],
+    "9.2 Write unit tests for Zustand store transitions": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682756
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877616733
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877747012
+      }
+    ],
+    "10. Final checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872682808
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877752510
+      },
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785878134346
+      }
+    ],
+    "1. Configure Tauri updater plugin and project dependencies": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785872949292
+      }
+    ],
+    "2. Implement core validation utilities and types": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874901818
+      }
+    ],
+    "4. Implement Rust backend: commands and scheduler": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785874902802
+      }
+    ],
+    "5. Implement frontend: Zustand store and event handling": [
+      {
+        "executionId": "3cfa06b2-4fa3-4f15-b416-ddffa8c90410",
+        "chatSessionId": "sess_eeac5846-ab42-42f5-8c1c-bc54bd429f19",
+        "timestamp": 1785875457756
+      }
+    ],
+    "7. Implement frontend: UI components": [
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877599332
+      }
+    ],
+    "9. Write unit tests for UI components and store": [
+      {
+        "executionId": "6a0f1cc5-e41d-434b-ab88-b73bb779f008",
+        "chatSessionId": "sess_90983ae0-c67b-4bf8-a2ba-0806999e074f",
+        "timestamp": 1785877747056
+      }
+    ]
+  }
+}

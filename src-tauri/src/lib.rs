@@ -43,6 +43,7 @@ use commands::settings::{get_absence_threshold, set_absence_threshold};
 use commands::students::{
     create_student, delete_student, get_student, list_students, update_student,
 };
+use commands::updater::{check_for_update, get_update_check_interval, set_update_check_interval};
 use commands::users::{
     create_user, delete_user, get_user, list_users, list_users_by_role, update_user,
 };
@@ -595,6 +596,7 @@ pub async fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // Register Turso AppState (required for auth commands)
         .manage(turso_state)
         // Register old service states for backward compatibility
@@ -611,6 +613,12 @@ pub async fn run() {
         // Register optional Turso services (None when not configured)
         .manage(control_plane)
         .manage(provisioning_service)
+        // Spawn update scheduler on app startup
+        .setup(|app| {
+            let handle = app.handle().clone();
+            infrastructure::updater::UpdateScheduler::start(handle, 4);
+            Ok(())
+        })
         // Register all command handlers
         .invoke_handler(tauri::generate_handler![
             // Health check
@@ -689,6 +697,10 @@ pub async fn run() {
             set_absence_threshold,
             // Admin commands (superadmin)
             list_client_databases,
+            // Updater commands
+            check_for_update,
+            get_update_check_interval,
+            set_update_check_interval,
         ]);
 
     builder
