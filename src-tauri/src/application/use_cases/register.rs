@@ -204,6 +204,28 @@ impl<R: UserRepository> RegisterUserUseCase<R> {
                 eprintln!("[TURSO] Failed to save user DB mapping (non-fatal): {}", e);
             }
 
+            // Save user credentials to control plane users table (for web login)
+            {
+                use crate::infrastructure::turso::control_plane::UserRow;
+                let now_cp = chrono::Utc::now().to_rfc3339();
+                let user_row = UserRow {
+                    id: user_id.clone(),
+                    email: email_str.clone(),
+                    password_hash: password_hash.clone(),
+                    name: name.clone(),
+                    role: "user".to_string(),
+                    is_active: true,
+                    created_at: now_cp.clone(),
+                    updated_at: now_cp,
+                };
+                if let Err(e) = cp.save_user(&user_row).await {
+                    eprintln!(
+                        "[TURSO] Failed to save user to control plane (non-fatal): {}",
+                        e
+                    );
+                }
+            }
+
             // Register the connection in ConnectionManager so login can find it
             // The ConnectionManager is not available here (it's owned by AppState),
             // but login will resolve via control plane → init_connection lazily.
