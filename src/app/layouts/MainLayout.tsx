@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../../shared/hooks/useAuth";
+import { UpdateNotification } from "../../features/updater";
 import DashboardPage from "../../features/dashboard/routes/DashboardPage";
 import StudentsPage from "../../features/students/routes/StudentsPage";
 import CoursesPage from "../../features/courses/routes/CoursesPage";
@@ -143,6 +144,7 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      <UpdateNotification />
       <div className="flex">
         <aside className="w-64 bg-background border-r border-foreground/20 fixed inset-y-0 left-0">
           <div className="h-16 flex items-center px-6 border-b border-foreground/20">

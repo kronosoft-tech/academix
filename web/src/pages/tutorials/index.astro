@@ -1,0 +1,54 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+export const prerender = true;
+
+const tutorials = await getCollection('tutorials');
+const sorted = tutorials.sort((a, b) => a.data.order - b.data.order);
+
+const downloadTutorials = sorted.filter((t) => t.data.type === 'download');
+const usageTutorials = sorted.filter((t) => t.data.type === 'usage');
+---
+
+<Base title="Tutoriales">
+  <section class="py-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-center mb-12">Tutoriales</h1>
+
+      {downloadTutorials.length > 0 && (
+        <div class="mb-12">
+          <h2 class="text-xl font-semibold text-emerald-400 mb-6">Instalación</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {downloadTutorials.map((tutorial) => (
+              <a
+                href={`/tutorials/${tutorial.id}`}
+                class="block p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors"
+              >
+                <h3 class="font-medium text-white mb-1">{tutorial.data.title}</h3>
+                <p class="text-sm text-slate-400">{tutorial.data.description}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {usageTutorials.length > 0 && (
+        <div>
+          <h2 class="text-xl font-semibold text-emerald-400 mb-6">Uso</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {usageTutorials.map((tutorial) => (
+              <a
+                href={`/tutorials/${tutorial.id}`}
+                class="block p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors"
+              >
+                <h3 class="font-medium text-white mb-1">{tutorial.data.title}</h3>
+                <p class="text-sm text-slate-400">{tutorial.data.description}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+</Base>

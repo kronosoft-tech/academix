@@ -7,5 +7,6 @@ pub mod local_db;
 pub mod password;
 pub mod repositories;
 pub mod turso;
+pub mod updater;
 
 pub use repositories::*;

@@ -1,0 +1,89 @@
+---
+export const prerender = false;
+
+import Base from "../../layouts/Base.astro";
+import { actions } from "astro:actions";
+
+const result = Astro.getActionResult(actions.register);
+if (result && !result.error) {
+  return Astro.redirect("/dashboard");
+}
+---
+
+<Base title="Crear Cuenta">
+  <div class="flex items-center justify-center min-h-[calc(100vh-12rem)] px-4">
+    <div class="w-full max-w-md">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8">
+        <h1 class="text-2xl font-bold text-white mb-2">Crear Cuenta</h1>
+        <p class="text-slate-400 mb-6">Regístrate para gestionar tu academia</p>
+
+        {result?.error && (
+          <div class="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {result.error.message}
+          </div>
+        )}
+
+        <form method="POST" action={actions.register} class="space-y-4">
+          <div>
+            <label for="name" class="block text-sm font-medium text-slate-300 mb-1">
+              Nombre completo
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Juan Pérez"
+            />
+          </div>
+
+          <div>
+            <label for="email" class="block text-sm font-medium text-slate-300 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="tu@email.com"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-300 mb-1">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              required
+              minlength="8"
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Mínimo 8 caracteres"
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors"
+          >
+            Crear cuenta
+          </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-slate-400">
+          <p>
+            ¿Ya tienes cuenta?{" "}
+            <a href="/auth/login" class="text-emerald-400 hover:text-emerald-300">
+              Iniciar sesión
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</Base>

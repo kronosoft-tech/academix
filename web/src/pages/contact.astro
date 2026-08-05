@@ -1,0 +1,87 @@
+---
+import Base from '../layouts/Base.astro';
+import { actions } from 'astro:actions';
+
+export const prerender = false;
+
+const result = Astro.getActionResult(actions.contact);
+const success = result && !result.error;
+const inputError = result?.error?.type === 'AstroActionInputError' ? result.error : null;
+---
+
+<Base title="Contacto">
+  <section class="py-20">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-center mb-4">Contacto</h1>
+      <p class="text-slate-300 text-center mb-10">¿Tienes alguna pregunta? Escríbenos y te responderemos lo antes posible.</p>
+
+      {success && (
+        <div class="mb-8 p-4 rounded-lg bg-emerald-900/50 border border-emerald-700 text-emerald-300 text-sm" role="alert">
+          Mensaje enviado correctamente. Te responderemos pronto.
+        </div>
+      )}
+
+      {result?.error && !inputError && (
+        <div class="mb-8 p-4 rounded-lg bg-red-900/50 border border-red-700 text-red-300 text-sm" role="alert">
+          Ocurrió un error al enviar el mensaje. Intenta de nuevo más tarde.
+        </div>
+      )}
+
+      <form method="POST" action={actions.contact} class="space-y-6">
+        <div>
+          <label for="name" class="block text-sm font-medium text-slate-200 mb-2">Nombre</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            minlength="2"
+            class="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            placeholder="Tu nombre"
+          />
+          {inputError?.fields?.name && (
+            <p class="mt-1 text-sm text-red-400">{inputError.fields.name.join(', ')}</p>
+          )}
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-medium text-slate-200 mb-2">Email</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            class="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            placeholder="tu@email.com"
+          />
+          {inputError?.fields?.email && (
+            <p class="mt-1 text-sm text-red-400">{inputError.fields.email.join(', ')}</p>
+          )}
+        </div>
+
+        <div>
+          <label for="message" class="block text-sm font-medium text-slate-200 mb-2">Mensaje</label>
+          <textarea
+            id="message"
+            name="message"
+            required
+            minlength="10"
+            rows="5"
+            class="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-y"
+            placeholder="Escribe tu mensaje aquí..."
+          ></textarea>
+          {inputError?.fields?.message && (
+            <p class="mt-1 text-sm text-red-400">{inputError.fields.message.join(', ')}</p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          class="w-full px-6 py-3 text-base font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-950"
+        >
+          Enviar Mensaje
+        </button>
+      </form>
+    </div>
+  </section>
+</Base>

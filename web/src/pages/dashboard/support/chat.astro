@@ -1,0 +1,17 @@
+---
+export const prerender = false;
+
+import Dashboard from "../../../layouts/Dashboard.astro";
+import AIChat from "../../../components/AIChat.tsx";
+---
+
+<Dashboard title="Chat IA">
+  <div class="max-w-3xl">
+    <h1 class="text-2xl font-bold text-white mb-2">Asistencia Técnica con IA</h1>
+    <p class="text-slate-400 mb-6 text-sm">
+      Pregunta sobre problemas técnicos, descarga, instalación o uso de Academix. Si el chat no está disponible, puedes{" "}
+      <a href="/dashboard/support/new" class="text-emerald-400 hover:underline">crear un ticket de soporte</a>.
+    </p>
+    <AIChat client:load />
+  </div>
+</Dashboard>
