@@ -7,6 +7,9 @@ export interface CustomerJwtPayload {
   email: string;
   role: string;
   type: 'customer';
+  dbUrl: string;
+  dbToken: string;
+  academyName: string;
   iat: number;
   exp: number;
 }

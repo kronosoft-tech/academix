@@ -27,6 +27,9 @@ describe('Auth Library', () => {
         email: 'customer@test.com',
         role: 'Admin',
         type: 'customer' as const,
+        dbUrl: 'libsql://test-db.turso.io',
+        dbToken: 'test-token',
+        academyName: 'Test Academy',
       };
 
       const token = await signToken(payload);
@@ -66,6 +69,9 @@ describe('Auth Library', () => {
         email: 'c@test.com',
         role: 'Gerente',
         type: 'customer' as const,
+        dbUrl: 'libsql://test.turso.io',
+        dbToken: 'tok',
+        academyName: 'Test',
       });
 
       const adminToken = await signToken({
@@ -93,6 +99,9 @@ describe('Auth Library', () => {
         email: 'test@test.com',
         role: 'Admin',
         type: 'customer' as const,
+        dbUrl: 'libsql://test.turso.io',
+        dbToken: 'tok',
+        academyName: 'Test',
       });
 
       // Tamper with the token payload
@@ -109,6 +118,9 @@ describe('Auth Library', () => {
         email: 'test@test.com',
         role: 'Admin',
         type: 'customer' as const,
+        dbUrl: 'libsql://test.turso.io',
+        dbToken: 'tok',
+        academyName: 'Test',
       });
 
       const payload = await verifyToken(token);
