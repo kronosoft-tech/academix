@@ -3,7 +3,6 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { verifyWebhookSignature, normalizeEvent } from '../../../lib/payments/stripe';
 import {
-  createTrialSubscription,
   activateSubscription,
   startGracePeriod,
   cancelSubscription,
@@ -39,8 +38,21 @@ export const POST: APIRoute = async ({ request }) => {
       const userId = normalized.data.userId;
       const stripeSubId = normalized.data.subscriptionId;
       if (userId && stripeSubId) {
-        await createTrialSubscription(userId, 'basic', stripeSubId);
-        await recordPayment(userId, null, 0, 'usd', 'succeeded', 'stripe', stripeSubId);
+        // Link the Stripe subscription to the user's existing trial subscription
+        await db.execute({
+          sql: `UPDATE subscriptions
+                SET stripe_subscription_id = ?, provider = 'stripe',
+                    provider_subscription_id = ?, provider_customer_id = ?,
+                    status = 'active', updated_at = ?
+                WHERE user_id = ? AND status = 'trial'`,
+          args: [
+            stripeSubId,
+            stripeSubId,
+            normalized.data.customerId || null,
+            new Date().toISOString(),
+            userId,
+          ],
+        });
       }
       break;
     }
@@ -49,6 +61,9 @@ export const POST: APIRoute = async ({ request }) => {
       const sub = await findSubscriptionByStripeId(normalized.data.subscriptionId || '');
       if (sub) {
         await activateSubscription(sub.id);
+        const providerPaymentId = normalized.data.invoiceId || null;
+        // Idempotency: skip if this payment was already recorded
+        if (providerPaymentId && (await paymentExists(providerPaymentId))) break;
         await recordPayment(
           sub.user_id,
           sub.id,
@@ -56,7 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
           normalized.data.currency || 'usd',
           'succeeded',
           'stripe',
-          normalized.data.invoiceId || null
+          providerPaymentId
         );
       }
       break;
@@ -66,6 +81,8 @@ export const POST: APIRoute = async ({ request }) => {
       const sub = await findSubscriptionByStripeId(normalized.data.subscriptionId || '');
       if (sub) {
         await startGracePeriod(sub.id);
+        const providerPaymentId = normalized.data.invoiceId || null;
+        if (providerPaymentId && (await paymentExists(providerPaymentId))) break;
         await recordPayment(
           sub.user_id,
           sub.id,
@@ -73,7 +90,7 @@ export const POST: APIRoute = async ({ request }) => {
           'usd',
           'failed',
           'stripe',
-          normalized.data.invoiceId || null
+          providerPaymentId
         );
       }
       break;
@@ -93,6 +110,14 @@ export const POST: APIRoute = async ({ request }) => {
     headers: { 'Content-Type': 'application/json' },
   });
 };
+
+async function paymentExists(providerPaymentId: string): Promise<boolean> {
+  const result = await db.execute({
+    sql: 'SELECT id FROM subscription_payments WHERE provider_payment_id = ?',
+    args: [providerPaymentId],
+  });
+  return result.rows.length > 0;
+}
 
 async function recordPayment(
   userId: string,

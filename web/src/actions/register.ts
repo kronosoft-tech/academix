@@ -2,6 +2,7 @@ import { defineAction, ActionError } from 'astro:actions';
 import { z } from 'astro/zod';
 import { db } from '../lib/db';
 import { hashPassword, signToken, setAuthCookie } from '../lib/auth';
+import { createTrialSubscription } from '../lib/payments/lifecycle';
 
 export const register = defineAction({
   accept: 'form',
@@ -42,6 +43,9 @@ export const register = defineAction({
     });
 
     setAuthCookie(context.cookies, token);
+
+    // Start 15-day trial subscription (no plan selected yet, no stripe sub)
+    await createTrialSubscription(id, 'trial', null);
 
     return { success: true };
   },
