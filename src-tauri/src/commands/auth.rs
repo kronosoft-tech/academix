@@ -14,6 +14,7 @@ use crate::application::dto::UserDto;
 use crate::domain::entities::user::{Role, User};
 use crate::env_loader;
 use crate::infrastructure::password;
+use crate::infrastructure::subscription_cache;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
@@ -147,7 +148,45 @@ pub async fn login(
         println!("[LOGIN] Session user_id set to '{}'", user_id);
     }
 
-    // Step 9: Return login response
+    // Step 9: Check subscription status
+    let cache_path = subscription_cache::get_cache_path();
+    let mapping_user_id = _mapping.user_id.clone();
+
+    let sub_status = match cp.get_subscription_status(&mapping_user_id).await {
+        Ok(Some((status, plan))) => {
+            // Write to cache
+            let _ = subscription_cache::write_cached_status(&cache_path, &status, plan.as_deref());
+            status
+        }
+        Ok(None) => {
+            // No subscription found — might be a legacy user
+            "none".to_string()
+        }
+        Err(_) => {
+            // Network error — check cache (24h grace)
+            match subscription_cache::read_cached_status(&cache_path) {
+                Some(cached) if subscription_cache::is_cache_valid(&cached.checked_at) => {
+                    cached.status
+                }
+                _ => {
+                    return Err(
+                        "Cannot verify subscription status. Please check your internet connection."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    };
+
+    // Block if expired or cancelled
+    if sub_status == "expired" || sub_status == "cancelled" {
+        return Err(format!(
+            "Tu suscripción está {}. Visita https://academix.vercel.app/pricing para reactivar.",
+            sub_status
+        ));
+    }
+
+    // Step 10: Return login response
     Ok(CommandLoginResponse {
         success: true,
         token: Some(token),
