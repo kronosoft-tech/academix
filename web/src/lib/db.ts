@@ -21,6 +21,11 @@ export function getDb(): Client {
 
 export const db = new Proxy({} as Client, {
   get(_target, prop) {
-    return (getDb() as Record<string | symbol, unknown>)[prop];
+    const instance = getDb();
+    const value = (instance as Record<string | symbol, unknown>)[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
   },
 });

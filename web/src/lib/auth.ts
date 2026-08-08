@@ -7,6 +7,9 @@ export interface CustomerJwtPayload {
   email: string;
   role: string;
   type: 'customer';
+  dbUrl: string;
+  dbToken: string;
+  academyName: string;
   iat: number;
   exp: number;
 }
@@ -82,4 +85,18 @@ export function clearAuthCookie(cookies: AstroCookies): void {
 
 export function getAuthCookie(cookies: AstroCookies): string | undefined {
   return cookies.get(COOKIE_NAME)?.value;
+}
+
+export async function getFullTokenPayload(
+  cookies: AstroCookies
+): Promise<CustomerJwtPayload | null> {
+  const token = getAuthCookie(cookies);
+  if (!token) return null;
+  try {
+    const payload = await verifyToken(token);
+    if (payload.type !== 'customer') return null;
+    return payload as CustomerJwtPayload;
+  } catch {
+    return null;
+  }
 }

@@ -35,11 +35,46 @@ const downloadOptions: DownloadOption[] = [
 ];
 
 function detectOS(): string {
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes('win')) return 'windows';
-  if (ua.includes('mac')) return 'macos';
-  if (ua.includes('linux')) return 'linux';
+  const ua = navigator.userAgent;
+
+  // Windows detection
+  if (/Windows NT/i.test(ua)) return 'windows';
+
+  // macOS detection (exclude iOS which also contains "Mac")
+  if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)) return 'macos';
+
+  // Linux detection (exclude Android which also contains "Linux")
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux';
+
+  // Fallback: check navigator.platform for older browsers
+  const platform = (navigator as { platform?: string }).platform || '';
+  if (/Win/i.test(platform)) return 'windows';
+  if (/Mac/i.test(platform)) return 'macos';
+  if (/Linux/i.test(platform)) return 'linux';
+
   return 'windows';
+}
+
+function detectArch(): string {
+  const ua = navigator.userAgent;
+
+  // Apple Silicon detection
+  if (/Macintosh/i.test(ua)) {
+    // Modern browsers expose architecture via userAgentData
+    const uaData = (navigator as { userAgentData?: { architecture?: string } }).userAgentData;
+    if (uaData?.architecture === 'arm') return 'arm64';
+    // Fallback: assume Apple Silicon for macOS 11+ (Big Sur+)
+    const versionMatch = ua.match(/Mac OS X (\d+)[_.](\d+)/);
+    if (versionMatch && parseInt(versionMatch[1]) >= 11) return 'arm64';
+  }
+
+  // ARM on Windows
+  if (/Windows.*ARM/i.test(ua)) return 'arm64';
+
+  // ARM on Linux
+  if (/aarch64|arm64/i.test(ua)) return 'arm64';
+
+  return 'x64';
 }
 
 export default function DownloadSelector() {
@@ -50,8 +85,10 @@ export default function DownloadSelector() {
 
   useEffect(() => {
     const os = detectOS();
+    const arch = detectArch();
     setDetectedOS(os);
     setSelectedOS(os);
+    setSelectedArch(arch);
   }, []);
 
   const currentOption = downloadOptions.find((o) => o.os === selectedOS);

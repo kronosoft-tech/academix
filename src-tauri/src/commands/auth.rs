@@ -14,6 +14,7 @@ use crate::application::dto::UserDto;
 use crate::domain::entities::user::{Role, User};
 use crate::env_loader;
 use crate::infrastructure::password;
+use crate::infrastructure::subscription_cache;
 use crate::infrastructure::turso::connection_manager::ConnectionManager;
 use crate::infrastructure::turso::control_plane::ControlPlaneRepository;
 use crate::infrastructure::turso::memory_buffer::{BufferedOperation, MemoryBuffer};
@@ -45,6 +46,10 @@ pub struct CommandLoginResponse {
     pub user: Option<UserDto>,
     pub expires_at: Option<String>,
     pub error: Option<String>,
+    pub subscription_status: Option<String>,
+    pub subscription_plan: Option<String>,
+    pub subscription_trial_end: Option<String>,
+    pub subscription_days_left: Option<i64>,
 }
 
 /// Login command — fully async via Turso
@@ -147,7 +152,58 @@ pub async fn login(
         println!("[LOGIN] Session user_id set to '{}'", user_id);
     }
 
-    // Step 9: Return login response
+    // Step 9: Check subscription status (non-blocking for legacy users)
+    let cache_path = subscription_cache::get_cache_path();
+    let mapping_user_id = _mapping.user_id.clone();
+
+    let (sub_status, sub_plan, sub_trial_end) = match cp
+        .get_subscription_status(&mapping_user_id)
+        .await
+    {
+        Ok(Some((status, plan, trial_end))) => {
+            let _ = subscription_cache::write_cached_status(&cache_path, &status, plan.as_deref());
+            (status, plan, trial_end)
+        }
+        Ok(None) => {
+            let _ = subscription_cache::write_cached_status(&cache_path, "active", None);
+            ("active".to_string(), None, None)
+        }
+        Err(e) => {
+            eprintln!("[LOGIN] Subscription check failed (non-fatal): {}", e);
+            match subscription_cache::read_cached_status(&cache_path) {
+                Some(cached) if subscription_cache::is_cache_valid(&cached.checked_at) => {
+                    (cached.status, cached.plan, None)
+                }
+                _ => {
+                    let _ = subscription_cache::write_cached_status(&cache_path, "active", None);
+                    ("active".to_string(), None, None)
+                }
+            }
+        }
+    };
+
+    // Block if expired or cancelled
+    if sub_status == "expired" || sub_status == "cancelled" {
+        return Err(format!(
+            "Tu suscripción está {}. Visita https://academix.vercel.app/pricing para reactivar.",
+            sub_status
+        ));
+    }
+
+    // Step 10: Calculate days left for trial
+    let days_left: Option<i64> = if sub_status == "trial" {
+        sub_trial_end.as_ref().and_then(|te| {
+            chrono::DateTime::parse_from_rfc3339(te).ok().map(|end| {
+                let now = Utc::now();
+                let diff = end.signed_duration_since(now);
+                diff.num_days().max(0)
+            })
+        })
+    } else {
+        None
+    };
+
+    // Step 11: Return login response
     Ok(CommandLoginResponse {
         success: true,
         token: Some(token),
@@ -159,6 +215,10 @@ pub async fn login(
         }),
         expires_at: Some(expires_at_str),
         error: None,
+        subscription_status: Some(sub_status),
+        subscription_plan: sub_plan,
+        subscription_trial_end: sub_trial_end,
+        subscription_days_left: days_left,
     })
 }
 

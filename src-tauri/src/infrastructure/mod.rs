@@ -6,6 +6,7 @@
 pub mod local_db;
 pub mod password;
 pub mod repositories;
+pub mod subscription_cache;
 pub mod turso;
 pub mod updater;
 

@@ -32,11 +32,14 @@ export function LoginForm() {
     setIsLoading(true);
     try {
       const result = await login(email, password);
-      if (!result.success) {
+      if (result.success) {
+        // Navigation handled by AppContent re-render on isAuthenticated change
+      } else {
         setErrors({ password: result.error || "Credenciales inválidas" });
       }
-    } catch {
-      setErrors({ password: "Credenciales inválidas" });
+    } catch (err) {
+      const errorMsg = typeof err === 'string' ? err : (err instanceof Error ? err.message : "Login failed");
+      setErrors({ password: errorMsg });
     } finally {
       setIsLoading(false);
     }
@@ -45,8 +48,8 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Academix</h1>
-        <p className="text-[var(--color-foreground)]/60 mt-1">Ingresa a tu cuenta</p>
+        <h1 className="text-2xl font-bold text-foreground">Academix</h1>
+        <p className="text-foreground/60 mt-1">Ingresa a tu cuenta</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
@@ -73,11 +76,11 @@ export function LoginForm() {
       </form>
 
       <div className="mt-4 text-center text-sm">
-        <span className="text-[var(--color-foreground)]/60">¿No tienes cuenta? </span>
+        <span className="text-foreground/60">¿No tienes cuenta? </span>
         <button
           type="button"
           onClick={() => navigate("/register")}
-          className="text-[var(--color-primary)] hover:underline font-medium"
+          className="text-primary hover:underline font-medium"
         >
           Regístrate
         </button>

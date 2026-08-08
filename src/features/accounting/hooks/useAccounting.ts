@@ -95,10 +95,12 @@ export function useAccounting() {
         date_from: dateFrom,
         date_to: dateTo,
       });
+      console.log("[ACCOUNTING] getSummary result:", JSON.stringify({ income: result.total_income, expenses: result.total_expenses, entries: result.entry_count, monthly: result.monthly_data?.length }));
       setSummary(result);
       return result;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
+      console.error("[ACCOUNTING] getSummary ERROR:", message);
       setError(message);
       throw new Error(message);
     } finally {

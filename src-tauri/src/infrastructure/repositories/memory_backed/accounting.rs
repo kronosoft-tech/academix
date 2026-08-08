@@ -243,6 +243,11 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
         let base_rows: Vec<HashMap<String, String>> = {
             let buf = self.memory_buffer.lock().await;
             if let Some(cached) = buf.get_cached_list(&user_id, "accounting_entries") {
+                eprintln!(
+                    "[ACCOUNTING] Using cached list ({} rows) for user {}",
+                    cached.len(),
+                    user_id
+                );
                 cached.clone()
             } else {
                 drop(buf); // Release lock before network call
@@ -255,15 +260,20 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
                 drop(cm);
                 let conn = db.connect().map_err(|e| e.to_string())?;
                 let sql = "SELECT id, date, type, category, description, amount, reference, created_at FROM accounting_entries ORDER BY date";
-                let mut rows = conn
-                    .query(sql, libsql::params![])
-                    .await
-                    .map_err(|e| e.to_string())?;
+                eprintln!(
+                    "[ACCOUNTING] Querying Turso for accounting_entries (user={})",
+                    user_id
+                );
+                let mut rows = conn.query(sql, libsql::params![]).await.map_err(|e| {
+                    eprintln!("[ACCOUNTING] Query FAILED: {}", e);
+                    e.to_string()
+                })?;
 
                 let mut raw_rows: Vec<HashMap<String, String>> = Vec::new();
                 while let Some(row) = rows.next().await.map_err(|e| e.to_string())? {
                     raw_rows.push(Self::row_to_hash_map(&row).map_err(|e| e.to_string())?);
                 }
+                eprintln!("[ACCOUNTING] Got {} rows from Turso", raw_rows.len());
 
                 // Store in cache
                 let mut buf = self.memory_buffer.lock().await;
@@ -284,10 +294,26 @@ impl AccountingEntryRepository for MemoryBackedAccountingEntryRepository {
             results.retain(|e| e.entry_type.as_str() == et_str);
         }
         if let Some(from) = date_from {
-            results.retain(|e| e.date.as_str() >= from);
+            let f = if from.len() >= 10 { &from[..10] } else { from };
+            results.retain(|e| {
+                let d = if e.date.len() >= 10 {
+                    &e.date[..10]
+                } else {
+                    &e.date
+                };
+                d >= f
+            });
         }
         if let Some(to) = date_to {
-            results.retain(|e| e.date.as_str() <= to);
+            let t = if to.len() >= 10 { &to[..10] } else { to };
+            results.retain(|e| {
+                let d = if e.date.len() >= 10 {
+                    &e.date[..10]
+                } else {
+                    &e.date
+                };
+                d <= t
+            });
         }
 
         // Step 4: Merge pending inserts

@@ -1,114 +1,26 @@
 ---
-import Base from '../layouts/Base.astro';
-import { GraduationCap, BookOpen, ClipboardCheck, CreditCard, BarChart3, Users } from 'lucide-react';
+import LandingPage from '../components/landing/LandingPage';
 
 export const prerender = true;
-
-const features = [
-  { icon: GraduationCap, title: 'Gestión de Estudiantes', description: 'Matrícula, expedientes y seguimiento académico integral.' },
-  { icon: BookOpen, title: 'Cursos y Grupos', description: 'Catálogo de cursos, creación de grupos y asignación de horarios.' },
-  { icon: ClipboardCheck, title: 'Control de Asistencia', description: 'Registro diario de asistencia con reportes automatizados.' },
-  { icon: CreditCard, title: 'Pagos y Facturación', description: 'Procesamiento de pagos, planes de cuotas y recibos digitales.' },
-  { icon: BarChart3, title: 'Reportes y Métricas', description: 'Dashboards con indicadores clave y exportación a PDF.' },
-  { icon: Users, title: 'Multi-usuario', description: 'Roles diferenciados: administrador, gerente, empleado y profesor.' },
-];
-
-const testimonials = [
-  { name: 'María López', role: 'Directora, Academia Bilingüe Luz', text: 'Academix nos permitió reducir el tiempo administrativo en un 60%. Ahora todo el equipo trabaja desde una sola plataforma.' },
-  { name: 'Carlos Méndez', role: 'Administrador, Centro de Formación TechPro', text: 'La gestión de pagos y asistencia se simplificó enormemente. Nuestros reportes mensuales se generan en segundos.' },
-  { name: 'Ana Rodríguez', role: 'Gerente, Instituto Musical Armonía', text: 'El soporte multi-usuario es excelente. Cada profesor tiene acceso solo a lo que necesita, sin complicaciones.' },
-];
 ---
 
-<Base title="Gestión Académica Simple y Poderosa">
-  <!-- Hero -->
-  <section class="py-20 lg:py-32">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-        Gestión académica
-        <span class="text-emerald-400"> simple y poderosa</span>
-      </h1>
-      <p class="mt-6 text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto">
-        Administra estudiantes, cursos, asistencia, pagos y reportes desde una aplicación de escritorio rápida y segura. Diseñada para instituciones educativas en Latinoamérica.
-      </p>
-      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a
-          href="/downloads"
-          class="inline-flex items-center px-8 py-3 text-lg font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
-        >
-          Descargar Gratis
-        </a>
-        <a
-          href="/pricing"
-          class="inline-flex items-center px-8 py-3 text-lg font-semibold rounded-lg border border-slate-600 text-slate-200 hover:border-slate-400 hover:text-white transition-colors"
-        >
-          Ver Precios
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Video -->
-  <section class="py-16 bg-slate-900">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-8">Mira Academix en acción</h2>
-      <div class="relative aspect-video rounded-xl overflow-hidden border border-slate-700">
-        <iframe
-          class="absolute inset-0 w-full h-full"
-          src="https://www.youtube.com/embed/placeholder"
-          title="Demo de Academix"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        ></iframe>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section class="py-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-12">Todo lo que tu academia necesita</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {features.map(({ icon: Icon, title, description }) => (
-          <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors">
-            <Icon className="w-8 h-8 text-emerald-400 mb-4" />
-            <h3 class="text-lg font-semibold mb-2">{title}</h3>
-            <p class="text-slate-400 text-sm">{description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- Testimonials -->
-  <section class="py-20 bg-slate-900">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl sm:text-3xl font-bold text-center mb-12">Lo que dicen nuestros usuarios</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {testimonials.map(({ name, role, text }) => (
-          <div class="p-6 rounded-xl bg-slate-950 border border-slate-800">
-            <p class="text-slate-300 text-sm mb-4">"{text}"</p>
-            <div>
-              <p class="font-semibold text-white">{name}</p>
-              <p class="text-sm text-slate-400">{role}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA Bottom -->
-  <section class="py-20">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="text-2xl sm:text-3xl font-bold mb-4">Comienza a gestionar tu academia hoy</h2>
-      <p class="text-slate-300 mb-8">Descarga Academix gratis y lleva el control de tu institución al siguiente nivel.</p>
-      <a
-        href="/downloads"
-        class="inline-flex items-center px-8 py-3 text-lg font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
-      >
-        Descargar Ahora
-      </a>
-    </div>
-  </section>
-</Base>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Academix - La plataforma de gestión académica que simplifica la administración para instituciones educativas en Latinoamérica." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>Academix — Gestión académica simple y poderosa</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background-color: #09090b; }
+    </style>
+  </head>
+  <body>
+    <LandingPage client:load />
+  </body>
+</html>

@@ -1,0 +1,149 @@
+---
+export const prerender = false;
+
+import Dashboard from "../../layouts/Dashboard.astro";
+import { getFullTokenPayload } from "../../lib/auth";
+import { db } from "../../lib/db";
+
+const payload = await getFullTokenPayload(Astro.cookies);
+if (!payload) {
+  return Astro.redirect("/auth/login");
+}
+
+const url = new URL(Astro.request.url);
+const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+const perPage = 10;
+const offset = (page - 1) * perPage;
+
+let payments: Record<string, unknown>[] = [];
+let totalCount = 0;
+
+try {
+  const [paymentsRes, countRes] = await Promise.all([
+    db.execute({
+      sql: `SELECT * FROM subscription_payments WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      args: [payload.sub, perPage, offset],
+    }),
+    db.execute({
+      sql: `SELECT COUNT(*) as count FROM subscription_payments WHERE user_id = ?`,
+      args: [payload.sub],
+    }),
+  ]);
+
+  payments = paymentsRes.rows as Record<string, unknown>[];
+  totalCount = Number(countRes.rows[0]?.count ?? 0);
+} catch {
+  // Table may not exist yet
+}
+
+const totalPages = Math.ceil(totalCount / perPage);
+const hasPrev = page > 1;
+const hasNext = page < totalPages;
+
+const statusColors: Record<string, string> = {
+  succeeded: "bg-emerald-500/20 text-emerald-400",
+  paid: "bg-emerald-500/20 text-emerald-400",
+  pending: "bg-amber-500/20 text-amber-400",
+  failed: "bg-red-500/20 text-red-400",
+  refunded: "bg-blue-500/20 text-blue-400",
+};
+
+const statusLabels: Record<string, string> = {
+  succeeded: "Exitoso",
+  paid: "Pagado",
+  pending: "Pendiente",
+  failed: "Fallido",
+  refunded: "Reembolsado",
+};
+
+const formatCurrency = (amount: number, currency: string) =>
+  new Intl.NumberFormat("es-CO", { style: "currency", currency: currency || "COP", minimumFractionDigits: 0 }).format(amount);
+---
+
+<Dashboard title="Historial de Pagos">
+  <div class="max-w-4xl">
+    <h1 class="text-2xl font-bold text-white mb-6">Historial de Pagos</h1>
+
+    {payments.length === 0 && (
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center">
+        <p class="text-slate-400">No hay pagos registrados</p>
+      </div>
+    )}
+
+    {payments.length > 0 && (
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-800">
+                <th class="text-left py-2">Fecha</th>
+                <th class="text-left py-2">Monto</th>
+                <th class="text-left py-2">Método</th>
+                <th class="text-left py-2">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((payment) => (
+                <tr class="border-b border-slate-800/50">
+                  <td class="py-3 text-white">
+                    {new Date(payment.created_at as string).toLocaleDateString("es-CO", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </td>
+                  <td class="py-3 text-white">
+                    {formatCurrency(Number(payment.amount), payment.currency as string)}
+                  </td>
+                  <td class="py-3 text-slate-400 capitalize">
+                    {(payment.method as string) || (payment.provider as string) || "—"}
+                  </td>
+                  <td class="py-3">
+                    <span class={`px-2 py-0.5 rounded text-xs ${statusColors[payment.status as string] || "bg-slate-700 text-slate-300"}`}>
+                      {statusLabels[payment.status as string] || payment.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div class="flex items-center justify-between mt-6 pt-4 border-t border-slate-800">
+            <p class="text-sm text-slate-400">
+              Página {page} de {totalPages}
+            </p>
+            <div class="flex gap-2">
+              {hasPrev ? (
+                <a
+                  href={`/dashboard/payments?page=${page - 1}`}
+                  class="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                >
+                  Anterior
+                </a>
+              ) : (
+                <span class="px-4 py-2 text-sm bg-slate-800/50 text-slate-500 rounded-lg cursor-not-allowed">
+                  Anterior
+                </span>
+              )}
+              {hasNext ? (
+                <a
+                  href={`/dashboard/payments?page=${page + 1}`}
+                  class="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                >
+                  Siguiente
+                </a>
+              ) : (
+                <span class="px-4 py-2 text-sm bg-slate-800/50 text-slate-500 rounded-lg cursor-not-allowed">
+                  Siguiente
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</Dashboard>

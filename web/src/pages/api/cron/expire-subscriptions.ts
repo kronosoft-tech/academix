@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import {
   getExpiredGraceSubscriptions,
+  getExpiredTrials,
   expireSubscription,
 } from '../../../lib/payments/lifecycle';
 
@@ -25,14 +26,23 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  const expired = await getExpiredGraceSubscriptions();
+  // Expire grace-period subscriptions
+  const expiredGrace = await getExpiredGraceSubscriptions();
+  for (const sub of expiredGrace) {
+    await expireSubscription(sub.id);
+  }
 
-  for (const sub of expired) {
+  // Expire trial subscriptions past their trial_end
+  const expiredTrials = await getExpiredTrials();
+  for (const sub of expiredTrials) {
     await expireSubscription(sub.id);
   }
 
   return new Response(
-    JSON.stringify({ expired: expired.length }),
+    JSON.stringify({
+      expiredGrace: expiredGrace.length,
+      expiredTrials: expiredTrials.length,
+    }),
     {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
