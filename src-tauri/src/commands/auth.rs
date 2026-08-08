@@ -46,6 +46,10 @@ pub struct CommandLoginResponse {
     pub user: Option<UserDto>,
     pub expires_at: Option<String>,
     pub error: Option<String>,
+    pub subscription_status: Option<String>,
+    pub subscription_plan: Option<String>,
+    pub subscription_trial_end: Option<String>,
+    pub subscription_days_left: Option<i64>,
 }
 
 /// Login command — fully async via Turso
@@ -148,31 +152,31 @@ pub async fn login(
         println!("[LOGIN] Session user_id set to '{}'", user_id);
     }
 
-    // Step 9: Check subscription status
+    // Step 9: Check subscription status (non-blocking for legacy users)
     let cache_path = subscription_cache::get_cache_path();
     let mapping_user_id = _mapping.user_id.clone();
 
-    let sub_status = match cp.get_subscription_status(&mapping_user_id).await {
-        Ok(Some((status, plan))) => {
-            // Write to cache
+    let (sub_status, sub_plan, sub_trial_end) = match cp
+        .get_subscription_status(&mapping_user_id)
+        .await
+    {
+        Ok(Some((status, plan, trial_end))) => {
             let _ = subscription_cache::write_cached_status(&cache_path, &status, plan.as_deref());
-            status
+            (status, plan, trial_end)
         }
         Ok(None) => {
-            // No subscription found — might be a legacy user
-            "none".to_string()
+            let _ = subscription_cache::write_cached_status(&cache_path, "active", None);
+            ("active".to_string(), None, None)
         }
-        Err(_) => {
-            // Network error — check cache (24h grace)
+        Err(e) => {
+            eprintln!("[LOGIN] Subscription check failed (non-fatal): {}", e);
             match subscription_cache::read_cached_status(&cache_path) {
                 Some(cached) if subscription_cache::is_cache_valid(&cached.checked_at) => {
-                    cached.status
+                    (cached.status, cached.plan, None)
                 }
                 _ => {
-                    return Err(
-                        "Cannot verify subscription status. Please check your internet connection."
-                            .to_string(),
-                    );
+                    let _ = subscription_cache::write_cached_status(&cache_path, "active", None);
+                    ("active".to_string(), None, None)
                 }
             }
         }
@@ -186,7 +190,20 @@ pub async fn login(
         ));
     }
 
-    // Step 10: Return login response
+    // Step 10: Calculate days left for trial
+    let days_left: Option<i64> = if sub_status == "trial" {
+        sub_trial_end.as_ref().and_then(|te| {
+            chrono::DateTime::parse_from_rfc3339(te).ok().map(|end| {
+                let now = Utc::now();
+                let diff = end.signed_duration_since(now);
+                diff.num_days().max(0)
+            })
+        })
+    } else {
+        None
+    };
+
+    // Step 11: Return login response
     Ok(CommandLoginResponse {
         success: true,
         token: Some(token),
@@ -198,6 +215,10 @@ pub async fn login(
         }),
         expires_at: Some(expires_at_str),
         error: None,
+        subscription_status: Some(sub_status),
+        subscription_plan: sub_plan,
+        subscription_trial_end: sub_trial_end,
+        subscription_days_left: days_left,
     })
 }
 
