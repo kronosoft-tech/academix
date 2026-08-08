@@ -292,18 +292,18 @@ impl ControlPlaneRepository {
     }
 
     /// Get the subscription status for a user from the control plane DB.
-    /// Returns Some((status, plan)) or None if no subscription exists.
+    /// Returns Some((status, plan, trial_end)) or None if no subscription exists.
     pub async fn get_subscription_status(
         &self,
         user_id: &str,
-    ) -> Result<Option<(String, Option<String>)>, String> {
+    ) -> Result<Option<(String, Option<String>, Option<String>)>, String> {
         let conn = self
             .db
             .connect()
             .map_err(|e| format!("Connection error: {}", e))?;
         let mut rows = conn
             .query(
-                "SELECT status, plan FROM subscriptions WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1",
+                "SELECT status, plan_id, trial_end FROM subscriptions WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1",
                 libsql::params![user_id],
             )
             .await
@@ -318,7 +318,8 @@ impl ControlPlaneRepository {
                     .get::<String>(0)
                     .map_err(|e| format!("Failed to get status: {}", e))?;
                 let plan: Option<String> = row.get::<String>(1).ok();
-                Ok(Some((status, plan)))
+                let trial_end: Option<String> = row.get::<String>(2).ok();
+                Ok(Some((status, plan, trial_end)))
             }
             None => Ok(None),
         }
