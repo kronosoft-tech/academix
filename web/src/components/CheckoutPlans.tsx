@@ -17,6 +17,10 @@ import { geoToGateway, type Gateway } from '../lib/payments/gateway';
 
 interface Props {
   countryCode: string;
+  currencyCode: string;
+  currencySymbol: string;
+  prices: { basic: number; pro: number; premium: number };
+  displayName: string;
 }
 
 const GATEWAY_LABELS: Record<Gateway, string> = {
@@ -25,20 +29,26 @@ const GATEWAY_LABELS: Record<Gateway, string> = {
   mercadopago: 'Mercado Pago',
 };
 
-function formatCOP(amount: number): string {
-  return new Intl.NumberFormat('es-CO', {
+function formatPrice(amount: number, currencyCode: string): string {
+  return new Intl.NumberFormat('es', {
     style: 'currency',
-    currency: 'COP',
+    currency: currencyCode,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
 }
 
-export default function CheckoutPlans({ countryCode }: Props) {
+export default function CheckoutPlans({ countryCode, currencyCode, prices, displayName }: Props) {
   const defaultGateway = geoToGateway(countryCode);
   const [gateway, setGateway] = useState<Gateway>(defaultGateway);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const planPrices: Record<string, number> = {
+    basico: prices.basic,
+    pro: prices.pro,
+    premium: prices.premium,
+  };
 
   const handleGatewayChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -75,9 +85,10 @@ export default function CheckoutPlans({ countryCode }: Props) {
 
       if (data.url) {
         window.location.href = data.url;
-      } else if (data.widgetToken) {
-        // Wompi widget handling — future implementation
-        setError('Widget de pago no disponible aún. Intenta con otra pasarela.');
+      } else if (data.publicKey) {
+        // Wompi widget — redirect to Wompi checkout page
+        const wompiUrl = `https://checkout.wompi.co/p/?public-key=${data.publicKey}&currency=${data.currency}&amount-in-cents=${data.amountInCents}&reference=${data.reference}&redirect-url=${encodeURIComponent(data.redirectUrl)}`;
+        window.location.href = wompiUrl;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -139,6 +150,7 @@ export default function CheckoutPlans({ countryCode }: Props) {
           {PLANS.map((plan) => {
             const isRecommended = plan.id === 'pro';
             const isLoading = loadingPlan === plan.id;
+            const localPrice = planPrices[plan.id] || plan.priceUSD;
 
             return (
               <Card
@@ -189,7 +201,7 @@ export default function CheckoutPlans({ countryCode }: Props) {
                       component="span"
                       sx={{ color: 'text.primary', fontWeight: 700 }}
                     >
-                      {formatCOP(plan.priceCOP)}
+                      {formatPrice(localPrice, currencyCode)}
                     </Typography>
                     <Typography
                       variant="body2"
