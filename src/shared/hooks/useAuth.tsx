@@ -15,6 +15,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
+  subscription: {
+    status: string;
+    plan: string | null;
+    trialEnd: string | null;
+    daysLeft: number | null;
+  } | null;
 }
 
 interface AuthContextValue extends AuthState {
@@ -27,6 +33,7 @@ const INITIAL_STATE: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   token: null,
+  subscription: null,
 };
 
 // Create context with undefined default to force usage check
@@ -47,16 +54,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         token: string | null;
         user: User | null;
         error: string | null;
+        subscription_status: string | null;
+        subscription_plan: string | null;
+        subscription_trial_end: string | null;
+        subscription_days_left: number | null;
       }>("login", {
         request: { email, password },
       });
 
       if (response.success && response.token && response.user) {
+        console.log("[AUTH] subscription_status:", response.subscription_status, "days_left:", response.subscription_days_left);
         setState({
           user: response.user,
           token: response.token,
           isAuthenticated: true,
           isLoading: false,
+          subscription: response.subscription_status ? {
+            status: response.subscription_status,
+            plan: response.subscription_plan || null,
+            trialEnd: response.subscription_trial_end || null,
+            daysLeft: response.subscription_days_left ?? null,
+          } : null,
         });
         return { success: true };
       } else {
@@ -65,7 +83,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       setState(INITIAL_STATE);
-      return { success: false, error: error instanceof Error ? error.message : "Login failed" };
+      const errorMsg = typeof error === 'string' ? error : (error instanceof Error ? error.message : "Login failed");
+      return { success: false, error: errorMsg };
     }
   }, []);
 
