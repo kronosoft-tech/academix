@@ -25,7 +25,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ=",
       "endpoints": [
-        "https://github.com/luiferdev/academix/releases/latest/download/academix-{{target}}-{{arch}}.json"
+        "https://github.com/kronosoft-tech/academix/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
