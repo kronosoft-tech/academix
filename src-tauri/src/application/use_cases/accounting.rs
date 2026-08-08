@@ -40,8 +40,13 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
             .ok_or_else(|| format!("Invalid entry type: {}", request.entry_type))?;
 
         // Parse category based on entry type
-        let category = AccountingCategory::from_str(&request.category, &entry_type)
-            .ok_or_else(|| format!("Invalid category '{}' for {}", request.category, request.entry_type))?;
+        let category =
+            AccountingCategory::from_str(&request.category, &entry_type).ok_or_else(|| {
+                format!(
+                    "Invalid category '{}' for {}",
+                    request.category, request.entry_type
+                )
+            })?;
 
         // Generate UUID v7 for the entry
         let ts = uuid::Timestamp::now(uuid::NoContext);
@@ -102,17 +107,31 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
         date_from: Option<&str>,
         date_to: Option<&str>,
     ) -> Result<AccountingSummaryDto, String> {
-        // Default to current month if no dates provided
+        // Default to last 6 months if no dates provided
         let (start_date, end_date) = if let (Some(from), Some(to)) = (date_from, date_to) {
             (from.to_string(), to.to_string())
         } else {
             let now = chrono::Utc::now();
-            let start = now.format("%Y-%m-01").to_string();
+            let six_months_ago = now - chrono::Duration::days(180);
+            let start = six_months_ago.format("%Y-%m-01").to_string();
             let end = now.format("%Y-%m-%d").to_string();
             (start, end)
         };
 
-        let entries = self.entry_repo.list(Some(&start_date), Some(&end_date), None).await?;
+        let entries = self.entry_repo.list(None, None, None).await?;
+
+        // Filter by date range in-memory (repo loads all, we narrow here)
+        let entries: Vec<_> = entries
+            .into_iter()
+            .filter(|e| {
+                let d = if e.date.len() >= 10 {
+                    &e.date[..10]
+                } else {
+                    e.date.as_str()
+                };
+                d >= start_date.as_str() && d <= end_date.as_str()
+            })
+            .collect();
 
         // Calculate totals
         let total_income: f64 = entries
@@ -173,7 +192,10 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
         // Build expense breakdown by category
         let mut expenses_by_cat: std::collections::HashMap<String, f64> =
             std::collections::HashMap::new();
-        for entry in entries.iter().filter(|e| e.entry_type == EntryType::Expense) {
+        for entry in entries
+            .iter()
+            .filter(|e| e.entry_type == EntryType::Expense)
+        {
             let cat_name = entry.category.display_name().to_string();
             *expenses_by_cat.entry(cat_name).or_insert(0.0) += entry.amount;
         }
@@ -185,7 +207,11 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
                 amount,
             })
             .collect();
-        expenses_by_category.sort_by(|a, b| b.amount.partial_cmp(&a.amount).unwrap_or(std::cmp::Ordering::Equal));
+        expenses_by_category.sort_by(|a, b| {
+            b.amount
+                .partial_cmp(&a.amount)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Build income breakdown by category
         let mut income_by_cat: std::collections::HashMap<String, f64> =
@@ -202,7 +228,11 @@ impl<R: AccountingEntryRepository> AccountingService<R> {
                 amount,
             })
             .collect();
-        income_by_category.sort_by(|a, b| b.amount.partial_cmp(&a.amount).unwrap_or(std::cmp::Ordering::Equal));
+        income_by_category.sort_by(|a, b| {
+            b.amount
+                .partial_cmp(&a.amount)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Get recent entries (last 10)
         let recent_entries: Vec<AccountingEntryDto> = entries
