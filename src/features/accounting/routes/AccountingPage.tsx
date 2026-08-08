@@ -13,15 +13,13 @@ type ModalType = "income" | "expense" | null;
 
 export default function AccountingPage() {
   const { summary, loading, getSummary, createIncomeEntry, createExpenseEntry, deleteEntry, entries, listEntries } = useAccounting();
-  const [period, setPeriod] = useState({ start: "", end: "" });
-  const [modalType, setModalType] = useState<ModalType>(null);
-
-  useEffect(() => {
+  const [period, setPeriod] = useState(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const start = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split("T")[0];
     const end = now.toISOString().split("T")[0];
-    setPeriod({ start, end });
-  }, []);
+    return { start, end };
+  });
+  const [modalType, setModalType] = useState<ModalType>(null);
 
   useEffect(() => {
     if (period.start && period.end) {
