@@ -1,5 +1,6 @@
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PaymentMethod = "cash" | "card" | "transfer" | "online";
+export type PaymentType = "enrollment" | "tuition";
 export type PaymentStatusType = "current" | "delinquent" | "ahead";
 export type PaymentDelinquencyStatus = "current" | "delinquent" | "ahead";
 
@@ -22,6 +23,7 @@ export interface Payment {
   groupId: string;
   amount: number;
   method: PaymentMethod;
+  paymentType: PaymentType;
   status: PaymentStatus;
   reference?: string;
   description?: string;
@@ -36,6 +38,7 @@ export interface CreatePaymentInput {
   groupId: string;
   amount: number;
   method: PaymentMethod;
+  paymentType?: PaymentType;
   reference?: string;
   description?: string;
   paid?: boolean; // If true, payment is created as "paid" immediately

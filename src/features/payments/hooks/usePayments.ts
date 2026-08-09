@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Payment, CreatePaymentInput, UpdatePaymentInput, PaymentStatusType } from "../../../shared/types/Payment";
+import { appEvents, APP_EVENTS } from "../../../shared/utils/appEvents";
 
 interface BackendPaymentDto {
   id: string;
@@ -13,6 +14,8 @@ interface BackendPaymentDto {
   paid_date: string | null;
   status: string;
   method: string | null;
+  paymentType?: string;
+  payment_type?: string;
   reference: string | null;
   description: string | null;
   created_at: string;
@@ -47,6 +50,7 @@ function mapBackendToFrontend(dto: BackendPaymentDto): Payment {
     groupId: dto.groupId ?? dto.group_id ?? "",
     amount: dto.amount,
     method: (dto.method as Payment["method"]) ?? "cash",
+    paymentType: (dto.paymentType ?? dto.payment_type ?? "tuition") as Payment["paymentType"],
     status: statusMap[dto.status] ?? "pending",
     reference: dto.reference ?? undefined,
     paidAt: dto.paid_date ?? undefined,
@@ -98,35 +102,38 @@ export function usePayments(): UsePaymentsReturn {
   }, [fetchPayments]);
 
   const createPayment = async (data: CreatePaymentInput): Promise<{ success: boolean; error?: string }> => {
-      setIsLoading(true);
-      try {
-        const response = await invoke<{
-          success: boolean;
-          data: BackendPaymentDto | null;
-          error: string | null;
-        }>("create_payment", {
-          request: {
-            student_id: data.studentId,
-            group_id: data.groupId,
-            amount: data.amount,
-            method: data.method,
-            description: data.description ?? null,
-            paid: data.paid ?? null,
-          },
-        });
+    setIsLoading(true);
+    try {
+      const response = await invoke<{
+        success: boolean;
+        data: BackendPaymentDto | null;
+        error: string | null;
+      }>("create_payment", {
+        request: {
+          student_id: data.studentId,
+          group_id: data.groupId,
+          amount: data.amount,
+          method: data.method,
+          payment_type: data.paymentType || "tuition",
+          description: data.description ?? null,
+          paid: data.paid ?? null,
+        },
+      });
 
-if (response.success) {
-          await fetchPayments();
-          return { success: true };
-        } else {
-          return { success: false, error: response.error || "Failed to create payment" };
-        }
-      } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
-      } finally {
-       setIsLoading(false);
-     }
-   };
+      if (response.success) {
+        await fetchPayments();
+        appEvents.emit(APP_EVENTS.PAYMENTS_CHANGED);
+        appEvents.emit(APP_EVENTS.ACCOUNTING_CHANGED);
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || "Failed to create payment" };
+      }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : "Failed to create payment" };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updatePayment = async (id: string, data: UpdatePaymentInput): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
@@ -147,6 +154,8 @@ if (response.success) {
 
       if (response.success) {
         await fetchPayments();
+        appEvents.emit(APP_EVENTS.PAYMENTS_CHANGED);
+        appEvents.emit(APP_EVENTS.ACCOUNTING_CHANGED);
         return { success: true };
       } else {
         return { success: false, error: response.error || "Failed to update payment" };
@@ -168,6 +177,8 @@ if (response.success) {
 
       if (response.success) {
         await fetchPayments();
+        appEvents.emit(APP_EVENTS.PAYMENTS_CHANGED);
+        appEvents.emit(APP_EVENTS.ACCOUNTING_CHANGED);
         return { success: true };
       } else {
         return { success: false, error: response.error || "Failed to delete payment" };
@@ -186,7 +197,7 @@ if (response.success) {
         data: BackendPaymentDto[] | null;
         error: string | null;
       }>("list_payments");
-      
+
       if (response.success && response.data) {
         return response.data
           .filter(p => p.student_id === studentId)
@@ -200,19 +211,19 @@ if (response.success) {
 
   const getStudentPaymentStatus = async (studentId: string): Promise<PaymentStatusType> => {
     const studentPayments = await getStudentPayments(studentId);
-    
+
     if (studentPayments.length === 0) return "current";
-    
+
     const now = new Date();
-    const hasOverdue = studentPayments.some(p => 
+    const hasOverdue = studentPayments.some(p =>
       p.status === "pending" && p.dueDate && new Date(p.dueDate) < now
     );
-    
+
     if (hasOverdue) return "delinquent";
-    
+
     const hasPaid = studentPayments.some(p => p.status === "completed");
     if (hasPaid) return "current";
-    
+
     return "current";
   };
 

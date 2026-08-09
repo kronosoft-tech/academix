@@ -32,15 +32,17 @@ export function IncomeExpensesChart({ income, expenses, className }: IncomeExpen
     { name: "Gastos", value: expenses },
   ];
 
+  console.log("[CHART] income=" + income + " expenses=" + expenses);
+
   return (
-    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Ingresos vs Gastos</h3>
+    <div className={cn("rounded-lg border border-foreground/20 bg-background p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-foreground">Ingresos vs Gastos</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 12 }} />
-            <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
+            <XAxis dataKey="name" tick={{ fill: "var(--color-foreground)", fontSize: 12 }} />
+            <YAxis tick={{ fill: "var(--color-foreground)", fontSize: 12 }} />
             <Tooltip formatter={(value) => [`S/ ${Number(value).toFixed(2)}`, ""]} />
             <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={48}>
               <Cell fill="#22c55e" />
@@ -60,14 +62,14 @@ interface MonthlyTrendChartProps {
 
 export function MonthlyTrendChart({ data, className }: MonthlyTrendChartProps) {
   return (
-    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Tendencia Mensual</h3>
+    <div className={cn("rounded-lg border border-foreground/20 bg-background p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-foreground">Tendencia Mensual</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="month" tick={{ fill: "#64748b", fontSize: 12 }} />
-            <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
+            <XAxis dataKey="month" tick={{ fill: "var(--color-foreground)", fontSize: 12 }} />
+            <YAxis tick={{ fill: "var(--color-foreground)", fontSize: 12 }} />
             <Tooltip formatter={(value) => [`S/ ${Number(value).toFixed(2)}`, ""]} />
             <Legend />
             <Line type="monotone" dataKey="income" stroke="#22c55e" strokeWidth={2} name="Ingresos" />
@@ -92,8 +94,48 @@ export function ExpenseBreakdownChart({ data, className }: ExpenseBreakdownChart
   };
 
   return (
-    <div className={cn("rounded-lg border border-[var(--color-foreground)]/20 bg-[var(--color-background)] p-6", className)}>
-      <h3 className="mb-4 text-sm font-semibold text-[var(--color-foreground)]">Desglose de Gastos</h3>
+    <div className={cn("rounded-lg border border-foreground/20 bg-background p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-foreground">Desglose de Gastos</h3>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="amount"
+              nameKey="category_name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label={renderLabel}
+            >
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => [`S/ ${Number(value).toFixed(2)}`, ""]} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+interface IncomeBreakdownChartProps {
+  data: Array<{ category_name: string; amount: number }>;
+  className?: string;
+}
+
+export function IncomeBreakdownChart({ data, className }: IncomeBreakdownChartProps) {
+  const renderLabel = (props: { category_name?: string; percent?: number }) => {
+    const { category_name, percent } = props;
+    if (!category_name || percent === undefined) return "";
+    return `${category_name} ${(percent * 100).toFixed(0)}%`;
+  };
+
+  return (
+    <div className={cn("rounded-lg border border-foreground/20 bg-background p-6", className)}>
+      <h3 className="mb-4 text-sm font-semibold text-foreground">Desglose de Ingresos</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

@@ -39,7 +39,9 @@ VALUES ('2405', '2405', 'Prestamo Bancario CP', 'liability', '24', 0, 1, datetim
 INSERT OR IGNORE INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
 VALUES ('2410', '2410', 'Prestamo Bancario LP', 'liability', '24', 0, 1, datetime('now'), datetime('now'));
 
--- 28 - Provisiones (already exists partially)
+-- 28 - Provisiones
+INSERT OR IGNORE INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
+VALUES ('28', '28', 'PROVISIONES', 'liability', NULL, 0, 1, datetime('now'), datetime('now'));
 INSERT OR IGNORE INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 
 VALUES ('2810', '2810', 'Provisión Obligaciones', 'liability', '28', 0, 1, datetime('now'), datetime('now'));
 INSERT OR IGNORE INTO account_categories (id, code, name, category_type, parent_id, balance, active, created_at, updated_at) 

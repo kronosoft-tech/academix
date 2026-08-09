@@ -23,6 +23,7 @@ pub struct CreatePaymentRequest {
     pub due_date: String,
     pub description: Option<String>,
     pub paid: Option<bool>, // If true, payment is created as "paid" immediately
+    pub payment_type: Option<String>,
 }
 
 /// Update payment status request
@@ -71,4 +72,6 @@ pub struct PaymentDto {
     pub paid_at: Option<String>,
     #[serde(rename = "description")]
     pub description: Option<String>,
+    #[serde(rename = "paymentType")]
+    pub payment_type: String,
 }

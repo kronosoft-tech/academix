@@ -1,0 +1,37 @@
+---
+import Base from '../layouts/Base.astro';
+import DownloadSelector from '../components/DownloadSelector.tsx';
+
+export const prerender = true;
+---
+
+<Base title="Descargar Academix">
+  <section class="py-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-center mb-4">Descargar Academix</h1>
+      <p class="text-slate-300 text-center mb-12">
+        Descarga la aplicación de escritorio para tu sistema operativo. Gratis y sin registro.
+      </p>
+
+      <DownloadSelector client:load />
+
+      <div class="mt-16 border-t border-slate-800 pt-12">
+        <h2 class="text-xl font-semibold text-center mb-6">Guías de instalación</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <a href="/tutorials/download-windows" class="block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors text-center">
+            <p class="font-medium text-white">Windows</p>
+            <p class="text-sm text-slate-400 mt-1">Guía paso a paso</p>
+          </a>
+          <a href="/tutorials/download-macos" class="block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors text-center">
+            <p class="font-medium text-white">macOS</p>
+            <p class="text-sm text-slate-400 mt-1">Guía paso a paso</p>
+          </a>
+          <a href="/tutorials/download-linux" class="block p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-700 transition-colors text-center">
+            <p class="font-medium text-white">Linux</p>
+            <p class="text-sm text-slate-400 mt-1">Guía paso a paso</p>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Base>

@@ -35,6 +35,7 @@ impl EntryType {
 pub enum AccountingCategory {
     // Income categories
     Tuition,
+    Enrollment,
     OtherIncome,
     // Expense categories
     Rent,
@@ -47,6 +48,7 @@ impl AccountingCategory {
     pub fn as_str(&self) -> &'static str {
         match self {
             AccountingCategory::Tuition => "tuition",
+            AccountingCategory::Enrollment => "enrollment",
             AccountingCategory::OtherIncome => "other",
             AccountingCategory::Rent => "rent",
             AccountingCategory::Salaries => "salaries",
@@ -59,6 +61,7 @@ impl AccountingCategory {
         match entry_type {
             EntryType::Income => match s.to_lowercase().as_str() {
                 "tuition" => Some(AccountingCategory::Tuition),
+                "enrollment" => Some(AccountingCategory::Enrollment),
                 "other" => Some(AccountingCategory::OtherIncome),
                 _ => None,
             },
@@ -75,7 +78,8 @@ impl AccountingCategory {
     /// Get display name in Spanish
     pub fn display_name(&self) -> &'static str {
         match self {
-            AccountingCategory::Tuition => "Matrícula",
+            AccountingCategory::Tuition => "Mensualidad",
+            AccountingCategory::Enrollment => "Matrícula",
             AccountingCategory::OtherIncome => "Otros",
             AccountingCategory::Rent => "Arriendo",
             AccountingCategory::Salaries => "Sueldos",
@@ -88,7 +92,9 @@ impl AccountingCategory {
     pub fn is_income(&self) -> bool {
         matches!(
             self,
-            AccountingCategory::Tuition | AccountingCategory::OtherIncome
+            AccountingCategory::Tuition
+                | AccountingCategory::Enrollment
+                | AccountingCategory::OtherIncome
         )
     }
 

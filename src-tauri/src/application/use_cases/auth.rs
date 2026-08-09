@@ -31,13 +31,13 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
     }
 
     /// Authenticate user and create session
-    pub fn login(&self, request: LoginRequest) -> Result<LoginResponse, ApplicationError> {
+    pub async fn login(&self, request: LoginRequest) -> Result<LoginResponse, ApplicationError> {
         // Find user by email
         let email = Email::new(&request.email).map_err(|e| ApplicationError::Validation(e))?;
 
         let user = self
             .user_repository
-            .find_by_email(&email)?
+            .find_by_email(&email).await?
             .ok_or_else(|| ApplicationError::Authentication("Invalid credentials".to_string()))?;
 
         // Verify password
@@ -60,7 +60,7 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
         let expires_at = Utc::now() + Duration::hours(24);
 
         let session = Session::new(session_id, user.id.clone(), token.clone(), expires_at);
-        self.session_repository.save(&session)?;
+        self.session_repository.save(&session).await?;
 
         Ok(LoginResponse {
             token,
@@ -75,22 +75,22 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
     }
 
     /// Logout user and destroy session
-    pub fn logout(&self, token: &str) -> Result<(), ApplicationError> {
+    pub async fn logout(&self, token: &str) -> Result<(), ApplicationError> {
         let session = self
             .session_repository
-            .find_by_token(token)?
+            .find_by_token(token).await?
             .ok_or_else(|| ApplicationError::Authentication("Session not found".to_string()))?;
 
-        self.session_repository.delete(&session.id)?;
+        self.session_repository.delete(&session.id).await?;
 
         Ok(())
     }
 
     /// Validate session token
-    pub fn validate_token(&self, token: &str) -> Result<User, ApplicationError> {
+    pub async fn validate_token(&self, token: &str) -> Result<User, ApplicationError> {
         let session = self
             .session_repository
-            .find_by_token(token)?
+            .find_by_token(token).await?
             .ok_or_else(|| ApplicationError::Authentication("Invalid token".to_string()))?;
 
         if !session.is_valid() {
@@ -101,7 +101,7 @@ impl<U: UserRepository, S: SessionRepository> AuthService<U, S> {
 
         let user = self
             .user_repository
-            .find_by_id(&session.user_id)?
+            .find_by_id(&session.user_id).await?
             .ok_or_else(|| ApplicationError::Authentication("User not found".to_string()))?;
 
         if !user.active {

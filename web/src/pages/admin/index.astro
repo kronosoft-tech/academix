@@ -1,0 +1,130 @@
+---
+export const prerender = false;
+
+import Admin from "../../layouts/Admin.astro";
+import { db } from "../../lib/db";
+import DashboardCharts from "../../components/DashboardCharts";
+
+const admin = Astro.locals.admin!;
+
+// Total active clients (users with active subscription)
+const activeClientsResult = await db.execute({
+  sql: `SELECT COUNT(DISTINCT user_id) as count
+        FROM subscriptions WHERE status IN ('active', 'trial')`,
+  args: [],
+});
+const activeClients = Number(activeClientsResult.rows[0]?.count || 0);
+
+// Total revenue (sum of succeeded payments)
+const revenueResult = await db.execute({
+  sql: `SELECT COALESCE(SUM(amount), 0) as total
+        FROM subscription_payments WHERE status = 'succeeded'`,
+  args: [],
+});
+const totalRevenue = Number(revenueResult.rows[0]?.total || 0);
+
+// Download counts
+const downloadsResult = await db.execute({
+  sql: `SELECT COUNT(*) as count FROM downloads`,
+  args: [],
+});
+const totalDownloads = Number(downloadsResult.rows[0]?.count || 0);
+
+// Payment stats
+const paymentStatsResult = await db.execute({
+  sql: `SELECT status, COUNT(*) as count
+        FROM subscription_payments
+        GROUP BY status`,
+  args: [],
+});
+const paymentStats: Record<string, number> = {};
+for (const row of paymentStatsResult.rows) {
+  paymentStats[row.status as string] = Number(row.count);
+}
+
+// Churn rate (expired / total)
+const totalSubscriptionsResult = await db.execute({
+  sql: `SELECT COUNT(*) as total,
+        SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired
+        FROM subscriptions`,
+  args: [],
+});
+const totalSubs = Number(totalSubscriptionsResult.rows[0]?.total || 0);
+const expiredSubs = Number(totalSubscriptionsResult.rows[0]?.expired || 0);
+const churnRate = totalSubs > 0 ? Math.round((expiredSubs / totalSubs) * 100) : 0;
+
+// Monthly revenue data for charts (last 6 months)
+const sixMonthsAgo = new Date();
+sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+const monthlyRevenueResult = await db.execute({
+  sql: `SELECT strftime('%Y-%m', created_at) as month, SUM(amount) as total
+        FROM subscription_payments
+        WHERE status = 'succeeded' AND created_at >= ?
+        GROUP BY month ORDER BY month`,
+  args: [sixMonthsAgo.toISOString()],
+});
+const chartData = monthlyRevenueResult.rows.map((row) => ({
+  label: row.month as string,
+  value: Number(row.total || 0),
+}));
+---
+
+<Admin title="Panel de Administración">
+  <div class="max-w-6xl">
+    <h1 class="text-2xl font-bold text-white mb-6">Métricas</h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <p class="text-sm text-slate-400">Clientes Activos</p>
+        <p class="text-2xl font-bold text-white mt-1">{activeClients}</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <p class="text-sm text-slate-400">Ingresos Totales</p>
+        <p class="text-2xl font-bold text-emerald-400 mt-1">
+          ${totalRevenue.toLocaleString()}
+        </p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <p class="text-sm text-slate-400">Descargas</p>
+        <p class="text-2xl font-bold text-white mt-1">{totalDownloads}</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <p class="text-sm text-slate-400">Tasa de Churn</p>
+        <p class="text-2xl font-bold text-white mt-1">{churnRate}%</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Ingresos Mensuales</h2>
+        {chartData.length > 0 ? (
+          <DashboardCharts client:load data={chartData} />
+        ) : (
+          <p class="text-slate-400 text-sm">Sin datos de ingresos aún</p>
+        )}
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Estado de Pagos</h2>
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">Exitosos</span>
+            <span class="text-emerald-400 font-medium">{paymentStats.succeeded || 0}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">Pendientes</span>
+            <span class="text-amber-400 font-medium">{paymentStats.pending || 0}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">Fallidos</span>
+            <span class="text-red-400 font-medium">{paymentStats.failed || 0}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm">Reembolsados</span>
+            <span class="text-slate-300 font-medium">{paymentStats.refunded || 0}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Admin>

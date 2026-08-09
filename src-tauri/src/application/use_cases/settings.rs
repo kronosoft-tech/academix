@@ -16,8 +16,8 @@ impl<R: SettingsRepository> SettingsService<R> {
     }
 
     /// Get the absence threshold (default: 3)
-    pub fn get_absence_threshold(&self) -> Result<i32, ApplicationError> {
-        match self.settings_repository.get_setting("attendance_threshold")? {
+    pub async fn get_absence_threshold(&self) -> Result<i32, ApplicationError> {
+        match self.settings_repository.get_setting("attendance_threshold").await? {
             Some(value) => value
                 .parse::<i32>()
                 .map_err(|_| ApplicationError::Validation("Invalid threshold value".to_string())),
@@ -26,7 +26,7 @@ impl<R: SettingsRepository> SettingsService<R> {
     }
 
     /// Set the absence threshold (validates 1..=30)
-    pub fn set_absence_threshold(&self, value: i32) -> Result<i32, ApplicationError> {
+    pub async fn set_absence_threshold(&self, value: i32) -> Result<i32, ApplicationError> {
         if value < 1 || value > 30 {
             return Err(ApplicationError::Validation(
                 "Threshold must be between 1 and 30".to_string(),
@@ -34,7 +34,8 @@ impl<R: SettingsRepository> SettingsService<R> {
         }
 
         self.settings_repository
-            .set_setting("attendance_threshold", &value.to_string())?;
+            .set_setting("attendance_threshold", &value.to_string())
+            .await?;
 
         Ok(value)
     }

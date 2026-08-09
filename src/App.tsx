@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { HashRouter } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./shared/hooks/useAuth";
 import LoginPage from "./features/auth/routes/LoginPage";
+import RegisterPage from "./features/auth/routes/RegisterPage";
 import MainLayout from "./app/layouts/MainLayout";
 import { Spinner } from "./shared/ui/components/Spinner";
 import { initTheme } from "./theme/theme";
@@ -22,7 +23,13 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return (
+      <Routes>
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   return <MainLayout />;

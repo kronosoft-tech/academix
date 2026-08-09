@@ -15,6 +15,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
+  subscription: {
+    status: string;
+    plan: string | null;
+    trialEnd: string | null;
+    daysLeft: number | null;
+  } | null;
 }
 
 interface AuthContextValue extends AuthState {
@@ -22,34 +28,13 @@ interface AuthContextValue extends AuthState {
   logout: () => Promise<void>;
 }
 
-const AUTH_STORAGE_KEY = "academix_auth";
-
-function getStoredAuth(): AuthState {
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.user && parsed.token && parsed.isAuthenticated) {
-        return { ...parsed, isLoading: false };
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-  return { user: null, isAuthenticated: false, isLoading: false, token: null };
-}
-
-function setStoredAuth(state: AuthState): void {
-  try {
-    if (state.user) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-  } catch {
-    // Ignore errors
-  }
-}
+const INITIAL_STATE: AuthState = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  token: null,
+  subscription: null,
+};
 
 // Create context with undefined default to force usage check
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,7 +44,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [state, setState] = useState<AuthState>(getStoredAuth);
+  const [state, setState] = useState<AuthState>(INITIAL_STATE);
 
   const login = useCallback(async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
@@ -69,31 +54,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
         token: string | null;
         user: User | null;
         error: string | null;
+        subscription_status: string | null;
+        subscription_plan: string | null;
+        subscription_trial_end: string | null;
+        subscription_days_left: number | null;
       }>("login", {
         request: { email, password },
       });
 
       if (response.success && response.token && response.user) {
-        const newState = {
+        console.log("[AUTH] subscription_status:", response.subscription_status, "days_left:", response.subscription_days_left);
+        setState({
           user: response.user,
           token: response.token,
           isAuthenticated: true,
           isLoading: false,
-        };
-        setStoredAuth(newState);
-        setState(newState);
+          subscription: response.subscription_status ? {
+            status: response.subscription_status,
+            plan: response.subscription_plan || null,
+            trialEnd: response.subscription_trial_end || null,
+            daysLeft: response.subscription_days_left ?? null,
+          } : null,
+        });
         return { success: true };
       } else {
-        const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-        setStoredAuth(newState);
-        setState(newState);
+        setState(INITIAL_STATE);
         return { success: false, error: response.error || "Login failed" };
       }
     } catch (error) {
-      const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-      setStoredAuth(newState);
-      setState(newState);
-      return { success: false, error: error instanceof Error ? error.message : "Login failed" };
+      setState(INITIAL_STATE);
+      const errorMsg = typeof error === 'string' ? error : (error instanceof Error ? error.message : "Login failed");
+      return { success: false, error: errorMsg };
     }
   }, []);
 
@@ -106,9 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Ignore logout errors
       }
     }
-    const newState = { user: null, token: null, isAuthenticated: false, isLoading: false };
-    setStoredAuth(newState);
-    setState(newState);
+    setState(INITIAL_STATE);
   }, [state.token]);
 
   return (

@@ -1,0 +1,211 @@
+[
+  {
+    "country_code": "CO",
+    "currency_code": "COP",
+    "symbol": "$",
+    "display_name": "Colombia",
+    "prices": {
+      "basic": 89900,
+      "pro": 149900,
+      "premium": 259900
+    }
+  },
+  {
+    "country_code": "MX",
+    "currency_code": "MXN",
+    "symbol": "$",
+    "display_name": "México",
+    "prices": {
+      "basic": 449,
+      "pro": 799,
+      "premium": 1399
+    }
+  },
+  {
+    "country_code": "AR",
+    "currency_code": "ARS",
+    "symbol": "$",
+    "display_name": "Argentina",
+    "prices": {
+      "basic": 35900,
+      "pro": 64900,
+      "premium": 114900
+    }
+  },
+  {
+    "country_code": "CL",
+    "currency_code": "CLP",
+    "symbol": "$",
+    "display_name": "Chile",
+    "prices": {
+      "basic": 22990,
+      "pro": 41990,
+      "premium": 73990
+    }
+  },
+  {
+    "country_code": "PE",
+    "currency_code": "PEN",
+    "symbol": "S/",
+    "display_name": "Perú",
+    "prices": {
+      "basic": 89,
+      "pro": 159,
+      "premium": 279
+    }
+  },
+  {
+    "country_code": "BR",
+    "currency_code": "BRL",
+    "symbol": "R$",
+    "display_name": "Brasil",
+    "prices": {
+      "basic": 129,
+      "pro": 229,
+      "premium": 399
+    }
+  },
+  {
+    "country_code": "EC",
+    "currency_code": "USD",
+    "symbol": "$",
+    "display_name": "Ecuador",
+    "prices": {
+      "basic": 29,
+      "pro": 49,
+      "premium": 79
+    }
+  },
+  {
+    "country_code": "UY",
+    "currency_code": "UYU",
+    "symbol": "$",
+    "display_name": "Uruguay",
+    "prices": {
+      "basic": 990,
+      "pro": 1790,
+      "premium": 3190
+    }
+  },
+  {
+    "country_code": "PY",
+    "currency_code": "PYG",
+    "symbol": "₲",
+    "display_name": "Paraguay",
+    "prices": {
+      "basic": 189900,
+      "pro": 339900,
+      "premium": 599900
+    }
+  },
+  {
+    "country_code": "BO",
+    "currency_code": "BOB",
+    "symbol": "Bs",
+    "display_name": "Bolivia",
+    "prices": {
+      "basic": 169,
+      "pro": 309,
+      "premium": 549
+    }
+  },
+  {
+    "country_code": "CR",
+    "currency_code": "CRC",
+    "symbol": "₡",
+    "display_name": "Costa Rica",
+    "prices": {
+      "basic": 12900,
+      "pro": 22900,
+      "premium": 39900
+    }
+  },
+  {
+    "country_code": "PA",
+    "currency_code": "USD",
+    "symbol": "$",
+    "display_name": "Panamá",
+    "prices": {
+      "basic": 29,
+      "pro": 49,
+      "premium": 79
+    }
+  },
+  {
+    "country_code": "GT",
+    "currency_code": "GTQ",
+    "symbol": "Q",
+    "display_name": "Guatemala",
+    "prices": {
+      "basic": 189,
+      "pro": 349,
+      "premium": 619
+    }
+  },
+  {
+    "country_code": "HN",
+    "currency_code": "HNL",
+    "symbol": "L",
+    "display_name": "Honduras",
+    "prices": {
+      "basic": 619,
+      "pro": 1119,
+      "premium": 1990
+    }
+  },
+  {
+    "country_code": "SV",
+    "currency_code": "USD",
+    "symbol": "$",
+    "display_name": "El Salvador",
+    "prices": {
+      "basic": 29,
+      "pro": 49,
+      "premium": 79
+    }
+  },
+  {
+    "country_code": "NI",
+    "currency_code": "NIO",
+    "symbol": "C$",
+    "display_name": "Nicaragua",
+    "prices": {
+      "basic": 919,
+      "pro": 1649,
+      "premium": 2990
+    }
+  },
+  {
+    "country_code": "DO",
+    "currency_code": "DOP",
+    "symbol": "RD$",
+    "display_name": "Rep. Dominicana",
+    "prices": {
+      "basic": 1490,
+      "pro": 2690,
+      "premium": 4790
+    }
+  },
+  {
+    "country_code": "VE",
+    "currency_code": "USD",
+    "symbol": "$",
+    "display_name": "Venezuela",
+    "prices": {
+      "basic": 29,
+      "pro": 49,
+      "premium": 79
+    }
+  },
+  {
+    "country_code": "US",
+    "currency_code": "USD",
+    "symbol": "$",
+    "display_name": "Internacional",
+    "prices": {
+      "basic": 29,
+      "pro": 49,
+      "premium": 79
+    }
+  }
+]

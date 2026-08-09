@@ -2,42 +2,49 @@
 //!
 //! Implements SettingsRepository using SQLite.
 
+use async_trait::async_trait;
 use crate::application::ports::SettingsRepository;
 use crate::domain::errors::DomainError;
-use crate::infrastructure::database::SqlitePool;
-use std::sync::Arc;
+use crate::infrastructure::local_db;
 
 /// SQLite implementation of SettingsRepository
 #[derive(Clone)]
-pub struct SqliteSettingsRepository {
-    pool: Arc<SqlitePool>,
-}
+pub struct SqliteSettingsRepository;
 
 impl SqliteSettingsRepository {
-    pub fn new(pool: Arc<SqlitePool>) -> Self {
-        Self { pool }
+    pub fn new() -> Self {
+        Self
     }
 }
 
+impl Default for SqliteSettingsRepository {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
 impl SettingsRepository for SqliteSettingsRepository {
-    fn get_setting(&self, key: &str) -> Result<Option<String>, DomainError> {
+    async fn get_setting(&self, key: &str) -> Result<Option<String>, DomainError> {
         let sql = "SELECT value FROM app_settings WHERE key = ?";
 
-        match self
-            .pool
-            .query_row(sql, &[&key], |row| row.get::<_, String>(0))
-        {
-            Ok(value) => Ok(value),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(DomainError::Database(e.to_string())),
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        let mut rows = conn.query(sql, libsql::params![key.to_owned()]).await.map_err(|e| DomainError::Database(e.to_string()))?;
+        match rows.next().await.map_err(|e| DomainError::Database(e.to_string()))? {
+            Some(row) => {
+                let value: String = row.get(0).map_err(|e| DomainError::Database(e.to_string()))?;
+                Ok(Some(value))
+            }
+            None => Ok(None),
         }
     }
 
-    fn set_setting(&self, key: &str, value: &str) -> Result<(), DomainError> {
+    async fn set_setting(&self, key: &str, value: &str) -> Result<(), DomainError> {
         let sql = "INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))";
 
-        self.pool
-            .execute(sql, &[&key, &value])
+        let conn = local_db::get_db().connect().map_err(|e| DomainError::Database(e.to_string()))?;
+        conn.execute(sql, libsql::params![key.to_owned(), value.to_owned()])
+            .await
             .map_err(|e| DomainError::Database(e.to_string()))?;
 
         Ok(())

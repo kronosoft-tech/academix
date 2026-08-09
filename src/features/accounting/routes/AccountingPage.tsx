@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAccounting } from "../hooks";
 import { DashboardCards } from "../components/DashboardCards";
-import { IncomeExpensesChart, MonthlyTrendChart, ExpenseBreakdownChart } from "../components/DashboardCharts";
+import { IncomeExpensesChart, MonthlyTrendChart, ExpenseBreakdownChart, IncomeBreakdownChart } from "../components/DashboardCharts";
 import { AccountingTable } from "../components/AccountingTable";
 import { IncomeForm } from "../components/IncomeForm";
 import { ExpenseForm } from "../components/ExpenseForm";
@@ -13,15 +13,13 @@ type ModalType = "income" | "expense" | null;
 
 export default function AccountingPage() {
   const { summary, loading, getSummary, createIncomeEntry, createExpenseEntry, deleteEntry, entries, listEntries } = useAccounting();
-  const [period, setPeriod] = useState({ start: "", end: "" });
-  const [modalType, setModalType] = useState<ModalType>(null);
-
-  useEffect(() => {
+  const [period, setPeriod] = useState(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const start = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().split("T")[0];
     const end = now.toISOString().split("T")[0];
-    setPeriod({ start, end });
-  }, []);
+    return { start, end };
+  });
+  const [modalType, setModalType] = useState<ModalType>(null);
 
   useEffect(() => {
     if (period.start && period.end) {
@@ -58,6 +56,7 @@ export default function AccountingPage() {
 
   const monthlyData = summary?.monthly_data || [];
   const expenseBreakdown = summary?.expenses_by_category || [];
+  const incomeBreakdown = summary?.income_by_category || [];
 
   return (
     <div className="space-y-6">
@@ -129,9 +128,15 @@ export default function AccountingPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {loading ? (
-          <SkeletonCard />
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
         ) : (
-          <ExpenseBreakdownChart data={expenseBreakdown} />
+          <>
+            <IncomeBreakdownChart data={incomeBreakdown} />
+            <ExpenseBreakdownChart data={expenseBreakdown} />
+          </>
         )}
       </div>
 

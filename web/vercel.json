@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/expire-subscriptions",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/send-reminders",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/charge-wompi",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

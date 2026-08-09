@@ -21,12 +21,12 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// Create a new user
-    pub fn create(&self, request: CreateUserRequest) -> Result<UserDto, ApplicationError> {
+    pub async fn create(&self, request: CreateUserRequest) -> Result<UserDto, ApplicationError> {
         // Validate email
         let email = Email::new(&request.email).map_err(|e| ApplicationError::Validation(e))?;
 
         // Check if email already exists
-        if self.user_repository.exists_by_email(&email)? {
+        if self.user_repository.exists_by_email(&email).await? {
             return Err(ApplicationError::Conflict(
                 "Email already exists".to_string(),
             ));
@@ -50,7 +50,7 @@ impl<R: UserRepository> UserService<R> {
         );
 
         // Save to repository
-        self.user_repository.save(&user)?;
+        self.user_repository.save(&user).await?;
 
         Ok(UserDto {
             id: user.id,
@@ -61,10 +61,10 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// Get user by ID
-    pub fn get_by_id(&self, id: &str) -> Result<UserDto, ApplicationError> {
+    pub async fn get_by_id(&self, id: &str) -> Result<UserDto, ApplicationError> {
         let user = self
             .user_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
 
         Ok(UserDto {
@@ -76,8 +76,8 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// List all users
-    pub fn list(&self) -> Result<Vec<UserListItem>, ApplicationError> {
-        let users = self.user_repository.find_all()?;
+    pub async fn list(&self) -> Result<Vec<UserListItem>, ApplicationError> {
+        let users = self.user_repository.find_all().await?;
 
         Ok(users
             .into_iter()
@@ -92,14 +92,14 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// Update user
-    pub fn update(
+    pub async fn update(
         &self,
         id: &str,
         request: UpdateUserRequest,
     ) -> Result<UserDto, ApplicationError> {
         let mut user = self
             .user_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
 
         if let Some(name) = request.name {
@@ -111,7 +111,7 @@ impl<R: UserRepository> UserService<R> {
 
             // Check if email changed and if new email already exists
             if email.as_str() != user.email {
-                if self.user_repository.exists_by_email(&email)? {
+                if self.user_repository.exists_by_email(&email).await? {
                     return Err(ApplicationError::Conflict(
                         "Email already exists".to_string(),
                     ));
@@ -120,7 +120,7 @@ impl<R: UserRepository> UserService<R> {
             }
         }
 
-        self.user_repository.update(&user)?;
+        self.user_repository.update(&user).await?;
 
         Ok(UserDto {
             id: user.id,
@@ -131,22 +131,22 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// Delete user (soft delete)
-    pub fn delete(&self, id: &str) -> Result<(), ApplicationError> {
+    pub async fn delete(&self, id: &str) -> Result<(), ApplicationError> {
         // Prevent deleting admin user
-        if let Some(user) = self.user_repository.find_by_id(id)? {
+        if let Some(user) = self.user_repository.find_by_id(id).await? {
             if user.is_admin() {
                 return Err(ApplicationError::Authorization(
                     "Cannot delete admin user".to_string(),
                 ));
             }
         }
-        self.user_repository.delete(id)?;
+        self.user_repository.delete(id).await?;
         Ok(())
     }
 
     /// Filter users by role
-    pub fn list_by_role(&self, role: &str) -> Result<Vec<UserListItem>, ApplicationError> {
-        let users = self.user_repository.find_all()?;
+    pub async fn list_by_role(&self, role: &str) -> Result<Vec<UserListItem>, ApplicationError> {
+        let users = self.user_repository.find_all().await?;
 
         let role_lower = role.to_lowercase();
         Ok(users
@@ -163,14 +163,14 @@ impl<R: UserRepository> UserService<R> {
     }
 
     /// Admin update user - supports role changes and password reset
-    pub fn admin_update(
+    pub async fn admin_update(
         &self,
         id: &str,
         request: UpdateUserRequest,
     ) -> Result<UserDto, ApplicationError> {
         let mut user = self
             .user_repository
-            .find_by_id(id)?
+            .find_by_id(id).await?
             .ok_or_else(|| ApplicationError::NotFound("User not found".to_string()))?;
 
         // Prevent changing admin role
@@ -194,7 +194,7 @@ impl<R: UserRepository> UserService<R> {
 
             // Check if email changed and if new email already exists
             if email.as_str() != user.email {
-                if self.user_repository.exists_by_email(&email)? {
+                if self.user_repository.exists_by_email(&email).await? {
                     return Err(ApplicationError::Conflict(
                         "Email already exists".to_string(),
                     ));
@@ -225,7 +225,7 @@ impl<R: UserRepository> UserService<R> {
         }
 
         user.updated_at = chrono::Utc::now();
-        self.user_repository.update(&user)?;
+        self.user_repository.update(&user).await?;
 
         Ok(UserDto {
             id: user.id,

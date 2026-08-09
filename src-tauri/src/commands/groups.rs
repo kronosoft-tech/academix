@@ -1,17 +1,12 @@
-//! Group Commands
-//!
-//! Tauri commands for group management.
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::application::dto::{CreateGroupRequest, GroupDto, UpdateGroupRequest};
 use crate::application::use_cases::GroupService;
-use crate::infrastructure::repositories::{SqliteCourseRepository, SqliteGroupRepository};
+use crate::infrastructure::repositories::{MemoryBackedCourseRepository, MemoryBackedGroupRepository};
 
-pub type GroupServiceState = GroupService<SqliteGroupRepository, SqliteCourseRepository>;
+pub type GroupServiceState = GroupService<MemoryBackedGroupRepository, MemoryBackedCourseRepository>;
 
-/// Create group request payload
 #[derive(Debug, Deserialize)]
 pub struct CreateGroupCommand {
     pub course_id: String,
@@ -28,7 +23,6 @@ pub struct CreateGroupCommand {
     pub skipped_dates: Option<Vec<String>>,
 }
 
-/// Update group request payload
 #[derive(Debug, Deserialize)]
 pub struct UpdateGroupCommand {
     pub name: Option<String>,
@@ -45,7 +39,6 @@ pub struct UpdateGroupCommand {
     pub skipped_dates: Option<Vec<String>>,
 }
 
-/// Group response payload
 #[derive(Debug, Serialize)]
 pub struct GroupCommandResponse {
     pub success: bool,
@@ -53,7 +46,6 @@ pub struct GroupCommandResponse {
     pub error: Option<String>,
 }
 
-/// Group list response
 #[derive(Debug, Serialize)]
 pub struct GroupListCommandResponse {
     pub success: bool,
@@ -61,12 +53,11 @@ pub struct GroupListCommandResponse {
     pub error: Option<String>,
 }
 
-/// Create group command
 #[tauri::command]
-pub fn create_group(
-    state: State<GroupServiceState>,
+pub async fn create_group(
+    state: State<'_, GroupServiceState>,
     request: CreateGroupCommand,
-) -> GroupCommandResponse {
+) -> Result<GroupCommandResponse, String> {
     match state.create(CreateGroupRequest {
         course_id: request.course_id,
         name: request.name,
@@ -80,61 +71,46 @@ pub fn create_group(
         max_students: request.max_students.unwrap_or(20),
         class_duration: request.class_duration,
         skipped_dates: request.skipped_dates,
-    }) {
-        Ok(group) => GroupCommandResponse {
+    }).await {
+        Ok(group) => Ok(GroupCommandResponse {
             success: true,
             data: Some(group),
             error: None,
-        },
-        Err(e) => GroupCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Get group by ID
 #[tauri::command]
-pub fn get_group(state: State<GroupServiceState>, id: String) -> GroupCommandResponse {
-    match state.get_by_id(&id) {
-        Ok(group) => GroupCommandResponse {
+pub async fn get_group(state: State<'_, GroupServiceState>, id: String) -> Result<GroupCommandResponse, String> {
+    match state.get_by_id(&id).await {
+        Ok(group) => Ok(GroupCommandResponse {
             success: true,
             data: Some(group),
             error: None,
-        },
-        Err(e) => GroupCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// List all groups
 #[tauri::command]
-pub fn list_groups(state: State<GroupServiceState>) -> GroupListCommandResponse {
-    match state.list() {
-        Ok(groups) => GroupListCommandResponse {
+pub async fn list_groups(state: State<'_, GroupServiceState>) -> Result<GroupListCommandResponse, String> {
+    match state.list().await {
+        Ok(groups) => Ok(GroupListCommandResponse {
             success: true,
             data: Some(groups),
             error: None,
-        },
-        Err(e) => GroupListCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Update group
 #[tauri::command]
-pub fn update_group(
-    state: State<GroupServiceState>,
+pub async fn update_group(
+    state: State<'_, GroupServiceState>,
     id: String,
     request: UpdateGroupCommand,
-) -> GroupCommandResponse {
+) -> Result<GroupCommandResponse, String> {
     match state.update(
         &id,
         UpdateGroupRequest {
@@ -151,33 +127,24 @@ pub fn update_group(
             class_duration: request.class_duration,
             skipped_dates: request.skipped_dates,
         },
-    ) {
-        Ok(group) => GroupCommandResponse {
+    ).await {
+        Ok(group) => Ok(GroupCommandResponse {
             success: true,
             data: Some(group),
             error: None,
-        },
-        Err(e) => GroupCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
-/// Delete group
 #[tauri::command]
-pub fn delete_group(state: State<GroupServiceState>, id: String) -> GroupCommandResponse {
-    match state.delete(&id) {
-        Ok(()) => GroupCommandResponse {
+pub async fn delete_group(state: State<'_, GroupServiceState>, id: String) -> Result<GroupCommandResponse, String> {
+    match state.delete(&id).await {
+        Ok(()) => Ok(GroupCommandResponse {
             success: true,
             data: None,
             error: None,
-        },
-        Err(e) => GroupCommandResponse {
-            success: false,
-            data: None,
-            error: Some(e.to_string()),
-        },
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }

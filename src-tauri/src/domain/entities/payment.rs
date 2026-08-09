@@ -64,6 +64,31 @@ impl PaymentMethod {
     }
 }
 
+/// Payment type — distinguishes enrollment (one-time) from tuition (monthly)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PaymentType {
+    Enrollment,
+    Tuition,
+}
+
+impl PaymentType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PaymentType::Enrollment => "enrollment",
+            PaymentType::Tuition => "tuition",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<PaymentType> {
+        match s.to_lowercase().as_str() {
+            "enrollment" => Some(PaymentType::Enrollment),
+            "tuition" => Some(PaymentType::Tuition),
+            _ => None,
+        }
+    }
+}
+
 /// Payment entity - represents a payment for enrollment
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payment {
@@ -72,6 +97,7 @@ pub struct Payment {
     pub group_id: String,
     pub amount: f64,
     pub method: PaymentMethod,
+    pub payment_type: PaymentType,
     pub status: PaymentStatus,
     pub due_date: Option<String>,
     pub paid_at: Option<DateTime<Utc>>,
@@ -89,6 +115,7 @@ impl Payment {
         group_id: String,
         amount: f64,
         method: PaymentMethod,
+        payment_type: PaymentType,
     ) -> Self {
         let now = Utc::now();
         Self {
@@ -97,6 +124,7 @@ impl Payment {
             group_id,
             amount,
             method,
+            payment_type,
             status: PaymentStatus::Pending, // Default to Pending until payment is confirmed
             due_date: None,
             paid_at: None, // Not paid yet
@@ -149,12 +177,14 @@ mod tests {
             "group-1".to_string(),
             500000.0,
             PaymentMethod::Transfer,
+            PaymentType::Tuition,
         );
 
         assert_eq!(payment.id, "payment-1");
         assert_eq!(payment.amount, 500000.0);
         assert_eq!(payment.status, PaymentStatus::Pending);
         assert_eq!(payment.method, PaymentMethod::Transfer);
+        assert_eq!(payment.payment_type, PaymentType::Tuition);
         assert!(payment.paid_at.is_none());
     }
 
@@ -166,6 +196,7 @@ mod tests {
             "group-1".to_string(),
             500000.0,
             PaymentMethod::Transfer,
+            PaymentType::Tuition,
         );
 
         assert_eq!(payment.status, PaymentStatus::Pending);
@@ -185,6 +216,7 @@ mod tests {
             "group-1".to_string(),
             500000.0,
             PaymentMethod::Card,
+            PaymentType::Enrollment,
         );
 
         payment.mark_failed();
@@ -201,6 +233,7 @@ mod tests {
             "group-1".to_string(),
             500000.0,
             PaymentMethod::Transfer,
+            PaymentType::Tuition,
         );
 
         payment.mark_paid();

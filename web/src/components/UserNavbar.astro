@@ -1,0 +1,97 @@
+---
+import { getFullTokenPayload } from "../lib/auth";
+import { actions } from "astro:actions";
+
+const payload = await getFullTokenPayload(Astro.cookies);
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+const initials = payload ? getInitials(payload.academyName) : "";
+---
+
+{
+  payload ? (
+    <div class="relative flex items-center">
+      <details class="group">
+        <summary class="flex items-center gap-2 cursor-pointer list-none select-none rounded-lg px-2 py-1 hover:bg-slate-800 transition-colors">
+          <span class="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 text-white text-sm font-semibold">
+            {initials}
+          </span>
+          <svg
+            class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </summary>
+        <div class="absolute right-0 top-full mt-2 w-56 rounded-lg bg-slate-800 border border-slate-700 shadow-xl z-50 py-1">
+          <div class="px-4 py-2 border-b border-slate-700">
+            <p class="text-sm font-medium text-white truncate">
+              {payload.academyName}
+            </p>
+            <p class="text-xs text-slate-400 truncate">{payload.email}</p>
+          </div>
+          <nav class="py-1">
+            <a
+              href="/dashboard"
+              class="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
+              Dashboard
+            </a>
+            <a
+              href="/dashboard"
+              class="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
+              Mi Academia
+            </a>
+            <a
+              href="/dashboard/subscription"
+              class="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
+              Suscripción
+            </a>
+            <a
+              href="/downloads"
+              class="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            >
+              Descargar App
+            </a>
+          </nav>
+          <div class="border-t border-slate-700 py-1">
+            <form method="POST" action={actions.logout}>
+              <button
+                type="submit"
+                class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-slate-700 hover:text-red-300 transition-colors text-left"
+              >
+                Cerrar sesión
+              </button>
+            </form>
+          </div>
+        </div>
+      </details>
+    </div>
+  ) : (
+    <div class="flex items-center">
+      <a
+        href="/auth/login"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors"
+      >
+        Iniciar Sesión
+      </a>
+    </div>
+  )
+}

@@ -25,12 +25,12 @@ interface PaymentRowProps {
 function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRowProps) {
   const isPaid = payment.status === "completed";
   const student = students.find(s => s.id === payment.studentId);
-  
+
   // Handle case where payment data might be incomplete
   if (!payment || !payment.id) {
     return null;
   }
-  
+
   return (
     <tr key={payment.id} className="hover:bg-[var(--color-foreground)]/5">
       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]">
@@ -44,23 +44,32 @@ function PaymentRow({ payment, students, onEdit, onDelete, canEdit }: PaymentRow
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            isPaid
-              ? "bg-green-100 text-green-800"
-              : (payment.status === "pending")
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isPaid
+            ? "bg-green-100 text-green-800"
+            : (payment.status === "pending")
               ? "bg-yellow-100 text-yellow-800"
               : (payment.status === "failed")
-              ? "bg-red-100 text-red-800"
-              : "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]"
-          }`}
+                ? "bg-red-100 text-red-800"
+                : "bg-[var(--color-foreground)]/10 text-[var(--color-foreground)]"
+            }`}
         >
           {isPaid
             ? "Pagado"
             : (payment.status === "pending")
-            ? "Pendiente"
-            : (payment.status === "failed")
-            ? "Fallido"
-            : "Reembolsado"}
+              ? "Pendiente"
+              : (payment.status === "failed")
+                ? "Fallido"
+                : "Reembolsado"}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${payment.paymentType === "enrollment"
+              ? "bg-purple-100 text-purple-800"
+              : "bg-blue-100 text-blue-800"
+            }`}
+        >
+          {payment.paymentType === "enrollment" ? "Matrícula" : "Mensualidad"}
         </span>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-foreground)]/60">
@@ -97,9 +106,9 @@ export default function PaymentsPage() {
   const { groups } = useGroups();
   const { courses } = useCourses();
   const { user } = useAuth();
-  
+
   const canEdit = user?.role === "admin" || user?.role === "empleado" || user?.role === "gerente";
-  
+
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PaymentAny>(null);
@@ -109,6 +118,7 @@ export default function PaymentsPage() {
     groupId: "",
     amount: 0,
     method: "cash" as "cash" | "card" | "transfer" | "online",
+    paymentType: "tuition" as "enrollment" | "tuition",
     description: "",
   });
   const [editFormData, setEditFormData] = useState({
@@ -125,22 +135,22 @@ export default function PaymentsPage() {
   const selectedGroup = groups.find(g => g.id === formData.groupId);
   const selectedCourse = selectedGroup ? courses.find(c => c.id === selectedGroup.courseId) : null;
 
-  const filteredPayments = searchTerm 
+  const filteredPayments = searchTerm
     ? payments.filter((payment) =>
-        payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payment.id.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.id.toLowerCase().includes(searchTerm.toLowerCase())
+    )
     : payments;
 
   // Auto-fill amount when group is selected
   const handleGroupChange = (groupId: string) => {
     const group = groups.find(g => g.id === groupId);
     const course = group ? courses.find(c => c.id === group.courseId) : null;
-    setFormData({ 
-      ...formData, 
-      groupId, 
-      amount: course?.price || 0 
+    setFormData({
+      ...formData,
+      groupId,
+      amount: course?.price || 0
     });
   };
 
@@ -166,13 +176,14 @@ export default function PaymentsPage() {
       groupId: formData.groupId,
       amount: formData.amount,
       method: formData.method,
+      paymentType: formData.paymentType,
       description: formData.description || undefined,
       paid: true,
     });
 
     if (result.success) {
       setShowForm(false);
-      setFormData({ studentId: "", groupId: "", amount: 0, method: "cash", description: "" });
+      setFormData({ studentId: "", groupId: "", amount: 0, method: "cash", paymentType: "tuition", description: "" });
     } else {
       setSubmitError(result.error || "Error al crear payment");
     }
@@ -193,16 +204,16 @@ export default function PaymentsPage() {
 
   const handleEditSubmit = async () => {
     if (!editingPayment) return;
-    
+
     const updateData: any = {
       status: editFormData.status === "completed" ? "paid" : editFormData.status,
       reference: editFormData.reference || null,
       description: editFormData.description || null,
       paidAt: editFormData.status === "completed" ? (editFormData.paidAt || new Date().toISOString()) : null,
     };
-    
+
     const result = await updatePayment(editingPayment.id, updateData);
-    
+
     if (result.success) {
       setShowEditModal(false);
       setEditingPayment(null);
@@ -213,7 +224,7 @@ export default function PaymentsPage() {
 
   const handleDelete = async (paymentId: string) => {
     if (!confirm("¿Estás seguro de eliminar este pago?")) return;
-    
+
     const result = await deletePayment(paymentId);
     if (!result.success) {
       alert("Error: " + (result.error || "No se pudo eliminar"));
@@ -224,7 +235,7 @@ export default function PaymentsPage() {
     const student = students.find(s => s.id === payment.studentId);
     const group = groups.find(g => g.id === payment.groupId);
     const course = group ? courses.find(c => c.id === group.courseId) : null;
-    
+
     const receiptContent = `
 RECIBO DE PAGO
 =============
@@ -318,6 +329,34 @@ Academix - Sistema de Gestión
             />
 
             <div>
+              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Tipo de Pago</label>
+              <div className="flex gap-4">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paymentType"
+                    value="tuition"
+                    checked={formData.paymentType === "tuition"}
+                    onChange={() => setFormData({ ...formData, paymentType: "tuition" })}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-[var(--color-foreground)]">Mensualidad</span>
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paymentType"
+                    value="enrollment"
+                    checked={formData.paymentType === "enrollment"}
+                    onChange={() => setFormData({ ...formData, paymentType: "enrollment" })}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-[var(--color-foreground)]">Matrícula</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">
                 Monto {selectedCourse && `(del curso: $${selectedCourse.price.toLocaleString()})`}
               </label>
@@ -408,6 +447,9 @@ Academix - Sistema de Gestión
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
                   Método
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-foreground)]/60 uppercase tracking-wider">
@@ -428,9 +470,9 @@ Academix - Sistema de Gestión
             </thead>
             <tbody className="bg-[var(--color-background)] divide-y divide-gray-200">
               {filteredPayments.map((payment) => (
-                <PaymentRow 
-                  key={payment.id} 
-                  payment={payment} 
+                <PaymentRow
+                  key={payment.id}
+                  payment={payment}
                   students={students}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
@@ -445,78 +487,78 @@ Academix - Sistema de Gestión
       {/* Edit Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Editar Pago">
         <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Estado</label>
-              <select
-                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
-                value={editFormData.status}
-                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
-              >
-                <option value="pending">Pendiente</option>
-                <option value="completed">Pagado</option>
-                <option value="failed">Fallido</option>
-                <option value="refunded">Reembolsado</option>
-              </select>
-            </div>
-            
-            <Input
-              label="Monto"
-              type="number"
-              value={editFormData.amount}
-              onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) || 0 })}
-            />
-            
-            <Input
-              label="Referencia"
-              value={editFormData.reference}
-              onChange={(e) => setEditFormData({ ...editFormData, reference: e.target.value })}
-            />
-            
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Método</label>
-              <select
-                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
-                value={editFormData.method}
-                onChange={(e) => setEditFormData({ ...editFormData, method: e.target.value as any })}
-              >
-                <option value="cash">Efectivo</option>
-                <option value="card">Tarjeta</option>
-                <option value="transfer">Transferencia</option>
-                <option value="online">Pago en línea</option>
-              </select>
-            </div>
-            
-            {editFormData.status === "completed" && (
-              <Input
-                label="Fecha de pago"
-                type="date"
-                value={editFormData.paidAt}
-                onChange={(e) => setEditFormData({ ...editFormData, paidAt: e.target.value })}
-              />
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Descripción</label>
-              <textarea
-                className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
-                value={editFormData.description}
-                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                rows={2}
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={handleEditSubmit} loading={isLoading}>
-                Guardar Cambios
-              </Button>
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-                Cancelar
-              </Button>
-              <Button variant="primary" onClick={() => generatePaymentReceipt(editingPayment)}>
-                Descargar Recibo
-              </Button>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Estado</label>
+            <select
+              className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
+              value={editFormData.status}
+              onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as any })}
+            >
+              <option value="pending">Pendiente</option>
+              <option value="completed">Pagado</option>
+              <option value="failed">Fallido</option>
+              <option value="refunded">Reembolsado</option>
+            </select>
           </div>
+
+          <Input
+            label="Monto"
+            type="number"
+            value={editFormData.amount}
+            onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) || 0 })}
+          />
+
+          <Input
+            label="Referencia"
+            value={editFormData.reference}
+            onChange={(e) => setEditFormData({ ...editFormData, reference: e.target.value })}
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Método</label>
+            <select
+              className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
+              value={editFormData.method}
+              onChange={(e) => setEditFormData({ ...editFormData, method: e.target.value as any })}
+            >
+              <option value="cash">Efectivo</option>
+              <option value="card">Tarjeta</option>
+              <option value="transfer">Transferencia</option>
+              <option value="online">Pago en línea</option>
+            </select>
+          </div>
+
+          {editFormData.status === "completed" && (
+            <Input
+              label="Fecha de pago"
+              type="date"
+              value={editFormData.paidAt}
+              onChange={(e) => setEditFormData({ ...editFormData, paidAt: e.target.value })}
+            />
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--color-foreground)] mb-1">Descripción</label>
+            <textarea
+              className="w-full px-3 py-2 border border-[var(--color-foreground)]/30 rounded-lg"
+              value={editFormData.description}
+              onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+              rows={2}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleEditSubmit} loading={isLoading}>
+              Guardar Cambios
+            </Button>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={() => generatePaymentReceipt(editingPayment)}>
+              Descargar Recibo
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

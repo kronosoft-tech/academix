@@ -1,0 +1,115 @@
+---
+import UserNavbar from "../components/UserNavbar.astro";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "Sistema de gestión académica para instituciones educativas",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} | Academix</title>
+  </head>
+  <body class="bg-slate-950 text-white min-h-screen flex flex-col antialiased">
+    <header class="border-b border-slate-800">
+      <nav
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
+      >
+        <a href="/" class="text-xl font-bold text-emerald-400">Academix</a>
+        <div class="hidden md:flex items-center gap-6">
+          <a
+            href="/pricing"
+            class="text-slate-300 hover:text-white transition-colors">Precios</a
+          >
+          <a
+            href="/downloads"
+            class="text-slate-300 hover:text-white transition-colors"
+            >Descargar</a
+          >
+          <a
+            href="/tutorials"
+            class="text-slate-300 hover:text-white transition-colors"
+            >Tutoriales</a
+          >
+          <a
+            href="/faq"
+            class="text-slate-300 hover:text-white transition-colors">FAQ</a
+          >
+          <a
+            href="/contact"
+            class="text-slate-300 hover:text-white transition-colors"
+            >Contacto</a
+          >
+        </div>
+        <UserNavbar />
+      </nav>
+    </header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="border-t border-slate-800 py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <p class="text-xl font-bold text-emerald-400">Academix</p>
+            <p class="mt-2 text-slate-400 text-sm">
+              Sistema de gestión académica para instituciones educativas en
+              Latinoamérica.
+            </p>
+          </div>
+          <div>
+            <p class="font-semibold text-white mb-3">Producto</p>
+            <ul class="space-y-2 text-sm text-slate-400">
+              <li>
+                <a href="/pricing" class="hover:text-white transition-colors"
+                  >Precios</a>
+              </li>
+              <li>
+                <a href="/downloads" class="hover:text-white transition-colors"
+                  >Descargar</a>
+              </li>
+              <li>
+                <a href="/tutorials" class="hover:text-white transition-colors"
+                  >Tutoriales</a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p class="font-semibold text-white mb-3">Soporte</p>
+            <ul class="space-y-2 text-sm text-slate-400">
+              <li>
+                <a href="/faq" class="hover:text-white transition-colors"
+                  >Preguntas frecuentes</a>
+              </li>
+              <li>
+                <a href="/contact" class="hover:text-white transition-colors"
+                  >Contacto</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div
+          class="mt-8 pt-8 border-t border-slate-800 text-center text-sm text-slate-500"
+        >
+          <p>
+            &copy; {new Date().getFullYear()} Academix. Todos los derechos reservados.
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

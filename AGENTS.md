@@ -103,3 +103,27 @@ Strict mode enabled (`tsconfig.json`):
 | Zustand | `zustand-5` |
 | Tailwind | `tailwind-4` |
 | Testing | `playwright` |
+
+### Turso Skills (Project-Local)
+
+All Turso skills are located in `skills/` at the project root. Use these when working with Turso database features:
+
+| Skill | When to Use |
+|-------|-------------|
+| `turso-cli` | Basic CLI commands: install, auth, db create/show/shell, groups, orgs |
+| `turso-cli-advanced` | Advanced CLI flags, migrations, AWS migrations, config allow-rules |
+| `turso-sdk` | TypeScript/Python/Go/Rust SDK patterns, ORM integration (Drizzle, Prisma) |
+| `turso-security` | Auth tokens, RLS policies, JWT, JWKS, fine-grained permissions |
+| `turso-features` | Vector search, AI embeddings, FTS5, SQLite extensions, branching, PITR |
+| `turso-api` | Platform API REST endpoints, programmatic database management |
+| `turso-sync` | Sync push/pull, embedded replicas, conflict resolution, local sync server |
+| `turso-sql` | SQL reference: data types, statements, functions, JSON, vectors, pragmas |
+
+**When to load these skills:**
+- Working with Turso database setup or configuration → `turso-cli` or `turso-cli-advanced`
+- Integrating Turso into frontend/backend code → `turso-sdk`
+- Implementing security, authentication, or multi-tenant access → `turso-security`
+- Building AI features, vector search, or full-text search → `turso-features`
+- Automating database management via API → `turso-api`
+- Setting up local-first sync or embedded replicas → `turso-sync`
+- Writing complex SQL queries or using advanced SQLite features → `turso-sql`
