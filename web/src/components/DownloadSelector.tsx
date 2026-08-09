@@ -29,7 +29,6 @@ const downloadOptions: DownloadOption[] = [
     label: 'Linux',
     architectures: [
       { arch: 'x64', label: 'x64 (64-bit)' },
-      { arch: 'arm64', label: 'ARM64' },
     ],
   },
 ];

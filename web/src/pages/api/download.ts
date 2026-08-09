@@ -1,23 +1,35 @@
 import type { APIRoute } from 'astro';
 import { db } from '../../lib/db';
 
-const GITHUB_ORG = 'academix-app';
+const GITHUB_ORG = 'kronosoft-tech';
 const GITHUB_REPO = 'academix';
-const ALLOW_LIST_PATTERN = /^https:\/\/github\.com\/academix-app\/academix\/releases\/download\/.+/;
+const VERSION = '0.2.0';
 
 const VALID_OS = ['windows', 'macos', 'linux'] as const;
 const VALID_ARCH = ['x64', 'arm64'] as const;
 
-const EXTENSIONS: Record<string, string> = {
-  windows: 'msi',
-  macos: 'dmg',
-  linux: 'deb',
-};
+/**
+ * Maps OS + arch to the actual filename in GitHub Releases.
+ * These match what tauri-apps/tauri-action generates.
+ */
+function getAssetFilename(os: string, arch: string): string {
+  switch (os) {
+    case 'windows':
+      if (arch === 'arm64') return `academix_${VERSION}_arm64-setup.exe`;
+      return `academix_${VERSION}_x64-setup.exe`;
+    case 'macos':
+      if (arch === 'arm64') return `academix_${VERSION}_aarch64.dmg`;
+      return `academix_${VERSION}_x64.dmg`;
+    case 'linux':
+      return `academix_${VERSION}_amd64.deb`;
+    default:
+      return '';
+  }
+}
 
 export const GET: APIRoute = async ({ request, url }) => {
   const os = url.searchParams.get('os');
   const arch = url.searchParams.get('arch');
-  const version = url.searchParams.get('version') || 'latest';
 
   if (!os || !arch) {
     return new Response(
@@ -40,25 +52,17 @@ export const GET: APIRoute = async ({ request, url }) => {
     );
   }
 
-  const ext = EXTENSIONS[os];
-  const tag = version === 'latest' ? 'latest' : `v${version}`;
-  const downloadUrl = `https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/${tag}/academix-${os}-${arch}.${ext}`;
+  const filename = getAssetFilename(os, arch);
+  const downloadUrl = `https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/app-v${VERSION}/${filename}`;
 
-  if (!ALLOW_LIST_PATTERN.test(downloadUrl)) {
-    return new Response(
-      JSON.stringify({ error: 'Generated URL does not match allow-list' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Track download (fire-and-forget — don't block redirect)
+  // Track download (fire-and-forget)
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const country = request.headers.get('x-vercel-ip-country') || 'unknown';
 
   db.execute({
     sql: 'INSERT INTO downloads (id, os, arch, version, ip, country, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    args: [crypto.randomUUID(), os, arch, version, ip, country, new Date().toISOString()],
-  }).catch(() => { }); // Silently fail — tracking should never block downloads
+    args: [crypto.randomUUID(), os, arch, VERSION, ip, country, new Date().toISOString()],
+  }).catch(() => { }); // Silently fail
 
   return new Response(null, {
     status: 302,
