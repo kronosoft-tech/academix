@@ -1,123 +1,159 @@
 # Academix 🎓
 
-Sistema de gestión académica para academias de enseñanza. Aplicación de escritorio construida con Tauri 2, React 19 y TypeScript.
+Sistema de gestión académica para academias de enseñanza. El repositorio contiene **dos aplicaciones**:
+
+| App | Ubicación | Stack | Propósito |
+|-----|-----------|-------|-----------|
+| **Desktop** | raíz | Tauri 2 + React 19 + Rust | Gestión académica (estudiantes, cursos, grupos, asistencia, pagos, contabilidad) |
+| **Web** | `web/` | Astro 7 SSR + Vercel | Sitio de marketing, dashboard de cuenta y **suscripciones/pagos** para los clientes de la app de escritorio |
+
+Ambas usan **bun** y TypeScript, pero son paquetes independientes: nunca mezcles dependencias de la raíz con las de `web/`.
 
 ## 🚀 Características
 
-### Módulos del Sistema
+### Módulos del Sistema (Desktop)
 
 | Módulo | Descripción |
 |--------|-------------|
-| **Dashboard** | Vista principal con métricas totales de estudiantes, cursos, grupos y pagos pendientes |
-| **Estudiantes** | CRUD completo de estudiantes con información de contacto, acudiente y estado de inscripción |
-| **Cursos** | Gestión de cursos con precio, descripción y duración |
-| **Grupos** | Creación de grupos asociados a cursos con horarios (días, hora inicio/fin) y fechas (inicio/fin) |
-| **Asistencia** | Registro daily de asistencia por grupo con estadísticas de asistencia |
-| **Pagos** | Sistema de seguimiento de pagos con estado (paid/pending/overdue), monto, fecha de vencimiento |
+| **Dashboard** | Métricas de estudiantes, cursos, grupos y pagos pendientes |
+| **Estudiantes** | CRUD con información de contacto, acudiente y estado de inscripción |
+| **Cursos** | Gestión con precio, descripción y duración |
+| **Grupos** | Grupos asociados a cursos con horarios (días, hora inicio/fin) y fechas |
+| **Asistencia** | Registro diario de asistencia por grupo con estadísticas |
+| **Pagos** | Seguimiento de pagos con estado (paid/pending/overdue), monto y fecha de vencimiento |
+| **Contabilidad** | Módulo de contabilidad (partidas, pasivos, activos fijos) |
 | **Usuarios** | Administración de usuarios del sistema |
-| **Autenticación** | Login seguro con credenciales |
+| **Autenticación** | Login seguro; los usuarios se registran ellos mismos (sin admin pre-cargado) |
 
-### Tech Stack
+### Web
 
-- **Frontend**: React 19 + TypeScript + Vite
-- **Backend**: Tauri 2 (Rust)
-- **Base de Datos**: SQLite
-- **Estado**: Zustand 5
-- **Estilos**: Tailwind CSS 4
-- **UI**: Componentes personalizados con Lucide Icons
+- Páginas de marketing: inicio, precios, FAQ, contacto, descargas, tutoriales.
+- Dashboard de cliente con suscripción y pagos; área de administración.
+- Pasarelas de pago: **Stripe**, **Wompi** y **MercadoPago** (checkouts y webhooks).
+- Cobros y recordatorios automáticos vía cron jobs; chat con IA (Groq/Cerebras); correos con Gmail.
 
-### Arquitectura
+## 🧱 Tech Stack
 
-El proyecto sigue una arquitectura hexagonal en el backend:
+**Desktop**
+- Frontend: React 19 + TypeScript + Vite · Zustand 5 · Tailwind CSS 4 · react-router v7 · Chart.js/Recharts · Lucide Icons
+- Backend: Tauri 2 (Rust) con arquitectura hexagonal
+- Base de datos: Turso (libsql) por usuario, con SQLite local como respaldo
 
-```
-src-tauri/
-├── domain/           # Entidades y lógica de dominio
-├── application/      # Casos de uso, DTOs y puertos
-├── infrastructure/   # Repositorios y base de datos
-└── commands/         # Comandos Tauri
-```
+**Web**
+- Astro 7 SSR (adapter de Vercel) · React 19 · MUI + Tailwind 4
+- Turso (`@libsql/client`) · Auth JWT (jose) en cookie httpOnly · nodemailer · Stripe/Wompi/MercadoPago · Groq/Cerebras
 
 ## 📋 Requisitos Previos
 
 - [Bun](https://bun.sh/) (gestor de paquetes)
-- [Rust](https://www.rust-lang.org/) (última versión estable)
-- [Node.js](https://nodejs.org/) 18+
+- [Rust](https://www.rust-lang.org/) (toolchain estable; necesario para Tauri)
+- Linux: dependencias de WebKitGTK para compilar Tauri (`libwebkit2gtk-4.1-dev`)
 
-## 🛠️ Instalación
+## 🛠️ Instalación y Desarrollo
+
+Ejecuta los comandos del desktop en la raíz y los de la web dentro de `web/`.
 
 ```bash
-# 1. Instalar dependencias
+# --- Desktop (raíz) ---
 bun install
-
-# 2. Iniciar desarrollo (frontend + backend)
-bun run tauri dev
+bun run tauri dev      # app completa (Vite :1420 + backend Rust)
 ```
 
-## 📦 Scripts Disponibles
+```bash
+# --- Web (dentro de web/) ---
+cd web
+bun install
+bun run dev            # Astro dev server en :4321
+```
+
+## 🔐 Variables de Entorno
+
+Solo se listan los **nombres** de variables; los valores se copian de `.env.example` a un `.env` local. Nunca se commitean valores reales.
+
+### Desktop (raíz, `.env.example`)
+
+| Variables | Qué controlan |
+|-----------|---------------|
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `APP_IDENTIFIER` | Identidad y registro de usuarios |
+| `CONTROL_PLANE_DB_URL`, `CONTROL_PLANE_DB_TOKEN`, `TURSO_API_TOKEN`, `TURSO_ORG`, `TURSO_GROUP` | Control plane de Turso → una BD por usuario |
+
+Sin las variables de Turso la app corre **en modo degradado** (features de Turso desactivadas, respaldo SQLite local). El `.env.example` de la raíz lista las variables de identidad; el conjunto completo (incluidas las de Turso) está documentado en `AGENTS.md`.
+
+### Web (`web/src/.env.example`)
+
+| Variables | Qué controlan |
+|-----------|---------------|
+| `TURSO_URL`, `TURSO_AUTH_TOKEN` | Base de datos Turso |
+| `JWT_SECRET` | Firma de sesiones |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_BASIC` | Stripe |
+| `WOMPI_PUBLIC_KEY`, `WOMPI_PRIVATE_KEY`, `WOMPI_EVENTS_SECRET`, `WOMPI_API_URL` | Wompi |
+| `MP_ACCESS_TOKEN`, `MP_API_URL` | MercadoPago |
+| `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Correo (nodemailer) |
+| `GROQ_API_KEY`, `CEREBRAS_API_KEY` | Chat con IA |
+| `CRON_SECRET`, `SITE_URL` | Cron jobs y URLs públicas |
+
+Sin `TURSO_URL`/`JWT_SECRET` la web **no arranca**.
+
+## 📦 Comandos
+
+### Desktop (raíz)
 
 | Comando | Descripción |
 |---------|-------------|
-| `bun run dev` | Iniciar servidor de desarrollo |
-| `bun run build` | Compilar aplicación para producción |
-| `bun run tauri dev` | Desarrollo completo Tauri |
+| `bun run dev` | Vite dev server |
+| `bun run build` | `tsc` + build Vite → `dist/` |
+| `bun run tauri dev` | Desarrollo completo Tauri (frontend + backend) |
 | `bun run tauri build` | Build de producción Tauri |
-| `bun run test` | Ejecutar tests unitarios |
-| `bun run test:e2e` | Ejecutar tests E2E con Playwright |
-| `bunx tsc --noEmit` | Verificar tipos TypeScript |
+| `bunx tsc --noEmit` | Chequeo de tipos TypeScript |
+| `bun run test` | Tests unitarios (Vitest) |
+| `bun run test -- src/features/foo/bar.test.ts` | Un solo test |
+| `bun run test:e2e` | Tests E2E (Playwright, inicia Vite automáticamente) |
 
-## 🔐 Credenciales por Defecto
+### Web (dentro de `web/`)
 
-El sistema incluye un usuario administrador por defecto:
+| Comando | Descripción |
+|---------|-------------|
+| `bun run dev` | Astro dev server (:4321) |
+| `bun run build` | `astro build` (también verifica tipos) |
+| `bun run test` | Tests unitarios (Vitest) |
+| `bun run test:e2e` | Tests E2E (Playwright contra :4321) |
 
-- **Usuario**: `admin`
-- **Contraseña**: `admin123`
+## 🏗️ Arquitectura
+
+El backend de escritorio sigue una **arquitectura hexagonal** y el frontend está organizado por **features**. El flujo de datos de la app desktop:
+
+```
+React → invoke("comando") → command Tauri → UseCase → Repository → SQLite local (libsql) / Turso (por usuario)
+```
+
+La web es SSR con Astro en Vercel: autenticación JWT en cookie httpOnly que separa roles `customer`/`admin`, una base Turso compartida para suscripciones, y pasarelas de pago integradas vía checkouts y webhooks.
 
 ## 📁 Estructura del Proyecto
 
 ```
 academix/
-├── src/                    # Frontend (React 19)
-│   ├── app/               # Layout, router, componentes globales
-│   ├── features/          # Módulos por funcionalidad
-│   │   ├── auth/          # Autenticación
-│   │   ├── dashboard/    # Dashboard principal
-│   │   ├── students/      # Gestión de estudiantes
-│   │   ├── courses/      # Gestión de cursos
-│   │   ├── groups/       # Gestión de grupos
-│   │   ├── attendance/   # Registro de asistencia
-│   │   ├── payments/     # Seguimiento de pagos
-│   │   └── users/        # Administración de usuarios
-│   ├── shared/           # Componentes, hooks, tipos compartidos
-│   │   ├── components/   # UI components
-│   │   ├── hooks/        # Hooks reutilizables
-│   │   ├── types/        # Tipos TypeScript
-│   │   └── utils/        # Utilidades
-│   └── lib/              # Configuración y utilidades
-├── src-tauri/             # Backend (Rust)
-│   ├── migrations/       # Migraciones SQL
+├── src/               # Frontend desktop (React 19, por features)
+│   ├── app/          # Layout, router, componentes globales
+│   ├── features/     # auth, dashboard, students, courses, groups,
+│   │                 # attendance, payments, accounting, users, updater
+│   └── shared/       # Componentes, hooks y tipos compartidos
+├── src-tauri/         # Backend (Rust)
 │   ├── src/
-│   │   ├── domain/       # Entidades de dominio
-│   │   ├── application/  # Capa de aplicación
-│   │   ├── infrastructure/# Capa de infraestructura
+│   │   ├── domain/       # Entidades y lógica de dominio
+│   │   ├── application/  # Casos de uso y puertos
+│   │   ├── infrastructure/# Repositorios y base de datos
 │   │   └── commands/     # Comandos Tauri
-│   └── tauri.conf.json   # Configuración Tauri
-└── package.json
+│   └── migrations/       # Migraciones SQL
+├── web/               # App web (Astro 7, marketing + suscripciones)
+│   └── src/pages/     # Páginas de marketing, dashboard, admin y /api
+├── tests/             # Tests E2E (desktop)
+└── .github/workflows/ # CI/CD (build y release Tauri)
 ```
 
-## 🖥️ Capturas de Pantalla
+## 🚀 Despliegue y Releases
 
-### Dashboard
-Muestra estadísticas en tiempo real de estudiantes, cursos, grupos y pagos pendientes con acciones rápidas.
-
-### Estudiantes
-Lista paginada con búsqueda, formulario completo para datos del estudiante y acudiente.
-
-### Grupos
-Visualización de grupos por curso con registro daily de asistencia y estadísticas.
-
-### Pagos
-Tabla de pagos con filtros por estado, modal de detalles, seguimiento de vencimiento.
+- **Web**: desplegada en **Vercel** (SSR). Los cron jobs de suscripciones se definen en `web/vercel.json` (expirar suscripciones 06:00, recordatorios 07:00, cobros Wompi 08:00 UTC).
+- **Desktop**: `.github/workflows/tauri.yml` compila instaladores (macOS, Linux y Windows) y publica un **GitHub Release** al pushear tags `app-v*` — el release alimenta el plugin de **actualizaciones automáticas** de la app.
 
 ## 🤝 Contribuir
 
@@ -125,7 +161,3 @@ Tabla de pagos con filtros por estado, modal de detalles, seguimiento de vencimi
 2. Crear branch (`git checkout -b feature/nueva-caracteristica`)
 3. Commit con mensajes convencionales
 4. Push y crear Pull Request
-
-## 📄 Licencia
-
-MIT License
