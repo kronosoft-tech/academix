@@ -30,20 +30,14 @@ jobs:
           - platform: macos-latest
             args: "--target x86_64-apple-darwin"
             rust-targets: "x86_64-apple-darwin"
-          # Linux
+          # Linux (x64 only)
           - platform: ubuntu-22.04
             args: "--target x86_64-unknown-linux-gnu"
             rust-targets: "x86_64-unknown-linux-gnu"
-          - platform: ubuntu-22.04
-            args: "--target aarch64-unknown-linux-gnu"
-            rust-targets: "aarch64-unknown-linux-gnu"
           # Windows
           - platform: windows-latest
             args: "--target x86_64-pc-windows-msvc"
             rust-targets: "x86_64-pc-windows-msvc"
-          - platform: windows-latest
-            args: "--target i686-pc-windows-msvc"
-            rust-targets: "i686-pc-windows-msvc"
           - platform: windows-latest
             args: "--target aarch64-pc-windows-msvc"
             rust-targets: "aarch64-pc-windows-msvc"
@@ -54,23 +48,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Install Linux dependencies (x64)
-        if: matrix.platform == 'ubuntu-22.04' && !contains(matrix.args, 'aarch64')
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
-
-      - name: Install Linux dependencies (ARM64 cross-compile)
-        if: matrix.platform == 'ubuntu-22.04' && contains(matrix.args, 'aarch64')
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list 2>/dev/null || true
-          for f in /etc/apt/sources.list.d/ubuntu*.list; do [ -f "$f" ] && sudo sed -i 's/^deb /deb [arch=amd64] /' "$f"; done 2>/dev/null || true
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/ubuntu-arm64-updates.list
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          sudo apt-get install -y libwebkit2gtk-4.1-dev:arm64 libappindicator3-dev:arm64 librsvg2-dev:arm64 patchelf:arm64
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -107,7 +89,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          PKG_CONFIG_ALLOW_CROSS: ${{ contains(matrix.args, 'aarch64') && '1' || '' }}
         with:
           tagName: app-v__VERSION__
           releaseName: "Academix v__VERSION__"
