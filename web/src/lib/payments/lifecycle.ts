@@ -30,7 +30,7 @@ export async function createTrialSubscription(
   const trialEnd = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
 
   await db.execute({
-    sql: `INSERT INTO subscriptions (id, user_id, plan, status, trial_start, trial_end, stripe_subscription_id, trial_starts_at, provider, created_at, updated_at)
+    sql: `INSERT INTO subscriptions (id, user_id, plan_id, status, trial_start, trial_end, stripe_subscription_id, trial_starts_at, provider, created_at, updated_at)
           VALUES (?, ?, ?, 'trial', ?, ?, ?, ?, ?, ?, ?)`,
     args: [id, userId, plan, now, trialEnd, stripeSubId, now, provider, now, now],
   });
