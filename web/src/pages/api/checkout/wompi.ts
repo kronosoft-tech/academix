@@ -63,7 +63,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const reference = `${payload.sub}-${planId}-${crypto.randomUUID()}`;
   const amountInCents = plan.priceCOP * 100;
   const currency = 'COP';
-  const siteUrl = import.meta.env.SITE_URL || '';
+  const siteUrl = import.meta.env.SITE_URL || 'http://localhost:4321';
   const redirectUrl = `${siteUrl}/dashboard?payment=success`;
 
   // Calculate integrity signature: SHA256(reference + amountInCents + currency + integritySecret)

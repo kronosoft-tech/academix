@@ -82,6 +82,8 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
       } else if (gateway === 'wompi' && data.publicKey) {
         // Wompi Widget — open popup checkout
         const WidgetCheckout = (window as any).WidgetCheckout;
+        console.log('[WOMPI] WidgetCheckout available:', !!WidgetCheckout);
+        console.log('[WOMPI] data:', JSON.stringify(data));
         if (!WidgetCheckout) {
           throw new Error('El widget de pago está cargando. Intenta de nuevo en unos segundos.');
         }
