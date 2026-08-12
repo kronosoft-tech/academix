@@ -103,6 +103,90 @@ if (wompiTransactionId) {
   }
 }
 
+// Handle payment redirect from Mercado Pago (they add ?preapproval_id=XXX)
+const mpPreapprovalId = url.searchParams.get("preapproval_id");
+if (mpPreapprovalId && !paymentSuccess) {
+  const MP_API_URL =
+    import.meta.env.MP_API_URL || "https://api.mercadopago.com";
+  const MP_ACCESS_TOKEN = import.meta.env.MP_ACCESS_TOKEN || "";
+  try {
+    const mpRes = await fetch(`${MP_API_URL}/preapproval/${mpPreapprovalId}`, {
+      headers: {
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (mpRes.ok) {
+      const mpData = await mpRes.json();
+      if (mpData.status === "authorized") {
+        // Find trial subscription
+        const subResult = await db.execute({
+          sql: `SELECT id FROM subscriptions WHERE user_id = ? AND status = 'trial' ORDER BY created_at DESC LIMIT 1`,
+          args: [payload.sub],
+        });
+        if (subResult.rows.length > 0) {
+          const subscriptionId = subResult.rows[0].id as string;
+          const now = new Date().toISOString();
+          const periodEnd = new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          const planId = mpData.reason?.toLowerCase().includes("pro")
+            ? "pro"
+            : mpData.reason?.toLowerCase().includes("premium")
+              ? "premium"
+              : "basico";
+
+          await db.execute({
+            sql: `UPDATE subscriptions
+                  SET status = 'active', provider = 'mercadopago',
+                      provider_subscription_id = ?, plan_id = ?,
+                      trial_start = NULL, trial_end = NULL,
+                      current_period_start = ?, current_period_end = ?,
+                      updated_at = ?
+                  WHERE id = ?`,
+            args: [
+              mpPreapprovalId,
+              planId,
+              now,
+              periodEnd,
+              now,
+              subscriptionId,
+            ],
+          });
+
+          // Record payment
+          const existingPay = await db.execute({
+            sql: "SELECT id FROM subscription_payments WHERE provider_payment_id = ?",
+            args: [mpPreapprovalId],
+          });
+          if (existingPay.rows.length === 0) {
+            await db.execute({
+              sql: `INSERT INTO subscription_payments (id, user_id, subscription_id, amount, currency, status, provider, provider_payment_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'mercadopago', ?, ?)`,
+              args: [
+                crypto.randomUUID(),
+                payload.sub,
+                subscriptionId,
+                mpData.auto_recurring?.transaction_amount || 0,
+                mpData.auto_recurring?.currency_id || "COP",
+                "succeeded",
+                mpPreapprovalId,
+                now,
+              ],
+            });
+          }
+          paymentSuccess = true;
+        }
+      } else if (mpData.status === "pending") {
+        paymentError =
+          "Tu suscripción está siendo procesada. Te notificaremos cuando se confirme.";
+      }
+    }
+  } catch {
+    // Silently fail
+  }
+}
+
 const userDb = getUserDb(payload);
 
 let totalStudents = 0;
