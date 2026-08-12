@@ -1,25 +1,7 @@
-import React, { useState } from 'react';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import CircularProgress from '@mui/material/CircularProgress';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Box from '@mui/material/Box';
-import Alert from '@mui/material/Alert';
-import CheckIcon from '@mui/icons-material/Check';
-import ThemeProvider from './landing/ThemeProvider';
+import { useState, useEffect } from 'react';
 import { PLANS, type Plan } from '../data/plans';
 
 type Gateway = 'wompi' | 'mercadopago';
-
-function geoToGateway(countryCode: string | null): Gateway {
-  if (!countryCode) return 'wompi';
-  return countryCode.toUpperCase() === 'CO' ? 'wompi' : 'mercadopago';
-}
 
 interface Props {
   countryCode: string;
@@ -28,11 +10,6 @@ interface Props {
   prices: { basic: number; pro: number; premium: number };
   displayName: string;
 }
-
-const GATEWAY_LABELS: Record<Gateway, string> = {
-  wompi: 'Bancolombia / Nequi / PSE',
-  mercadopago: 'Mercado Pago',
-};
 
 function formatPrice(amount: number, currencyCode: string): string {
   return new Intl.NumberFormat('es', {
@@ -43,13 +20,12 @@ function formatPrice(amount: number, currencyCode: string): string {
   }).format(amount);
 }
 
-export default function CheckoutPlans({ countryCode, currencyCode, prices, displayName }: Props) {
-  const defaultGateway = geoToGateway(countryCode);
+export default function CheckoutPlans({ countryCode, currencyCode, prices }: Props) {
+  const defaultGateway: Gateway = countryCode?.toUpperCase() === 'CO' ? 'wompi' : 'mercadopago';
   const [gateway, setGateway] = useState<Gateway>(defaultGateway);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Defensive: if prices didn't serialize properly from Astro
   const safePrices = prices || { basic: 29, pro: 49, premium: 79 };
   const safeCurrency = currencyCode || 'USD';
 
@@ -59,14 +35,15 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
     premium: safePrices.premium,
   };
 
-  const handleGatewayChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    newGateway: Gateway | null,
-  ) => {
-    if (newGateway) {
-      setGateway(newGateway);
-    }
-  };
+  // Load Wompi Widget script
+  useEffect(() => {
+    if (document.getElementById('wompi-widget-script')) return;
+    const script = document.createElement('script');
+    script.id = 'wompi-widget-script';
+    script.src = 'https://checkout.wompi.co/widget.js';
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
 
   const handleSubscribe = async (plan: Plan) => {
     setError(null);
@@ -92,19 +69,36 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
 
       const data = await response.json();
 
-      if (data.url) {
+      if (gateway === 'mercadopago' && data.url) {
+        // Mercado Pago Checkout Pro — redirect
         window.location.href = data.url;
-      } else if (data.publicKey) {
-        // Wompi Web Checkout — form GET redirect
-        const params = new URLSearchParams();
-        params.set('public-key', data.publicKey);
-        params.set('currency', data.currency);
-        params.set('amount-in-cents', String(data.amountInCents));
-        params.set('reference', data.reference);
-        params.set('signature:integrity', data.integrity);
-        params.set('redirect-url', data.redirectUrl);
-        params.set('customer-data:email', data.customerEmail);
-        window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
+      } else if (gateway === 'wompi' && data.publicKey) {
+        // Wompi Widget — open popup checkout
+        const WidgetCheckout = (window as any).WidgetCheckout;
+        if (!WidgetCheckout) {
+          throw new Error('Wompi widget not loaded. Refresh the page.');
+        }
+
+        const checkout = new WidgetCheckout({
+          currency: data.currency,
+          amountInCents: data.amountInCents,
+          reference: data.reference,
+          publicKey: data.publicKey,
+          signature: { integrity: data.integrity },
+          redirectUrl: data.redirectUrl,
+          customerData: {
+            email: data.customerEmail,
+          },
+        });
+
+        checkout.open((result: any) => {
+          const transaction = result.transaction;
+          if (transaction && transaction.status === 'APPROVED') {
+            window.location.href = `${data.redirectUrl}?id=${transaction.id}`;
+          } else if (transaction) {
+            setError(`Pago ${transaction.status === 'DECLINED' ? 'rechazado' : 'pendiente'}. Intenta de nuevo.`);
+          }
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -114,154 +108,92 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
   };
 
   return (
-    <ThemeProvider>
-      <Box sx={{ width: '100%' }}>
-        <Stack sx={{ alignItems: 'center', mb: 4 }}>
-          <ToggleButtonGroup
-            value={gateway}
-            exclusive
-            onChange={handleGatewayChange}
-            aria-label="Seleccionar pasarela de pago"
-            size="small"
-            sx={{
-              '& .MuiToggleButton-root': {
-                color: 'text.secondary',
-                borderColor: 'divider',
-                px: 2,
-                py: 1,
-                fontSize: '0.8rem',
-                '&.Mui-selected': {
-                  color: 'primary.main',
-                  borderColor: 'primary.main',
-                  bgcolor: 'rgba(16, 185, 129, 0.08)',
-                },
-              },
-            }}
-          >
-            <ToggleButton value="wompi">
-              {GATEWAY_LABELS.wompi}
-            </ToggleButton>
-            <ToggleButton value="mercadopago">
-              {GATEWAY_LABELS.mercadopago}
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        <Stack
-          sx={{
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: 3,
-            alignItems: 'stretch',
-          }}
+    <div style={{ width: '100%' }}>
+      {/* Gateway selector */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', gap: '8px' }}>
+        <button
+          onClick={() => setGateway('wompi')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${gateway === 'wompi'
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+              : 'border-slate-700 text-slate-400 hover:border-slate-500'
+            }`}
         >
-          {PLANS.map((plan) => {
-            const isRecommended = plan.id === 'pro';
-            const isLoading = loadingPlan === plan.id;
-            const localPrice = planPrices[plan.id] || plan.priceUSD;
+          Bancolombia / Nequi / PSE
+        </button>
+        <button
+          onClick={() => setGateway('mercadopago')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${gateway === 'mercadopago'
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+              : 'border-slate-700 text-slate-400 hover:border-slate-500'
+            }`}
+        >
+          Mercado Pago
+        </button>
+      </div>
 
-            return (
-              <Card
-                key={plan.id}
-                sx={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative',
-                  ...(isRecommended && {
-                    borderColor: 'primary.main',
-                    borderWidth: 2,
-                    borderStyle: 'solid',
-                  }),
-                }}
+      {/* Error */}
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
+        </div>
+      )}
+
+      {/* Plan cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {PLANS.map((plan) => {
+          const isRecommended = plan.id === 'pro';
+          const isLoading = loadingPlan === plan.id;
+          const localPrice = planPrices[plan.id] || plan.priceUSD;
+
+          return (
+            <div
+              key={plan.id}
+              className={`relative rounded-xl border p-6 flex flex-col ${isRecommended
+                  ? 'border-emerald-500 bg-slate-900'
+                  : 'border-slate-700 bg-slate-900/50'
+                }`}
+            >
+              {isRecommended && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-xs font-medium rounded-full bg-emerald-600 text-white">
+                  Recomendado
+                </span>
+              )}
+
+              <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+
+              <div className="mb-4">
+                <span className="text-3xl font-bold text-white">
+                  {formatPrice(localPrice, safeCurrency)}
+                </span>
+                <span className="text-slate-400 text-sm ml-1">/ mes</span>
+              </div>
+
+              <ul className="space-y-2 flex-1 mb-6">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2 text-sm text-slate-300">
+                    <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handleSubscribe(plan)}
+                disabled={isLoading || loadingPlan !== null}
+                className={`w-full py-3 rounded-lg font-semibold transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed ${isRecommended
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                    : 'border border-slate-600 text-slate-200 hover:border-slate-400 hover:text-white'
+                  }`}
               >
-                <CardContent
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    flexGrow: 1,
-                    p: 4,
-                  }}
-                >
-                  <Stack
-                    sx={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      mb: 2,
-                    }}
-                  >
-                    <Typography variant="h5" component="h3">
-                      {plan.name}
-                    </Typography>
-                    {isRecommended && (
-                      <Chip
-                        label="Recomendado"
-                        color="primary"
-                        size="small"
-                      />
-                    )}
-                  </Stack>
-
-                  <Box sx={{ mb: 3 }}>
-                    <Typography
-                      variant="h3"
-                      component="span"
-                      sx={{ color: 'text.primary', fontWeight: 700 }}
-                    >
-                      {formatPrice(localPrice, safeCurrency)}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      component="span"
-                      sx={{ ml: 1 }}
-                    >
-                      / mes
-                    </Typography>
-                  </Box>
-
-                  <Stack sx={{ gap: 1.5, flexGrow: 1, mb: 3 }}>
-                    {plan.features.map((feature) => (
-                      <Stack
-                        key={feature}
-                        sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}
-                      >
-                        <CheckIcon
-                          sx={{ fontSize: 18, color: 'primary.main' }}
-                        />
-                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                          {feature}
-                        </Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
-
-                  <Button
-                    variant={isRecommended ? 'contained' : 'outlined'}
-                    color="primary"
-                    fullWidth
-                    disabled={isLoading || loadingPlan !== null}
-                    onClick={() => handleSubscribe(plan)}
-                    aria-label={`Suscribirse al plan ${plan.name}`}
-                    sx={{ mt: 'auto' }}
-                  >
-                    {isLoading ? (
-                      <CircularProgress size={24} color="inherit" />
-                    ) : (
-                      isRecommended ? 'Suscribirse' : 'Comenzar'
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Stack>
-      </Box>
-    </ThemeProvider>
+                {isLoading ? 'Procesando...' : isRecommended ? 'Suscribirse' : 'Comenzar'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

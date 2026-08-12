@@ -2,7 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { getFullTokenPayload } from '../../../lib/auth';
-import { createPreapproval } from '../../../lib/payments/mercadopago';
+import { createPreference } from '../../../lib/payments/mercadopago';
 import { PLANS } from '../../../data/plans';
 import { db } from '../../../lib/db';
 
@@ -42,34 +42,47 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const siteUrl = import.meta.env.SITE_URL || '';
-  const backUrl = `${siteUrl}/dashboard?payment=success`;
+  const siteUrl = import.meta.env.SITE_URL || 'http://localhost:4321';
+  const externalReference = `${payload.sub}-${planId}-${crypto.randomUUID()}`;
 
-  let preapproval;
+  let preference;
   try {
-    preapproval = await createPreapproval(
-      plan.name,
+    preference = await createPreference(
+      `Academix ${plan.name} - Suscripción mensual`,
       plan.priceCOP,
+      'COP',
       payload.email,
-      backUrl
+      externalReference,
+      {
+        success: `${siteUrl}/dashboard?payment=success&provider=mercadopago`,
+        failure: `${siteUrl}/pricing?payment=failed`,
+        pending: `${siteUrl}/dashboard?payment=pending`,
+      },
+      `${siteUrl}/api/webhooks/mercadopago`
     );
-  } catch {
-    return new Response(JSON.stringify({ error: 'Failed to create preapproval' }), {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: 'Failed to create payment preference', detail: msg }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // Store preapproval_id on subscription for webhook matching
+  // Store reference on subscription for webhook matching
   const now = new Date().toISOString();
   await db.execute({
     sql: `UPDATE subscriptions
           SET provider = 'mercadopago', provider_subscription_id = ?, updated_at = ?
           WHERE user_id = ? AND status = 'trial'`,
-    args: [preapproval.id, now, payload.sub],
+    args: [externalReference, now, payload.sub],
   });
 
-  return new Response(JSON.stringify({ url: preapproval.init_point }), {
+  // Use sandbox_init_point for test mode, init_point for production
+  const checkoutUrl = accessToken.startsWith('TEST-')
+    ? preference.sandbox_init_point
+    : preference.init_point;
+
+  return new Response(JSON.stringify({ url: checkoutUrl }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

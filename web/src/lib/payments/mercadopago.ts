@@ -1,62 +1,53 @@
+/**
+ * Mercado Pago — Checkout Pro (Payment Preference)
+ *
+ * Colombia NO soporta preapproval/subscriptions API.
+ * Se usa Checkout Pro que crea una preferencia de pago y redirige al usuario
+ * al checkout de MP donde puede pagar con cualquier método.
+ */
+
 const MP_API_URL =
   import.meta.env.MP_API_URL || 'https://api.mercadopago.com';
 const MP_ACCESS_TOKEN = import.meta.env.MP_ACCESS_TOKEN || '';
 
-export interface MpPreapprovalRequest {
-  payer_email: string;
-  back_url: string;
-  reason: string;
-  auto_recurring: {
-    frequency: number;
-    frequency_type: 'months';
-    transaction_amount: number;
-    currency_id: string;
-  };
-}
-
-export interface MpPreapprovalResponse {
+export interface MpPreferenceResponse {
   id: string;
-  status: string;
   init_point: string;
-  payer_email: string;
-  reason: string;
-  auto_recurring: {
-    frequency: number;
-    frequency_type: string;
-    transaction_amount: number;
-    currency_id: string;
-  };
+  sandbox_init_point: string;
 }
-
-export type MpPreapprovalStatus =
-  | 'authorized'
-  | 'paused'
-  | 'cancelled'
-  | 'pending';
 
 /**
- * Create a preapproval (subscription) in Mercado Pago.
- * Returns the preapproval data including init_point URL for redirect.
+ * Create a Checkout Pro preference (single payment).
+ * Returns init_point URL for redirect to MP checkout.
  */
-export async function createPreapproval(
-  planName: string,
+export async function createPreference(
+  title: string,
   amount: number,
+  currency: string,
   payerEmail: string,
-  backUrl: string
-): Promise<MpPreapprovalResponse> {
-  const body: MpPreapprovalRequest = {
-    payer_email: payerEmail,
-    back_url: backUrl,
-    reason: planName,
-    auto_recurring: {
-      frequency: 1,
-      frequency_type: 'months',
-      transaction_amount: amount,
-      currency_id: 'COP',
+  externalReference: string,
+  backUrls: { success: string; failure: string; pending: string },
+  notificationUrl?: string
+): Promise<MpPreferenceResponse> {
+  const body = {
+    items: [
+      {
+        title,
+        quantity: 1,
+        unit_price: amount,
+        currency_id: currency,
+      },
+    ],
+    payer: {
+      email: payerEmail,
     },
+    external_reference: externalReference,
+    back_urls: backUrls,
+    auto_return: 'approved',
+    notification_url: notificationUrl || undefined,
   };
 
-  const response = await fetch(`${MP_API_URL}/preapproval`, {
+  const response = await fetch(`${MP_API_URL}/checkout/preferences`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,7 +59,7 @@ export async function createPreapproval(
   if (!response.ok) {
     const error = await response.text();
     throw new Error(
-      `MercadoPago createPreapproval failed: ${response.status} - ${error}`
+      `MercadoPago createPreference failed: ${response.status} - ${error}`
     );
   }
 
@@ -76,25 +67,19 @@ export async function createPreapproval(
 }
 
 /**
- * Verify an IPN notification by fetching the preapproval status from MP API.
- * MP IPN sends topic + id; we verify by actually retrieving the resource.
+ * Get payment details from MP API.
+ * Used to verify payment status after redirect.
  */
-export async function verifyIPN(
-  topic: string,
-  id: string
-): Promise<MpPreapprovalResponse | null> {
-  if (topic !== 'subscription_preapproval') return null;
-  return getPreapprovalStatus(id);
-}
-
-/**
- * Get preapproval (subscription) status from Mercado Pago.
- */
-export async function getPreapprovalStatus(
-  preapprovalId: string
-): Promise<MpPreapprovalResponse> {
-  const response = await fetch(`${MP_API_URL}/preapproval/${preapprovalId}`, {
-    method: 'GET',
+export async function getPayment(paymentId: string): Promise<{
+  id: number;
+  status: string;
+  status_detail: string;
+  external_reference: string;
+  transaction_amount: number;
+  currency_id: string;
+  payer: { email: string };
+}> {
+  const response = await fetch(`${MP_API_URL}/v1/payments/${paymentId}`, {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
@@ -103,9 +88,7 @@ export async function getPreapprovalStatus(
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(
-      `MercadoPago getPreapprovalStatus failed: ${response.status} - ${error}`
-    );
+    throw new Error(`MercadoPago getPayment failed: ${response.status} - ${error}`);
   }
 
   return response.json();
