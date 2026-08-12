@@ -47,7 +47,7 @@ export async function createPreference(
     notification_url: notificationUrl || undefined,
   };
 
-  const response = await fetch(`${MP_API_URL}/v1/preferences`, {
+  const response = await fetch(`${MP_API_URL}/checkout/preferences`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

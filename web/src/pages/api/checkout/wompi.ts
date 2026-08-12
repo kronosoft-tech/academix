@@ -52,8 +52,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   let acceptanceToken: string;
   try {
     acceptanceToken = await getAcceptanceToken();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Failed to get acceptance token' }), {
+  } catch (err) {
+    console.error('[WOMPI CHECKOUT] getAcceptanceToken failed:', err);
+    return new Response(JSON.stringify({ error: 'Failed to get acceptance token', detail: String(err) }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
     });
