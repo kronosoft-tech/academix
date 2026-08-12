@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
@@ -13,7 +13,13 @@ import Alert from '@mui/material/Alert';
 import CheckIcon from '@mui/icons-material/Check';
 import ThemeProvider from './landing/ThemeProvider';
 import { PLANS, type Plan } from '../data/plans';
-import { geoToGateway, type Gateway } from '../lib/payments/gateway';
+
+type Gateway = 'wompi' | 'mercadopago';
+
+function geoToGateway(countryCode: string | null): Gateway {
+  if (!countryCode) return 'wompi';
+  return countryCode.toUpperCase() === 'CO' ? 'wompi' : 'mercadopago';
+}
 
 interface Props {
   countryCode: string;
@@ -43,10 +49,14 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Defensive: if prices didn't serialize properly from Astro
+  const safePrices = prices || { basic: 29, pro: 49, premium: 79 };
+  const safeCurrency = currencyCode || 'USD';
+
   const planPrices: Record<string, number> = {
-    basico: prices.basic,
-    pro: prices.pro,
-    premium: prices.premium,
+    basico: safePrices.basic,
+    pro: safePrices.pro,
+    premium: safePrices.premium,
   };
 
   const handleGatewayChange = (
@@ -204,7 +214,7 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
                       component="span"
                       sx={{ color: 'text.primary', fontWeight: 700 }}
                     >
-                      {formatPrice(localPrice, currencyCode)}
+                      {formatPrice(localPrice, safeCurrency)}
                     </Typography>
                     <Typography
                       variant="body2"
