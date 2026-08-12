@@ -94,10 +94,6 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
           reference: data.reference,
           publicKey: data.publicKey,
           signature: { integrity: data.integrity },
-          redirectUrl: data.redirectUrl,
-          customerData: {
-            email: data.customerEmail,
-          },
         });
 
         checkout.open((result: any) => {
