@@ -36,12 +36,19 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
   };
 
   // Load Wompi Widget script
+  const [wompiReady, setWompiReady] = useState(false);
+
   useEffect(() => {
+    if ((window as any).WidgetCheckout) {
+      setWompiReady(true);
+      return;
+    }
     if (document.getElementById('wompi-widget-script')) return;
     const script = document.createElement('script');
     script.id = 'wompi-widget-script';
     script.src = 'https://checkout.wompi.co/widget.js';
     script.async = true;
+    script.onload = () => setWompiReady(true);
     document.head.appendChild(script);
   }, []);
 
@@ -76,7 +83,7 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
         // Wompi Widget — open popup checkout
         const WidgetCheckout = (window as any).WidgetCheckout;
         if (!WidgetCheckout) {
-          throw new Error('Wompi widget not loaded. Refresh the page.');
+          throw new Error('El widget de pago está cargando. Intenta de nuevo en unos segundos.');
         }
 
         const checkout = new WidgetCheckout({
@@ -114,8 +121,8 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
         <button
           onClick={() => setGateway('wompi')}
           className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${gateway === 'wompi'
-              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
-              : 'border-slate-700 text-slate-400 hover:border-slate-500'
+            ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+            : 'border-slate-700 text-slate-400 hover:border-slate-500'
             }`}
         >
           Bancolombia / Nequi / PSE
@@ -123,8 +130,8 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
         <button
           onClick={() => setGateway('mercadopago')}
           className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${gateway === 'mercadopago'
-              ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
-              : 'border-slate-700 text-slate-400 hover:border-slate-500'
+            ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+            : 'border-slate-700 text-slate-400 hover:border-slate-500'
             }`}
         >
           Mercado Pago
@@ -150,8 +157,8 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
             <div
               key={plan.id}
               className={`relative rounded-xl border p-6 flex flex-col ${isRecommended
-                  ? 'border-emerald-500 bg-slate-900'
-                  : 'border-slate-700 bg-slate-900/50'
+                ? 'border-emerald-500 bg-slate-900'
+                : 'border-slate-700 bg-slate-900/50'
                 }`}
             >
               {isRecommended && (
@@ -184,8 +191,8 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
                 onClick={() => handleSubscribe(plan)}
                 disabled={isLoading || loadingPlan !== null}
                 className={`w-full py-3 rounded-lg font-semibold transition-colors text-center disabled:opacity-50 disabled:cursor-not-allowed ${isRecommended
-                    ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                    : 'border border-slate-600 text-slate-200 hover:border-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                  : 'border border-slate-600 text-slate-200 hover:border-slate-400 hover:text-white'
                   }`}
               >
                 {isLoading ? 'Procesando...' : isRecommended ? 'Suscribirse' : 'Comenzar'}
