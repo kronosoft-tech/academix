@@ -41,6 +41,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
+  const integritySecret = import.meta.env.WOMPI_INTEGRITY_SECRET;
+  if (!integritySecret) {
+    return new Response(JSON.stringify({ error: 'Wompi integrity secret not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   let acceptanceToken: string;
   try {
     acceptanceToken = await getAcceptanceToken();
@@ -53,17 +61,27 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const reference = `${payload.sub}-${planId}-${crypto.randomUUID()}`;
   const amountInCents = plan.priceCOP * 100;
+  const currency = 'COP';
   const siteUrl = import.meta.env.SITE_URL || '';
+  const redirectUrl = `${siteUrl}/dashboard?payment=success`;
+
+  // Calculate integrity signature: SHA256(reference + amountInCents + currency + integritySecret)
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${reference}${amountInCents}${currency}${integritySecret}`);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const integrity = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
   return new Response(
     JSON.stringify({
       publicKey,
-      currency: 'COP',
+      currency,
       amountInCents,
       reference,
-      redirectUrl: `${siteUrl}/dashboard?payment=success`,
+      redirectUrl,
       acceptanceToken,
       customerEmail: payload.email,
+      integrity,
     }),
     {
       status: 200,

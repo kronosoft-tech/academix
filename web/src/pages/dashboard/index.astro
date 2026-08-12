@@ -5,10 +5,102 @@ import Dashboard from "../../layouts/Dashboard.astro";
 import DashboardCharts from "../../components/DashboardCharts.tsx";
 import { getFullTokenPayload } from "../../lib/auth";
 import { getUserDb } from "../../lib/user-db";
+import { db } from "../../lib/db";
 
 const payload = await getFullTokenPayload(Astro.cookies);
 if (!payload) {
   return Astro.redirect("/auth/login");
+}
+
+// Handle payment redirect from Wompi (they add ?id=TRANSACTION_ID)
+const url = new URL(Astro.request.url);
+const wompiTransactionId = url.searchParams.get("id");
+let paymentSuccess = false;
+let paymentError = "";
+
+if (wompiTransactionId) {
+  // Verify the transaction and activate subscription
+  const WOMPI_API_URL =
+    import.meta.env.WOMPI_API_URL || "https://production.wompi.co/v1";
+  try {
+    const txRes = await fetch(
+      `${WOMPI_API_URL}/transactions/${wompiTransactionId}`,
+    );
+    if (txRes.ok) {
+      const txData = await txRes.json();
+      const transaction = txData.data;
+
+      if (transaction.status === "APPROVED") {
+        const reference = transaction.reference || "";
+        const parts = reference.split("-");
+        const planId = parts.length >= 6 ? parts[5] : "basico";
+
+        // Find trial subscription
+        const subResult = await db.execute({
+          sql: `SELECT id FROM subscriptions WHERE user_id = ? AND status = 'trial' ORDER BY created_at DESC LIMIT 1`,
+          args: [payload.sub],
+        });
+
+        if (subResult.rows.length > 0) {
+          const subscriptionId = subResult.rows[0].id as string;
+          const now = new Date().toISOString();
+          const periodEnd = new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString();
+
+          // Activate subscription
+          await db.execute({
+            sql: `UPDATE subscriptions
+                  SET status = 'active', provider = 'wompi',
+                      provider_subscription_id = ?, payment_source_token = ?,
+                      plan_id = ?, trial_start = NULL, trial_end = NULL,
+                      current_period_start = ?, current_period_end = ?,
+                      updated_at = ?
+                  WHERE id = ?`,
+            args: [
+              reference,
+              transaction.payment_source_id?.toString() || null,
+              planId,
+              now,
+              periodEnd,
+              now,
+              subscriptionId,
+            ],
+          });
+
+          // Record payment (idempotent)
+          const existingPay = await db.execute({
+            sql: "SELECT id FROM subscription_payments WHERE provider_payment_id = ?",
+            args: [transaction.id],
+          });
+          if (existingPay.rows.length === 0) {
+            await db.execute({
+              sql: `INSERT INTO subscription_payments (id, user_id, subscription_id, amount, currency, status, provider, provider_payment_id, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'wompi', ?, ?)`,
+              args: [
+                crypto.randomUUID(),
+                payload.sub,
+                subscriptionId,
+                transaction.amount_in_cents / 100,
+                transaction.currency || "COP",
+                "succeeded",
+                transaction.id,
+                now,
+              ],
+            });
+          }
+          paymentSuccess = true;
+        }
+      } else if (transaction.status === "PENDING") {
+        paymentError =
+          "Tu pago está siendo procesado. Te notificaremos cuando se confirme.";
+      } else {
+        paymentError = `El pago fue ${transaction.status === "DECLINED" ? "rechazado" : "cancelado"}. Intenta de nuevo.`;
+      }
+    }
+  } catch {
+    // Silently fail — webhook will handle it later
+  }
 }
 
 const userDb = getUserDb(payload);
@@ -130,6 +222,26 @@ const statusLabels: Record<string, string> = {
 <Dashboard title="Panel de Control">
   <div class="max-w-6xl">
     <h1 class="text-2xl font-bold text-white mb-6">Panel de Control</h1>
+
+    {
+      paymentSuccess && (
+        <div class="mb-6 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <p class="font-medium">🎉 ¡Pago exitoso!</p>
+          <p class="text-sm mt-1">
+            Tu suscripción ha sido activada. ¡Disfruta de Academix!
+          </p>
+        </div>
+      )
+    }
+
+    {
+      paymentError && (
+        <div class="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <p class="font-medium">⚠️ Estado del pago</p>
+          <p class="text-sm mt-1">{paymentError}</p>
+        </div>
+      )
+    }
 
     {
       dbError && (

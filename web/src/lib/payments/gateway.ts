@@ -1,4 +1,4 @@
-export type Gateway = 'stripe' | 'wompi' | 'mercadopago';
+export type Gateway = 'wompi' | 'mercadopago';
 
 export interface NormalizedWebhookResult {
   action: 'activate' | 'grace' | 'cancel' | 'payment' | 'ignore';
@@ -21,12 +21,11 @@ const LATAM_COUNTRIES = [
 
 /**
  * Determines the payment gateway based on user country code.
- * Colombia → Wompi, other LatAm → MercadoPago, rest → Stripe.
+ * Colombia → Wompi, everything else → MercadoPago.
  */
 export function geoToGateway(countryCode: string | null): Gateway {
-  if (!countryCode) return 'stripe';
+  if (!countryCode) return 'wompi';
   const code = countryCode.toUpperCase();
   if (code === 'CO') return 'wompi';
-  if (LATAM_COUNTRIES.includes(code)) return 'mercadopago';
-  return 'stripe';
+  return 'mercadopago';
 }

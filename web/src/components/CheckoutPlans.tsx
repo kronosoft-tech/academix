@@ -24,7 +24,6 @@ interface Props {
 }
 
 const GATEWAY_LABELS: Record<Gateway, string> = {
-  stripe: 'Tarjeta internacional',
   wompi: 'Bancolombia / Nequi / PSE',
   mercadopago: 'Mercado Pago',
 };
@@ -86,9 +85,16 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
       if (data.url) {
         window.location.href = data.url;
       } else if (data.publicKey) {
-        // Wompi widget — redirect to Wompi checkout page
-        const wompiUrl = `https://checkout.wompi.co/p/?public-key=${data.publicKey}&currency=${data.currency}&amount-in-cents=${data.amountInCents}&reference=${data.reference}&redirect-url=${encodeURIComponent(data.redirectUrl)}`;
-        window.location.href = wompiUrl;
+        // Wompi Web Checkout — form GET redirect
+        const params = new URLSearchParams();
+        params.set('public-key', data.publicKey);
+        params.set('currency', data.currency);
+        params.set('amount-in-cents', String(data.amountInCents));
+        params.set('reference', data.reference);
+        params.set('signature:integrity', data.integrity);
+        params.set('redirect-url', data.redirectUrl);
+        params.set('customer-data:email', data.customerEmail);
+        window.location.href = `https://checkout.wompi.co/p/?${params.toString()}`;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -122,9 +128,6 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices, displ
               },
             }}
           >
-            <ToggleButton value="stripe">
-              {GATEWAY_LABELS.stripe}
-            </ToggleButton>
             <ToggleButton value="wompi">
               {GATEWAY_LABELS.wompi}
             </ToggleButton>

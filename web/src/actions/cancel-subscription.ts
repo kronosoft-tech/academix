@@ -1,5 +1,4 @@
 import { defineAction, ActionError } from 'astro:actions';
-import { getStripe } from '../lib/payments/stripe';
 import { db } from '../lib/db';
 import { cancelSubscription } from '../lib/payments/lifecycle';
 
@@ -14,8 +13,7 @@ export const cancelSub = defineAction({
     }
 
     const result = await db.execute({
-      sql: `SELECT id, stripe_subscription_id
-            FROM subscriptions
+      sql: `SELECT id FROM subscriptions
             WHERE user_id = ? AND status IN ('trial', 'active', 'grace')
             ORDER BY created_at DESC LIMIT 1`,
       args: [user.id],
@@ -28,15 +26,7 @@ export const cancelSub = defineAction({
       });
     }
 
-    const subscription = result.rows[0];
-    const stripeSubId = subscription.stripe_subscription_id as string;
-
-    if (stripeSubId) {
-      const stripe = getStripe();
-      await stripe.subscriptions.cancel(stripeSubId);
-    }
-
-    await cancelSubscription(subscription.id as string);
+    await cancelSubscription(result.rows[0].id as string);
 
     return { success: true };
   },
