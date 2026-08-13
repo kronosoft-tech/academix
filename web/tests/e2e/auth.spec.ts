@@ -22,7 +22,11 @@ test.describe('Auth — Public Route Protection', () => {
   test('register page renders with form fields', async ({ page }) => {
     await page.goto('/auth/register');
     await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
+    // R1: the registration form has two password inputs (password +
+    // confirmPassword) plus academyName — assert each explicitly.
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+    await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
+    await expect(page.locator('input[name="academyName"]')).toBeVisible();
   });
 
   test('admin login page renders correctly', async ({ page }) => {

@@ -21,6 +21,10 @@ dist-ssr
 .vercel
 .astro
 
+# Playwright test artifacts
+playwright-report/
+test-results/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
