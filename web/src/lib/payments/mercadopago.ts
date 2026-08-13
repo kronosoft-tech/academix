@@ -74,8 +74,8 @@ export async function createPreference(
       errorBody &&
       typeof errorBody === 'object' &&
       'detail' in errorBody &&
-      typeof (errorBody as Record<string, unknown>).detail === 'string'
-        ? (errorBody as Record<string, unknown>).detail
+      typeof errorBody.detail === 'string'
+        ? errorBody.detail
         : null;
     const message = errorBody
       ? detail || JSON.stringify(errorBody)
