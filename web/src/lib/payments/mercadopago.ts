@@ -184,7 +184,19 @@ export async function getPayment(paymentId: string): Promise<{
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`MercadoPago getPayment failed: ${response.status} - ${error}`);
+    const err = new Error(
+      `MercadoPago getPayment failed: ${response.status} - ${error}`
+    ) as Error & {
+      status?: number;
+      detail?: string;
+      retryAfter?: string;
+    };
+    err.status = response.status;
+    err.detail = error || response.statusText;
+    // MP signals transient 429/5xx with a Retry-After header.
+    const retryAfter = response.headers.get('retry-after');
+    if (retryAfter) err.retryAfter = retryAfter;
+    throw err;
   }
 
   return response.json();

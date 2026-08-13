@@ -209,3 +209,108 @@ describe('POST /api/webhooks/mercadopago', () => {
     expect(mocks.activateApprovedPayment).toHaveBeenCalled();
   });
 });
+
+// --- Classification matrix: processPayment failures mapped to non-500 where retryable ---
+// These exercise classifyMpError via the POST handler. The mock for getPayment is
+// set to REJECT (simulating a non-2xx MP response), and we assert the handler
+// returns the correct HTTP status per the resilience contract.
+
+describe('POST /api/webhooks/mercadopago — processPayment failure classification', () => {
+  it('returns 200 (warning) when getPayment throws 404 (payment not found)', async () => {
+    mocks.verifyWebhookSignature.mockReturnValue(true);
+    mocks.getPayment.mockRejectedValue(
+      Object.assign(new Error('MP getPayment failed: 404 - Payment not found'), {
+        status: 404,
+        detail: 'Payment not found',
+      })
+    );
+
+    const res = await POST(
+      makeContext(
+        makeRequest({ action: 'payment.created', data: { id: '404-payment' } })
+      )
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.received).toBe(true);
+    expect(body.warning).toContain('not found');
+  });
+
+  it('returns 200 (acks silently) when getPayment throws 401 (token/auth error)', async () => {
+    mocks.verifyWebhookSignature.mockReturnValue(true);
+    mocks.getPayment.mockRejectedValue(
+      Object.assign(new Error('MP getPayment failed: 401'), {
+        status: 401,
+        detail: 'Unauthorized',
+      })
+    );
+
+    const res = await POST(
+      makeContext(
+        makeRequest({ action: 'payment.created', data: { id: DATA_ID } })
+      )
+    );
+
+    // 401/403 → 200 + loud error-level log (MP can't fix by retry)
+    expect(res.status).toBe(200);
+    expect(mocks.activateApprovedPayment).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 with Retry-After when getPayment throws 429 (rate limited)', async () => {
+    mocks.verifyWebhookSignature.mockReturnValue(true);
+    mocks.getPayment.mockRejectedValue(
+      Object.assign(new Error('MP getPayment failed: 429'), {
+        status: 429,
+        detail: 'Too Many Requests',
+        retryAfter: '60',
+      })
+    );
+
+    const res = await POST(
+      makeContext(
+        makeRequest({ action: 'payment.created', data: { id: DATA_ID } })
+      )
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Retry-After')).toBe('60');
+  });
+
+  it('returns 503 when getPayment throws MP 5xx (server error, retryable)', async () => {
+    mocks.verifyWebhookSignature.mockReturnValue(true);
+    mocks.getPayment.mockRejectedValue(
+      Object.assign(new Error('MP getPayment failed: 503'), {
+        status: 503,
+        detail: 'Service Unavailable',
+      })
+    );
+
+    const res = await POST(
+      makeContext(
+        makeRequest({ action: 'payment.created', data: { id: DATA_ID } })
+      )
+    );
+
+    expect(res.status).toBe(503);
+    expect(mocks.activateApprovedPayment).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when getPayment throws with NO .status (DB/TURSO down — critical)', async () => {
+    mocks.verifyWebhookSignature.mockReturnValue(true);
+    // Simulate a db.execute() throw (no .status property) — the critical path.
+    mocks.getPayment.mockRejectedValue(
+      Object.assign(new Error('TURSO_URL environment variable is not set'), {})
+    );
+
+    const res = await POST(
+      makeContext(
+        makeRequest({ action: 'payment.created', data: { id: DATA_ID } })
+      )
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toContain('Failed to process payment');
+  });
+});
