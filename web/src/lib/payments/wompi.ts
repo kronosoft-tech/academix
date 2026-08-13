@@ -98,18 +98,32 @@ export async function getAcceptanceToken(): Promise<string> {
 }
 
 /**
- * Verify Wompi webhook signature.
- * Formula: SHA256(transaction.id + transaction.status + transaction.reference + timestamp + events_secret)
+ * Verify a Wompi webhook signature.
+ *
+ * Wompi checksum spec (docs.wompi.co — "Eventos"):
+ *   SHA256( concatenated values of the fields listed in `signature.properties`
+ *           in the order they appear + event.timestamp + WOMPI_EVENTS_SECRET )
+ *
+ * For `transaction.updated` events the documented properties are:
+ *   ["transaction.id", "transaction.status", "transaction.amount_in_cents"]
+ * i.e. SHA256(id + status + amount_in_cents + timestamp + events_secret).
+ *
+ * The field list MUST be derived from the event's `signature.properties`
+ * array (resolved against the event payload) — never hardcoded. When the
+ * event carries no properties array, the documented default order above is
+ * used as a fallback.
  */
 export async function verifyWebhookSignature(
   event: WompiWebhookEvent,
   receivedChecksum: string
 ): Promise<boolean> {
-  const { transaction } = event.data;
+  const properties =
+    event.signature?.properties && event.signature.properties.length > 0
+      ? event.signature.properties
+      : ['transaction.id', 'transaction.status', 'transaction.amount_in_cents'];
+
   const concatenated =
-    transaction.id +
-    transaction.status +
-    transaction.reference +
+    properties.map((property) => resolveEventProperty(event, property)).join('') +
     event.timestamp +
     WOMPI_EVENTS_SECRET;
 
@@ -120,6 +134,20 @@ export async function verifyWebhookSignature(
   const computedChecksum = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
   return computedChecksum === receivedChecksum;
+}
+
+/**
+ * Resolve a dotted property path (e.g. "transaction.amount_in_cents")
+ * against the event's `data` object, as Wompi's `signature.properties`
+ * refers to fields nested under the event data.
+ */
+function resolveEventProperty(event: WompiWebhookEvent, property: string): string {
+  const value = property.split('.').reduce<unknown>(
+    (acc, key) =>
+      acc == null ? undefined : (acc as Record<string, unknown>)[key],
+    event.data
+  );
+  return value == null ? '' : String(value);
 }
 
 export function getPublicKey(): string {

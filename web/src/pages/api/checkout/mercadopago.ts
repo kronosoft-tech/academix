@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getFullTokenPayload } from '../../../lib/auth';
 import { createPreference } from '../../../lib/payments/mercadopago';
+import { getOrCreateTrialSubscription } from '../../../lib/payments/lifecycle';
 import { PLANS } from '../../../data/plans';
 import { db } from '../../../lib/db';
 
@@ -62,19 +63,25 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error(
+      `[MP CHECKOUT] createPreference failed (plan=${planId}, user=${payload.sub}):`,
+      err
+    );
     return new Response(JSON.stringify({ error: 'Failed to create payment preference', detail: msg }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // Store reference on subscription for webhook matching
+  // Ensure the user has a subscription row (lazily created for desktop-first
+  // users), then store the MP reference on it for webhook matching.
+  const sub = await getOrCreateTrialSubscription(payload.sub, planId);
   const now = new Date().toISOString();
   await db.execute({
     sql: `UPDATE subscriptions
           SET provider = 'mercadopago', provider_subscription_id = ?, updated_at = ?
-          WHERE user_id = ? AND status = 'trial'`,
-    args: [externalReference, now, payload.sub],
+          WHERE id = ?`,
+    args: [externalReference, now, sub.id],
   });
 
   // Use sandbox_init_point for test mode, init_point for production

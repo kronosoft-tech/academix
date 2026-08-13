@@ -5,7 +5,7 @@ import { verifyWebhookSignature, type WompiWebhookEvent } from '../../../lib/pay
 import {
   activateSubscription,
   startGracePeriod,
-  findByProviderSubId,
+  getOrCreateTrialSubscription,
 } from '../../../lib/payments/lifecycle';
 import { db } from '../../../lib/db';
 
@@ -60,30 +60,30 @@ export const POST: APIRoute = async ({ request }) => {
       // Reference format: {userId}-{planId}-{uuid}
       const userId = extractUserIdFromReference(reference);
       if (userId) {
-        // Find user's trial subscription and activate it
-        const sub = await findTrialSubscriptionByUserId(userId);
-        if (sub) {
-          await db.execute({
-            sql: `UPDATE subscriptions
-                  SET provider = 'wompi', provider_subscription_id = ?,
-                      payment_source_token = ?, updated_at = ?
-                  WHERE id = ?`,
-            args: [
-              reference,
-              transaction.payment_source_id?.toString() || null,
-              new Date().toISOString(),
-              sub.id,
-            ],
-          });
-          await activateSubscription(sub.id);
-          await recordPayment(
+        const planId = extractPlanIdFromReference(reference);
+        // Get (or lazily create for desktop-first users) the trial row
+        const sub = await getOrCreateTrialSubscription(userId, planId);
+        await db.execute({
+          sql: `UPDATE subscriptions
+                SET provider = 'wompi', provider_subscription_id = ?,
+                    payment_source_token = ?, plan_id = ?, updated_at = ?
+                WHERE id = ?`,
+          args: [
+            reference,
+            transaction.payment_source_id?.toString() || null,
+            planId,
+            new Date().toISOString(),
             sub.id,
-            transaction.amount_in_cents / 100,
-            transaction.currency,
-            'succeeded',
-            transaction.id
-          );
-        }
+          ],
+        });
+        await activateSubscription(sub.id);
+        await recordPayment(
+          sub.id,
+          transaction.amount_in_cents / 100,
+          transaction.currency,
+          'succeeded',
+          transaction.id
+        );
       }
     }
   } else if (
@@ -136,15 +136,13 @@ function extractUserIdFromReference(reference: string): string | null {
   return parts.slice(0, 5).join('-');
 }
 
-async function findTrialSubscriptionByUserId(
-  userId: string
-): Promise<{ id: string } | null> {
-  const result = await db.execute({
-    sql: `SELECT id FROM subscriptions WHERE user_id = ? AND status = 'trial' LIMIT 1`,
-    args: [userId],
-  });
-  if (result.rows.length === 0) return null;
-  return { id: result.rows[0].id as string };
+/**
+ * Extract plan ID from first-payment reference.
+ * Format: {userId}-{planId}-{uuid}
+ */
+function extractPlanIdFromReference(reference: string): string {
+  const parts = reference.split('-');
+  return parts.length >= 6 ? parts[5] : 'basico';
 }
 
 async function recordPayment(

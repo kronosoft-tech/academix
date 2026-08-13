@@ -53,7 +53,7 @@ describe('Subscription Lifecycle', () => {
       expect(args[1]).toBe('user-123'); // user_id
       expect(args[2]).toBe('trial'); // plan
       // trial_end debe ser ~15 días en el futuro
-      const trialEnd = new Date(args[4] as string);
+      const trialEnd = new Date(args[3] as string);
       const now = new Date();
       const diffDays = Math.round((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       expect(diffDays).toBe(15);
@@ -63,8 +63,8 @@ describe('Subscription Lifecycle', () => {
       await createTrialSubscription('user-123', 'basico', 'sub_stripe_123', 'stripe');
 
       const args = mockExecute.mock.calls[0][0].args;
-      expect(args[5]).toBe('sub_stripe_123'); // stripe_subscription_id
-      expect(args[7]).toBe('stripe'); // provider
+      expect(args[4]).toBe('sub_stripe_123'); // stripe_subscription_id
+      expect(args[6]).toBe('stripe'); // provider
     });
   });
 
@@ -110,7 +110,7 @@ describe('Subscription Lifecycle', () => {
 
       const call = mockExecute.mock.calls[0][0];
       expect(call.sql).toContain("SET status = 'active'");
-      expect(call.sql).toContain('trial_start = NULL');
+      expect(call.sql).toContain('trial_starts_at = NULL');
       expect(call.sql).toContain('trial_end = NULL');
       expect(call.sql).toContain('current_period_start = ?');
       expect(call.sql).toContain('current_period_end = ?');
@@ -126,8 +126,8 @@ describe('Subscription Lifecycle', () => {
       await activateSubscription('sub-1');
 
       const sql = mockExecute.mock.calls[0][0].sql;
-      expect(sql).toContain('grace_start = NULL');
-      expect(sql).toContain('grace_end = NULL');
+      expect(sql).toContain('trial_starts_at = NULL');
+      expect(sql).toContain('grace_expires_at = NULL');
     });
   });
 
@@ -137,11 +137,10 @@ describe('Subscription Lifecycle', () => {
 
       const call = mockExecute.mock.calls[0][0];
       expect(call.sql).toContain("SET status = 'grace'");
-      expect(call.sql).toContain('grace_start = ?');
-      expect(call.sql).toContain('grace_end = ?');
+      expect(call.sql).toContain('grace_expires_at = ?');
 
-      // grace_end debe ser ~7 días en el futuro
-      const graceEnd = new Date(call.args[1] as string);
+      // grace_expires_at debe ser ~7 días en el futuro
+      const graceEnd = new Date(call.args[0] as string);
       const now = new Date();
       const diffDays = Math.round((graceEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       expect(diffDays).toBe(7);
@@ -170,7 +169,7 @@ describe('Subscription Lifecycle', () => {
 
       const sql = mockExecute.mock.calls[0][0].sql;
       expect(sql).toContain("status = 'grace'");
-      expect(sql).toContain('grace_end < ?');
+      expect(sql).toContain('grace_expires_at < ?');
     });
   });
 

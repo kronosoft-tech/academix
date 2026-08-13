@@ -60,9 +60,10 @@ bun run test:e2e                 # Playwright against :4321
 
 ### Web app (`web/`)
 - Astro 7 SSR (`output: 'server'`) with the **Vercel adapter**; `vercel.json` schedules cron jobs (expire-subscriptions 06:00, send-reminders 07:00, charge-wompi 08:00 UTC).
-- Purpose: marketing pages + account dashboard + **subscriptions/billing** for the desktop app's customers. Payment gateways: **Stripe, Wompi, MercadoPago** (webhooks under `web/src/pages/api/webhooks/`; checkouts under `api/checkout/`).
+- Purpose: marketing pages + account dashboard + **subscriptions/billing** for the desktop app's customers. Payment gateways: **Wompi and MercadoPago** only — checkouts under `web/src/pages/api/checkout/`, webhooks under `web/src/pages/api/webhooks/` (one module per gateway).
+- **Gateway routing**: `geoToGateway()` in `web/src/lib/payments/gateway.ts` — Colombia (`CO`) → Wompi, everything else → MercadoPago. The `Gateway` union is `'wompi' | 'mercadopago'`; **Stripe is not implemented** (only a legacy `stripe_subscription_id` column and tests importing a non-existent `lib/payments/stripe` module — do not add Stripe without updating `gateway.ts`).
 - **Auth**: JWT (jose, HS256) in an httpOnly cookie; `web/src/middleware.ts` splits `customer` vs `admin` roles and enforces route access.
-- **DB**: one Turso database via `@libsql/client` (`TURSO_URL`/`TURSO_AUTH_TOKEN`). Email via nodemailer (Gmail); AI chat via groq/cerebras. Required env keys are documented in `web/.env.example` — never commit real `.env` values.
+- **DB**: one Turso database via `@libsql/client` (`TURSO_URL`/`TURSO_AUTH_TOKEN`). Email via nodemailer (Gmail); AI chat via groq/cerebras. **No committed `web/.env.example` exists** — the gitignored `web/.env` shows the required keys; never commit real `.env` values.
 - **Web migrations**: `web/migrations/` apply ad hoc — `web/src/lib/payments/migrate.ts` runs the 002 ALTERs, swallowing "duplicate column" errors (SQLite has no `IF NOT EXISTS` for ALTER). There is no full auto-runner wired into app code.
 
 ### Communication
@@ -126,4 +127,6 @@ Strict mode is enabled (`tsconfig.json`): `strict`, `noUnusedLocals`, `noUnusedP
 | `turso-api` | Turso platform REST API |
 | `turso-sync` | Local-first sync, embedded replicas |
 | `turso-sql` | SQLite/Turso SQL reference |
+| `wompi` | Wompi (Colombia): widget/checkout integration, SHA256 event signature verification |
+| `mercadopago` | Mercado Pago (Colombia): Checkout Pro/Bricks; Colombia does NOT support the preapproval/subscriptions API |
 | `astro-7` | Work in `web/` (Astro 7) |

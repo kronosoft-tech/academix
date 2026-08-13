@@ -71,7 +71,7 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.error || 'Error al crear la sesión de pago');
+        throw new Error(data?.detail || data?.error || 'Error al crear la sesión de pago');
       }
 
       const data = await response.json();
@@ -82,8 +82,6 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
       } else if (gateway === 'wompi' && data.publicKey) {
         // Wompi Widget — open popup checkout
         const WidgetCheckout = (window as any).WidgetCheckout;
-        console.log('[WOMPI] WidgetCheckout available:', !!WidgetCheckout);
-        console.log('[WOMPI] data:', JSON.stringify(data));
         if (!WidgetCheckout) {
           throw new Error('El widget de pago está cargando. Intenta de nuevo en unos segundos.');
         }
@@ -96,16 +94,28 @@ export default function CheckoutPlans({ countryCode, currencyCode, prices }: Pro
           signature: { integrity: data.integrity },
         });
 
-        checkout.open((result: any) => {
+        checkout.open(async (result: any) => {
           const transaction = result.transaction;
           if (transaction && transaction.status === 'APPROVED') {
+            // Verify server-side before redirecting so the subscription is
+            // activated immediately (dashboard ?id= is the fallback).
+            try {
+              await fetch('/api/payments/verify-wompi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ transactionId: transaction.id }),
+              });
+            } catch {
+              // Fall through — the dashboard verification will handle it
+            }
             window.location.href = `/dashboard?id=${transaction.id}`;
           } else if (transaction) {
             setError(`Pago ${transaction.status === 'DECLINED' ? 'rechazado' : 'pendiente'}. Intenta de nuevo.`);
           }
           setLoadingPlan(null);
         });
-      };
+      }
     }
     catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');

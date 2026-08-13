@@ -150,8 +150,8 @@ describe('Subscription Lifecycle', () => {
       })
     );
 
-    expect(dbMock.execute.mock.calls[0][0].sql).toContain('trial_start = NULL');
-    expect(dbMock.execute.mock.calls[0][0].sql).toContain('grace_start = NULL');
+    expect(dbMock.execute.mock.calls[0][0].sql).toContain('trial_starts_at = NULL');
+    expect(dbMock.execute.mock.calls[0][0].sql).toContain('grace_expires_at = NULL');
   });
 
   it('should start a grace period', async () => {
@@ -221,7 +221,7 @@ describe('Subscription Lifecycle', () => {
 
     expect(dbMock.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        sql: expect.stringContaining("status = 'grace' AND grace_end < ?"),
+        sql: expect.stringContaining("status = 'grace' AND grace_expires_at < ?"),
       })
     );
   });
