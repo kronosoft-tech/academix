@@ -51,7 +51,17 @@ export const POST: APIRoute = async ({ request }) => {
   const xSignature = request.headers.get('x-signature') || '';
   const xRequestId = request.headers.get('x-request-id') || '';
 
-  if (!verifyWebhookSignature(xSignature, xRequestId, dataId, secret)) {
+  let signatureValid: boolean;
+  try {
+    signatureValid = verifyWebhookSignature(xSignature, xRequestId, dataId, secret);
+  } catch (err) {
+    console.error('[MP WEBHOOK] signature verification threw:', err);
+    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (!signatureValid) {
     return new Response(JSON.stringify({ error: 'Invalid signature' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },

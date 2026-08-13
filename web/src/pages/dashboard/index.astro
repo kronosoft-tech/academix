@@ -7,7 +7,6 @@ import { getFullTokenPayload } from "../../lib/auth";
 import { getUserDb } from "../../lib/user-db";
 import { db } from "../../lib/db";
 import { getOrCreateTrialSubscription } from "../../lib/payments/lifecycle";
-import { activateApprovedPayment } from "../../lib/payments/mercadopago";
 
 const payload = await getFullTokenPayload(Astro.cookies);
 if (!payload) {
@@ -119,41 +118,47 @@ if (wompiTransactionId) {
 // Handle payment redirect from Mercado Pago Checkout Pro. Checkout Pro appends
 // ?payment_id=...&status=approved&external_reference=... to the success URL
 // (not preapproval_id — the preapproval API is not supported in Colombia).
+// Verification goes through the owner-checked verify-mercadopago endpoint,
+// which records the payment even when the MP webhook failed. Same-origin fetch
+// sends the session cookie automatically.
 const mpPaymentId =
   url.searchParams.get("payment_id") || url.searchParams.get("collection_id");
-const mpStatus = url.searchParams.get("status");
+const mpExternalReference = url.searchParams.get("external_reference");
 if (mpPaymentId && !paymentSuccess) {
-  const MP_API_URL =
-    import.meta.env.MP_API_URL || "https://api.mercadopago.com";
-  const MP_ACCESS_TOKEN = import.meta.env.MP_ACCESS_TOKEN || "";
   try {
-    const mpRes = await fetch(`${MP_API_URL}/v1/payments/${mpPaymentId}`, {
-      headers: {
-        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
+    const verifyParams = new URLSearchParams({ payment_id: mpPaymentId });
+    if (mpExternalReference) {
+      verifyParams.set("external_reference", mpExternalReference);
+    }
+    const verifyRes = await fetch(
+      `/api/payments/verify-mercadopago?${verifyParams.toString()}`,
+      {
+        headers: { "Content-Type": "application/json" },
       },
-    });
-    if (mpRes.ok) {
-      const mpData = await mpRes.json();
-      if (mpData.status === "approved" && mpData.external_reference) {
-        await activateApprovedPayment({
-          paymentId: mpPaymentId,
-          externalReference: mpData.external_reference,
-          transactionAmount: mpData.transaction_amount,
-          currencyId: mpData.currency_id || "COP",
-        });
-        paymentSuccess = true;
-      } else if (mpData.status === "pending") {
+    );
+    const verifyBody = await verifyRes.json().catch(() => null);
+
+    if (verifyRes.ok && verifyBody?.success === true) {
+      paymentSuccess = true;
+    } else if (verifyRes.status === 401) {
+      paymentError =
+        "Your session has expired. Sign in again to confirm your payment.";
+    } else if (verifyRes.status === 403) {
+      paymentError = "This payment does not belong to your account.";
+    } else if (verifyRes.status === 502) {
+      paymentError =
+        "We could not verify your payment right now. We will notify you when it is confirmed.";
+    } else if (verifyRes.status === 400 && verifyBody?.status) {
+      // Non-approved status reported by MP (pending/rejected/cancelled)
+      if (verifyBody.status === "pending") {
         paymentError =
-          "Tu pago está siendo procesado. Te notificaremos cuando se confirme.";
-      } else if (mpData.status !== "approved" && mpStatus === "approved") {
-        // Approve confirmed by MP but details not returned — webhook will
-        // complete the activation.
-        paymentError =
-          "Tu pago se está procesando. Te notificaremos cuando se confirme.";
+          "Your payment is being processed. We will notify you when it is confirmed.";
       } else {
-        paymentError = `El pago fue ${mpData.status === "rejected" ? "rechazado" : "cancelado"}. Intenta de nuevo.`;
+        paymentError = `The payment was ${verifyBody.status === "rejected" ? "rejected" : "cancelled"}. Please try again.`;
       }
+    } else {
+      paymentError =
+        "We could not verify your payment. We will notify you by webhook when it is confirmed.";
     }
   } catch (err) {
     console.error(
@@ -161,7 +166,7 @@ if (mpPaymentId && !paymentSuccess) {
       err,
     );
     paymentError =
-      "No pudimos verificar tu pago. Te notificaremos por webhook cuando se confirme.";
+      "We could not verify your payment. We will notify you by webhook when it is confirmed.";
   }
 }
 

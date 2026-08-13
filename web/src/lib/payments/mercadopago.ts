@@ -211,24 +211,29 @@ export function verifyWebhookSignature(
   dataId: string,
   secret: string
 ): boolean {
-  const parts = Object.fromEntries(
-    xSignature.split(',').map((pair) => {
-      const idx = pair.indexOf('=');
-      if (idx === -1) return [pair, ''];
-      return [pair.slice(0, idx).trim(), pair.slice(idx + 1).trim()];
-    })
-  );
-  const ts = parts['ts'];
-  const v1 = parts['v1'];
-  if (!ts || !v1) return false;
+  try {
+    const parts = Object.fromEntries(
+      xSignature.split(',').map((pair) => {
+        const idx = pair.indexOf('=');
+        if (idx === -1) return [pair, ''];
+        return [pair.slice(0, idx).trim(), pair.slice(idx + 1).trim()];
+      })
+    );
+    const ts = parts['ts'];
+    const v1 = parts['v1'];
+    if (!ts || !v1) return false;
 
-  const manifest = `id:${dataId.toLowerCase()};request-id:${xRequestId};ts:${ts};`;
-  const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+    const manifest = `id:${dataId.toLowerCase()};request-id:${xRequestId};ts:${ts};`;
+    const expected = createHmac('sha256', secret).update(manifest).digest('hex');
 
-  const expectedBuf = Buffer.from(expected, 'hex');
-  const receivedBuf = Buffer.from(v1, 'hex');
-  if (expectedBuf.length !== receivedBuf.length) return false;
-  return timingSafeEqual(expectedBuf, receivedBuf);
+    const expectedBuf = Buffer.from(expected, 'hex');
+    const receivedBuf = Buffer.from(v1, 'hex');
+    if (expectedBuf.length !== receivedBuf.length) return false;
+    return timingSafeEqual(expectedBuf, receivedBuf);
+  } catch (err) {
+    console.error('[MP WEBHOOK] verifyWebhookSignature error:', err);
+    return false;
+  }
 }
 
 export interface ApprovedPaymentInput {
@@ -236,6 +241,7 @@ export interface ApprovedPaymentInput {
   externalReference: string;
   transactionAmount: number;
   currencyId: string;
+  expectedUserId?: string;
 }
 
 /**
@@ -252,7 +258,15 @@ export async function activateApprovedPayment({
   externalReference,
   transactionAmount,
   currencyId,
+  expectedUserId,
 }: ApprovedPaymentInput): Promise<void> {
+  // Ownership guard: when the caller provides the expected user id, refuse to
+  // activate unless the reference is prefixed with it (reference format
+  // {userId}-{planId}-{uuid}, userId = 5 UUID parts). The webhook never passes
+  // the guard — signature verification is its trust boundary. The dashboard
+  // verify endpoint passes the JWT `sub` as defense-in-depth.
+  if (expectedUserId && !externalReference.startsWith(expectedUserId)) return;
+
   // Replay guard: if this paymentId was already processed, do nothing (idempotent)
   const alreadyProcessed = await db.execute({
     sql: 'SELECT id FROM subscription_payments WHERE provider_payment_id = ?',
