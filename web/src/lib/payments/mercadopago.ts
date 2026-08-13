@@ -21,20 +21,62 @@ export interface MpPreferenceResponse {
   sandbox_init_point: string;
 }
 
+export interface MpBackUrls {
+  success: string;
+  failure: string;
+  pending: string;
+}
+
+export interface MpPreferenceItem {
+  title: string;
+  quantity: number;
+  unit_price: number;
+  currency_id: string;
+}
+
+export interface MpPreferenceBody {
+  items: MpPreferenceItem[];
+  payer: { email: string };
+  external_reference: string;
+  back_urls: MpBackUrls;
+  auto_return?: string;
+  notification_url?: string;
+}
+
+function isHttpsUrl(url: string): boolean {
+  return url.startsWith('https://');
+}
+
 /**
- * Create a Checkout Pro preference (single payment).
- * Returns init_point URL for redirect to MP checkout.
+ * Decide si se envía auto_return para una preferencia de Checkout Pro.
+ *
+ * Mercado Pago rechaza `auto_return: "approved"` (invalid_auto_return) cuando
+ * algún back_url no es https (p.ej. desarrollo local con http://localhost).
+ * Solo se envía cuando TODOS los back_urls son https; en otro caso se omite y
+ * MP muestra el botón "volver al sitio" para regresar manualmente.
  */
-export async function createPreference(
+function computeAutoReturn(backUrls: MpBackUrls): string | undefined {
+  return isHttpsUrl(backUrls.success) &&
+    isHttpsUrl(backUrls.failure) &&
+    isHttpsUrl(backUrls.pending)
+    ? 'approved'
+    : undefined;
+}
+
+/**
+ * Construye el body de una preferencia de Checkout Pro (pago único).
+ * Helper puro exportado para poder probarlo sin llamar a la API de MP.
+ */
+export function buildPreferenceBody(
   title: string,
   amount: number,
   currency: string,
   payerEmail: string,
   externalReference: string,
-  backUrls: { success: string; failure: string; pending: string },
+  backUrls: MpBackUrls,
   notificationUrl?: string
-): Promise<MpPreferenceResponse> {
-  const body = {
+): MpPreferenceBody {
+  const body: MpPreferenceBody = {
     items: [
       {
         title,
@@ -48,9 +90,37 @@ export async function createPreference(
     },
     external_reference: externalReference,
     back_urls: backUrls,
-    auto_return: 'approved',
     notification_url: notificationUrl || undefined,
   };
+
+  const autoReturn = computeAutoReturn(backUrls);
+  if (autoReturn) body.auto_return = autoReturn;
+
+  return body;
+}
+
+/**
+ * Create a Checkout Pro preference (single payment).
+ * Returns init_point URL for redirect to MP checkout.
+ */
+export async function createPreference(
+  title: string,
+  amount: number,
+  currency: string,
+  payerEmail: string,
+  externalReference: string,
+  backUrls: MpBackUrls,
+  notificationUrl?: string
+): Promise<MpPreferenceResponse> {
+  const body = buildPreferenceBody(
+    title,
+    amount,
+    currency,
+    payerEmail,
+    externalReference,
+    backUrls,
+    notificationUrl
+  );
 
   const response = await fetch(`${MP_API_URL}/checkout/preferences`, {
     method: 'POST',
