@@ -2,12 +2,22 @@
 export const prerender = false;
 
 import Base from "../../layouts/Base.astro";
-import { actions } from "astro:actions";
+import { actions, isInputError } from "astro:actions";
 
 const result = Astro.getActionResult(actions.register);
 if (result && !result.error) {
   return Astro.redirect("/dashboard");
 }
+
+// Per-field validation errors from the action's zod schema (R1).
+const fieldErrors: Record<string, string | undefined> = {};
+if (result?.error && isInputError(result.error)) {
+  const fields = result.error.fields as Record<string, string[] | undefined>;
+  for (const [field, messages] of Object.entries(fields)) {
+    fieldErrors[field] = messages?.[0];
+  }
+}
+const fieldError = (field: string): string | undefined => fieldErrors[field];
 ---
 
 <Base title="Crear Cuenta">
@@ -65,6 +75,40 @@ if (result && !result.error) {
               class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               placeholder="Mínimo 8 caracteres"
             />
+          </div>
+
+          <div>
+            <label for="academyName" class="block text-sm font-medium text-slate-300 mb-1">
+              Nombre de la academia
+            </label>
+            <input
+              type="text"
+              id="academyName"
+              name="academyName"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Ej. Escuela de Música"
+            />
+            {fieldError('academyName') && (
+              <p class="mt-1 text-sm text-red-400">{fieldError('academyName')}</p>
+            )}
+          </div>
+
+          <div>
+            <label for="confirmPassword" class="block text-sm font-medium text-slate-300 mb-1">
+              Confirmar contraseña
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              required
+              class="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              placeholder="Repite tu contraseña"
+            />
+            {fieldError('confirmPassword') && (
+              <p class="mt-1 text-sm text-red-400">{fieldError('confirmPassword')}</p>
+            )}
           </div>
 
           <button
