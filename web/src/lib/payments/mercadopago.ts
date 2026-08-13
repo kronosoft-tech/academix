@@ -184,8 +184,9 @@ export async function getPayment(paymentId: string): Promise<{
 
   if (!response.ok) {
     const error = await response.text();
+    const tokenPrefix = MP_ACCESS_TOKEN ? `${MP_ACCESS_TOKEN.slice(0, 8)}...` : '(empty)';
     const err = new Error(
-      `MercadoPago getPayment failed: ${response.status} - ${error}`
+      `MercadoPago getPayment(${paymentId}) failed: ${response.status} - ${error}`
     ) as Error & {
       status?: number;
       detail?: string;
@@ -193,6 +194,12 @@ export async function getPayment(paymentId: string): Promise<{
     };
     err.status = response.status;
     err.detail = error || response.statusText;
+    // Surface the token prefix so MP 404/401 are diagnosable without exposing
+    // the credential. A TEST- token querying a payment created with a LIVE token
+    // (or vice-versa, or a different app) is the #1 cause of "Payment not found".
+    console.error(
+      `[MP DIAGNOSTIC] getPayment token prefix=${tokenPrefix} (TEST=${MP_ACCESS_TOKEN.startsWith('TEST-')}) paymentId=${paymentId} status=${response.status}`
+    );
     // MP signals transient 429/5xx with a Retry-After header.
     const retryAfter = response.headers.get('retry-after');
     if (retryAfter) err.retryAfter = retryAfter;
