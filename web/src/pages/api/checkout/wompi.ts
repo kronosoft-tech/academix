@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getFullTokenPayload } from '../../../lib/auth';
 import { getAcceptanceToken, getPublicKey } from '../../../lib/payments/wompi';
-import { PLANS } from '../../../data/plans';
+import { getPlanById } from '../../../data/plans';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   const payload = await getFullTokenPayload(cookies);
@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const planId = body.planId;
-  const plan = PLANS.find((p) => p.id === planId);
+  const plan = planId ? getPlanById(planId) : undefined;
   if (!plan) {
     return new Response(JSON.stringify({ error: 'Invalid plan' }), {
       status: 400,

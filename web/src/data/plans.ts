@@ -61,3 +61,12 @@ export const PLANS: Plan[] = [
     ],
   },
 ];
+
+/**
+ * Single source of truth for plan lookups (cron renewals + both checkouts).
+ * Returns undefined for unknown plan ids so callers can fail loud instead of
+ * silently charging a stale/default price.
+ */
+export function getPlanById(planId: string): Plan | undefined {
+  return PLANS.find((p) => p.id === planId);
+}

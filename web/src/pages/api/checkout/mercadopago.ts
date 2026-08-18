@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
 import { getFullTokenPayload } from '../../../lib/auth';
 import { createPreference } from '../../../lib/payments/mercadopago';
 import { getOrCreateTrialSubscription } from '../../../lib/payments/lifecycle';
-import { PLANS } from '../../../data/plans';
+import { getPlanById } from '../../../data/plans';
 import { db } from '../../../lib/db';
 
 export const POST: APIRoute = async ({ request, cookies }) => {
@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const planId = body.planId;
-  const plan = PLANS.find((p) => p.id === planId);
+  const plan = planId ? getPlanById(planId) : undefined;
   if (!plan) {
     return new Response(JSON.stringify({ error: 'Invalid plan' }), {
       status: 400,
