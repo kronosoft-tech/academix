@@ -73,9 +73,8 @@ describe('Subscription Lifecycle', () => {
       const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       mockExecute.mockResolvedValue({
         rows: [{
-          id: 'sub-1', user_id: 'user-123', plan: 'trial', status: 'trial',
-          trial_start: pastDate, trial_end: pastDate,
-          grace_start: null, grace_end: null,
+          id: 'sub-1', user_id: 'user-123', plan_id: 'basico', status: 'trial',
+          trial_end: pastDate,
           stripe_subscription_id: null,
           current_period_start: null, current_period_end: null,
           provider: null, provider_subscription_id: null,
@@ -152,9 +151,8 @@ describe('Subscription Lifecycle', () => {
       const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       mockExecute.mockResolvedValue({
         rows: [{
-          id: 'sub-1', user_id: 'user-123', plan: 'pro', status: 'grace',
-          trial_start: null, trial_end: null,
-          grace_start: pastDate, grace_end: pastDate,
+          id: 'sub-1', user_id: 'user-123', plan_id: 'pro', status: 'grace',
+          trial_end: null,
           stripe_subscription_id: 'sub_stripe_1',
           current_period_start: null, current_period_end: null,
           provider: 'stripe', provider_subscription_id: 'sub_stripe_1',
@@ -198,9 +196,8 @@ describe('Subscription Lifecycle', () => {
     it('findSubscriptionByStripeId encuentra por stripe_subscription_id', async () => {
       mockExecute.mockResolvedValue({
         rows: [{
-          id: 'sub-1', user_id: 'user-123', plan: 'pro', status: 'active',
-          trial_start: null, trial_end: null,
-          grace_start: null, grace_end: null,
+          id: 'sub-1', user_id: 'user-123', plan_id: 'pro', status: 'active',
+          trial_end: null,
           stripe_subscription_id: 'sub_stripe_abc',
           current_period_start: '2026-08-01', current_period_end: '2026-08-31',
           provider: 'stripe', provider_subscription_id: 'sub_stripe_abc',
@@ -218,9 +215,8 @@ describe('Subscription Lifecycle', () => {
     it('findByProviderSubId encuentra por provider_subscription_id', async () => {
       mockExecute.mockResolvedValue({
         rows: [{
-          id: 'sub-2', user_id: 'user-456', plan: 'basico', status: 'active',
-          trial_start: null, trial_end: null,
-          grace_start: null, grace_end: null,
+          id: 'sub-2', user_id: 'user-456', plan_id: 'basico', status: 'active',
+          trial_end: null,
           stripe_subscription_id: null,
           current_period_start: '2026-08-01', current_period_end: '2026-08-31',
           provider: 'wompi', provider_subscription_id: 'wompi-ref-123',
