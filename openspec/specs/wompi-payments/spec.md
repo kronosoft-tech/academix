@@ -70,18 +70,45 @@ The system MUST derive `plan_id` from the first-payment reference, obtain the su
 
 ### Requirement: Recurring Charge via Cron
 
-The system MUST charge tokenized cards monthly via cron using stored payment_source tokens.
+The system MUST renew Wompi subscriptions via the 08:00 UTC cron `charge-wompi.ts`, selecting `provider='wompi' AND status='active' AND current_period_end <= ? AND payment_source_token IS NOT NULL`, reading `s.plan_id` (real column, `001_subscriptions.sql:4`). Renewal price MUST come from `PLANS` (`web/src/data/plans.ts`); amount `priceCOP * 100`; reference `renewal-<sub.id>-<Date.now()>`. Immediate failure MUST call `startGracePeriod`; extension MUST come only from the webhook (`activateSubscription`).
+(Previously: `s.plan` → 500; stale hardcoded prices.)
 
-#### Scenario: Successful monthly charge
+#### Scenario: Due subscription charged at current price
 
-- GIVEN a Wompi subscription due for renewal (last_payment_at + 30 days <= now)
-- WHEN the recurring charge cron executes
-- THEN a transaction is created against the stored payment_source
-- AND on success, subscription period extends by 30 days
+- GIVEN status=active, `current_period_end <= now`, token set, `plan_id='pro'`
+- WHEN charge-wompi runs
+- THEN a 149900×100-cent transaction is created, `charged=1`
 
-#### Scenario: Recurring charge fails
+#### Scenario: Charge failure starts grace
 
-- GIVEN a due Wompi subscription
-- WHEN the charge attempt fails
-- THEN subscription transitions to grace with grace_expires_at = now + 7 days
-- AND a reminder email is triggered
+- GIVEN a due subscription
+- WHEN `createTransaction` throws
+- THEN `startGracePeriod` sets `status='grace'`, `grace_expires_at`=now+7d, `failed=1`
+
+#### Scenario: Unknown plan id fails loud
+
+- GIVEN a due sub whose `plan_id` has no `PLANS` match
+- WHEN charge-wompi runs
+- THEN it enters grace — no silent default price
+
+#### Scenario: Webhook confirms payment
+
+- GIVEN a transaction created by the cron
+- WHEN the Wompi webhook reports APPROVED
+- THEN `activateSubscription` extends `current_period_end` by 30 days
+
+### Requirement: Cron Failure Alerting
+
+All three cron handlers MUST wrap execution in try/catch. On unexpected failure the system MUST log prominently, email `SUPPORT_EMAIL`, and respond 500. Missing `CRON_SECRET` MUST stay 500; invalid auth MUST stay 401 without alert.
+
+#### Scenario: Unexpected cron error alerts support
+
+- GIVEN a cron handler throws (e.g. Turso down)
+- WHEN the top-level catch runs
+- THEN prominent log + alert email to `SUPPORT_EMAIL` + HTTP 500
+
+#### Scenario: Unauthorized request stays 401
+
+- GIVEN a request without Bearer `CRON_SECRET`
+- WHEN any cron handler runs
+- THEN HTTP 401, no alert email
