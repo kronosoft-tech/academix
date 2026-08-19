@@ -10,11 +10,13 @@ Two-app repo: a **Tauri 2 + React 19 desktop app** at the repo root, plus an **A
 | Desktop backend | `src-tauri/src/` | Rust, hexagonal architecture + Turso |
 | Desktop migrations | `src-tauri/migrations/` | SQLite, files 001–020 (runner wired to 019) |
 | Web app | `web/` | Astro 7 SSR on Vercel, subscriptions/payments |
-| Web migrations | `web/migrations/` | Turso subscriptions schema, 001–002 |
+| Web shared migrations | `web/migrations/` | Turso subscriptions schema, 001–002 |
+| Web per-user migrations | `web/migrations/per-user/` | Mirrors of desktop 001–020 for per-user DBs |
+| SDD artifacts | `openspec/` | Active changes + flattened specs (user-provisioning, payments) |
 | Unit tests | `src/**/*.{test,spec}.ts(x)`, `web/src/**` | Vitest |
 | E2E tests | `tests/e2e/` (root), `web/tests/e2e/` | Playwright |
 
-Nested `AGENTS.md` files exist in `src/` and `src-tauri/` with per-area conventions (import order, naming, Context7 usage). No `opencode.json` / `CLAUDE.md` / `.cursorrules` at root.
+Nested `AGENTS.md` files exist in `src/` and `src-tauri/` with per-area conventions (import order, naming, Context7 usage). No `opencode.json` / `CLAUDE.md` / `.cursorrules` at root. `.atl/` holds the auto-generated skill registry (`skill-registry.md` + cache, git-tracked) — regenerate via `gentle-ai skill-registry refresh`, not by hand.
 
 ---
 
@@ -38,6 +40,7 @@ bun install
 bun run dev                      # Astro dev server on :4321
 bun run build                    # astro build (type-safe check for web)
 bun run test                     # Vitest, node env
+bun run test -- src/lib/foo.test.ts             # single test
 bun run test:e2e                 # Playwright against :4321
 ```
 
@@ -46,9 +49,9 @@ bun run test:e2e                 # Playwright against :4321
 ## Architecture
 
 ### Desktop frontend (`src/`)
-- **Feature modules**: `src/features/{feature}/` with `components/`, `hooks/`, `types/`, `routes/`, `index.ts` (index re-exports the feature's public API).
-- **App shell**: `src/app/` holds `router.tsx`, layouts, global components.
-- **Router**: `createHashRouter` (react-router-dom v7) — Tauri serves from `file://`, so hash routing is required.
+- **Feature modules**: `src/features/{feature}/` with `components/`, `hooks/`, `types/`, `routes/`; only some features export an `index.ts`.
+- **App shell**: `src/app/` holds layouts and global components. **`src/app/router.tsx` is dead code** — the live router is in `src/App.tsx`.
+- **Router**: `HashRouter` (react-router-dom v7 component API, in `src/App.tsx`) — Tauri serves from `file://`, so hash routing is required.
 - **IPC**: `invoke()` from `@tauri-apps/api/core` → Rust commands. **Do not** call `tauri-plugin-sql` from the frontend; `src/lib/database.ts` is legacy dead code (all DB access goes through Rust commands).
 - **State**: Zustand v5. **Styling**: Tailwind v4 via `@tailwindcss/vite`.
 
@@ -60,30 +63,36 @@ bun run test:e2e                 # Playwright against :4321
 
 ### Web app (`web/`)
 - Astro 7 SSR (`output: 'server'`) with the **Vercel adapter**; `vercel.json` schedules cron jobs (expire-subscriptions 06:00, send-reminders 07:00, charge-wompi 08:00 UTC).
-- Purpose: marketing pages + account dashboard + **subscriptions/billing** for the desktop app's customers. Payment gateways: **Wompi and MercadoPago** only — checkouts under `web/src/pages/api/checkout/`, webhooks under `web/src/pages/api/webhooks/` (one module per gateway).
-- **Gateway routing**: `geoToGateway()` in `web/src/lib/payments/gateway.ts` — Colombia (`CO`) → Wompi, everything else → MercadoPago. The `Gateway` union is `'wompi' | 'mercadopago'`; **Stripe is not implemented** (only a legacy `stripe_subscription_id` column and tests importing a non-existent `lib/payments/stripe` module — do not add Stripe without updating `gateway.ts`).
-- **Auth**: JWT (jose, HS256) in an httpOnly cookie; `web/src/middleware.ts` splits `customer` vs `admin` roles and enforces route access.
-- **DB**: one Turso database via `@libsql/client` (`TURSO_URL`/`TURSO_AUTH_TOKEN`). Email via nodemailer (Gmail); AI chat via groq/cerebras. **No committed `web/.env.example` exists** — the gitignored `web/.env` shows the required keys; never commit real `.env` values.
-- **Web migrations**: `web/migrations/` apply ad hoc — `web/src/lib/payments/migrate.ts` runs the 002 ALTERs, swallowing "duplicate column" errors (SQLite has no `IF NOT EXISTS` for ALTER). There is no full auto-runner wired into app code.
+- Purpose: marketing pages + account dashboard + **subscriptions/billing** for the desktop app's customers. Payment gateways: **Wompi and MercadoPago** only — checkouts under `web/src/pages/api/checkout/`, webhooks under `web/src/pages/api/webhooks/` (one module per gateway), plus dashboard-side persistence fallbacks under `web/src/pages/api/payments/` (`verify-wompi.ts`, `verify-mercadopago.ts`) for when webhooks fail.
+- **Gateway routing**: `geoToGateway()` in `web/src/lib/payments/gateway.ts` — Colombia (`CO`) → Wompi, everything else (and `null` country) → MercadoPago. The `Gateway` union is `'wompi' | 'mercadopago'`; **Stripe is not implemented** (only a legacy `stripe_subscription_id` column and stale tests importing a non-existent `lib/payments/stripe` module — do not add Stripe without updating `gateway.ts`).
+- **Auth**: JWT (jose, HS256) in an httpOnly cookie; `web/src/middleware.ts` splits `customer` vs `admin` roles and enforces route access. For registered users the JWT also carries per-user DB connection claims (`dbUrl`/`dbToken`/`academyName`).
+- **Shared DB + per-user DBs**: the control-plane Turso database via `@libsql/client` (`TURSO_URL`/`TURSO_AUTH_TOKEN`) holds users, subscriptions, and payments. Every registered user ALSO gets their own Turso DB — see provisioning below. Email via nodemailer (Gmail); AI chat via groq/cerebras. `web/src/.env.example` is tracked but **stale** (still lists Stripe keys, missing provisioning vars) — trust `web/.env` and `web/docs/vercel-rollout.md` instead; never commit real `.env` values.
+- **Per-user provisioning**: `web/src/lib/provisioning.ts` (slug, create DB, auth token, delete, migration runner) + `web/src/actions/register.ts`: email-conflict check → provision per-user DB → per-user `Admin` row → shared `users`/`user_databases` rows → trial subscription → JWT signed with the DB claims. `web/src/lib/user-db.ts` connects to the per-user DB from those claims. Fails closed without `TURSO_API_TOKEN`/`TURSO_ORG`/`TURSO_GROUP` ("Registro no disponible temporalmente"). Migrations run from `web/migrations/per-user/` (mirrors of desktop 001–020; **`002_seed_admin.sql` is intentionally a no-op — do NOT "fix" it**). Keep the mirror in sync when adding desktop migrations. Deploy order + rollback: `web/docs/vercel-rollout.md`. E2E: `web/tests/e2e/provisioning.spec.ts`.
+- **Web migrations**: shared `web/migrations/` apply ad hoc — `web/src/lib/payments/migrate.ts` runs the 002 ALTERs, swallowing "duplicate column" errors (SQLite has no `IF NOT EXISTS` for ALTER). There is no full auto-runner wired into app code.
+- **Webhook signatures**: Wompi uses SHA256 event signatures (see `wompi` skill); MercadoPago uses HMAC-SHA256 over `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`.
+- **Env vars (web)** beyond `TURSO_URL`/`TURSO_AUTH_TOKEN`/`JWT_SECRET`: `CRON_SECRET` (Bearer-gates `/api/cron/*`, 500s if unset), `SITE_URL`, `SUPPORT_EMAIL`, `WOMPI_PUBLIC_KEY`/`WOMPI_PRIVATE_KEY`/`WOMPI_EVENTS_SECRET`/`WOMPI_API_URL`, `MP_ACCESS_TOKEN`/`MP_API_URL`/`MP_WEBHOOK_SECRET`. Missing vars throw at **request time**, not at startup.
 
 ### Communication
 ```
 React → invoke("command") → Tauri command → UseCase → Repository → SQLite (local libsql) / Turso (per-user DB)
 ```
+Web: registration/dashboard → shared control-plane Turso (`db.ts`) + per-user Turso DBs (`provisioning.ts` → `user-db.ts`).
 
 ---
 
 ## Critical Gotchas
 
 1. **Port 1420 is hardcoded** in `vite.config.ts` with `strictPort: true` — desktop dev fails if the port is busy. Web dev uses Astro's default **4321**.
-2. **HashRouter, not BrowserRouter** — Tauri serves from `file://`.
+2. **HashRouter, not BrowserRouter** — Tauri serves from `file://`. Live router is in `src/App.tsx`; `src/app/router.tsx` is dead code.
 3. **Bun, not npm** — in both root and `web/`.
 4. **Desktop migrations aren't auto-discovered** — register new `migrations/*.sql` in `lib.rs` or they never run.
 5. **`tauri-plugin-sql` is a stale dependency** — the frontend talks to Rust commands; `src/lib/database.ts` is unused.
 6. **`web/` is a separate package** — run its installs/scripts from inside `web/`; don't add web deps to the root `package.json`.
-7. **Turso env vars gate features** — desktop runs degraded without them; web refuses to start without `TURSO_URL`/`JWT_SECRET`.
+7. **Turso env vars gate features** — desktop runs degraded without them; web registration fails closed without `TURSO_API_TOKEN`/`TURSO_ORG`/`TURSO_GROUP`; missing web vars surface at request time, not startup.
 8. **E2E auto-starts dev servers** — both Playwright configs use `webServer` (root: Vite `:1420`; web: Astro `:4321`).
 9. **Releases**: `.github/workflows/tauri.yml` builds installers (mac/linux/win matrix) and publishes GitHub releases on `app-v*` tags (used by the updater plugin).
+10. **Per-user migration mirror**: `web/migrations/per-user/` must track `src-tauri/migrations/` — when adding a desktop migration, mirror it (and keep `002_seed_admin.sql` as a no-op).
+11. **Stale test/artifact traps**: `web/src/test/payments/checkout-integration.test.ts` still expects Stripe routes (`geoToGateway('US') === 'stripe'`) and will fail against current code — not a source of truth. Root `tasks.md` is a stale planning artifact; ignore it.
 
 ---
 
@@ -98,8 +107,9 @@ Strict mode is enabled (`tsconfig.json`): `strict`, `noUnusedLocals`, `noUnusedP
 1. `bunx tsc --noEmit` passes (root); `bun run build` succeeds (root and `web/` if web changed)
 2. No `console.log` in production code
 3. Types are explicit (avoid `any`)
-4. Env values never committed (`.env*` is gitignored)
+4. Env values never committed (`.env*` is gitignored; `.env.example` files ARE tracked — keep them secret-free)
 5. New desktop migrations registered in `lib.rs` AND tested for idempotency
+6. If desktop migrations changed, mirror them into `web/migrations/per-user/`
 
 ---
 
