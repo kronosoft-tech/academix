@@ -1,20 +1,3 @@
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
-import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import Divider from '@mui/material/Divider';
-import { alpha } from '@mui/material/styles';
-import MenuIcon from '@mui/icons-material/Menu';
-import CloseIcon from '@mui/icons-material/Close';
 import { useState } from 'react';
 
 const navLinks = [
@@ -25,145 +8,126 @@ const navLinks = [
   { label: 'Contacto', href: '/contact' },
 ];
 
+/**
+ * Site navbar. The only interactive section of the landing page, so it is
+ * the only part hydrated on the client (client:visible island in index.astro).
+ * Tailwind-only: keeps MUI/emotion out of the home JS bundles.
+ */
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
-      <AppBar position="fixed" elevation={0}>
-        <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ height: 72 }}>
-            {/* Logo */}
-            <Typography
-              variant="h6"
-              component="a"
-              href="/"
-              sx={{
-                fontWeight: 800,
-                fontSize: '1.25rem',
-                color: '#10b981',
-                textDecoration: 'none',
-                letterSpacing: '-0.02em',
-                mr: 4,
-              }}
-            >
-              Academix
-            </Typography>
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
+        <nav className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <a href="/" className="text-xl font-extrabold tracking-tight text-emerald-500">
+            Academix
+          </a>
 
-            {/* Desktop nav links */}
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ display: { xs: 'none', md: 'flex' }, flex: 1 }}
-            >
-              {navLinks.map(({ label, href }) => (
-                <Button
-                  key={label}
-                  href={href}
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    fontSize: '0.875rem',
-                    px: 2,
-                    '&:hover': {
-                      color: '#f8fafc',
-                      bgcolor: alpha('#94a3b8', 0.08),
-                    },
-                  }}
-                >
-                  {label}
-                </Button>
-              ))}
-            </Stack>
+          <div className="hidden items-center gap-1 md:flex">
+            {navLinks.map(({ label, href }) => (
+              <a
+                key={label}
+                href={href}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800/60 hover:text-white"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
 
-            {/* Desktop CTA */}
-            <Stack
-              direction="row"
-              spacing={1.5}
-              sx={{ display: { xs: 'none', md: 'flex' } }}
+          <div className="hidden items-center gap-3 md:flex">
+            <a
+              href="/auth/login"
+              className="text-sm font-medium text-slate-300 transition-colors hover:text-white"
             >
-              <Button
-                href="/auth/login"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 500,
-                  '&:hover': { color: '#f8fafc' },
-                }}
-              >
-                Iniciar sesión
-              </Button>
-              <Button
-                variant="contained"
-                href="/downloads"
-                size="small"
-                sx={{ px: 3 }}
-              >
-                Comenzar gratis
-              </Button>
-            </Stack>
+              Iniciar sesión
+            </a>
+            <a
+              href="/downloads"
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            >
+              Comenzar gratis
+            </a>
+          </div>
 
-            {/* Mobile menu button */}
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, ml: 'auto' }}>
-              <IconButton
-                onClick={() => setMobileOpen(true)}
-                sx={{ color: '#f8fafc' }}
-              >
-                <MenuIcon />
-              </IconButton>
-            </Box>
-          </Toolbar>
-        </Container>
-      </AppBar>
+          <button
+            type="button"
+            aria-label="Abrir menú"
+            className="flex h-10 w-10 items-center justify-center text-slate-100 md:hidden"
+            onClick={() => setMobileOpen(true)}
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        </nav>
+      </header>
 
       {/* Mobile drawer */}
-      <Drawer
-        anchor="right"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              width: 280,
-              bgcolor: '#0f0f14',
-              borderLeft: `1px solid ${alpha('#94a3b8', 0.08)}`,
-            },
-          },
-        }}
+      <div
+        className={`fixed inset-0 z-50 md:hidden ${mobileOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        aria-hidden={!mobileOpen}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <IconButton onClick={() => setMobileOpen(false)} sx={{ color: '#f8fafc' }}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <List>
-          {navLinks.map(({ label, href }) => (
-            <ListItem key={label} disablePadding>
-              <ListItemButton
-                component="a"
+        <div
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${mobileOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMobileOpen(false)}
+        />
+        <aside
+          className={`absolute right-0 top-0 h-full w-72 border-l border-slate-800 bg-[#0f0f14] p-4 transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            className="ml-auto flex h-10 w-10 items-center justify-center text-slate-100"
+            onClick={() => setMobileOpen(false)}
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+          <nav className="mt-2 flex flex-col">
+            {navLinks.map(({ label, href }) => (
+              <a
+                key={label}
                 href={href}
-                sx={{ px: 3, '&:hover': { bgcolor: alpha('#10b981', 0.08) } }}
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
               >
-                <ListItemText
-                  primary={label}
-                  slotProps={{ primary: { sx: { fontWeight: 500 } } }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-        <Divider sx={{ my: 2 }} />
-        <Stack spacing={1.5} sx={{ px: 3 }}>
-          <Button variant="outlined" fullWidth href="/auth/login">
-            Iniciar sesión
-          </Button>
-          <Button variant="contained" fullWidth href="/downloads">
-            Comenzar gratis
-          </Button>
-        </Stack>
-      </Drawer>
+                {label}
+              </a>
+            ))}
+          </nav>
+          <div className="my-4 border-t border-slate-800" />
+          <div className="flex flex-col gap-3 px-1">
+            <a
+              href="/auth/login"
+              className="rounded-lg border border-slate-700 px-3 py-2 text-center text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+            >
+              Iniciar sesión
+            </a>
+            <a
+              href="/downloads"
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+            >
+              Comenzar gratis
+            </a>
+          </div>
+        </aside>
+      </div>
 
-      {/* Spacer for fixed AppBar */}
-      <Toolbar sx={{ height: 72 }} />
+      {/* Spacer for the fixed header */}
+      <div className="h-[72px]" />
     </>
   );
 }

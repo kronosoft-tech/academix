@@ -1,0 +1,7 @@
+{
+  "homeJsBytes": 421214,
+  "targetBytes": 294850,
+  "page": "index.html",
+  "measuredAt": "2026-08-19",
+  "note": "Sum of astro-island component-url + renderer-url JS files on the prerendered home page, pre blog-web perf split (client.C-eqqIoE.js 180604 + LandingPage.D3z5EFnq.js 240610). Gate: new total < 421214 AND <= 294850 (0.7x)."
+}

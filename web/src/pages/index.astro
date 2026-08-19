@@ -1,4 +1,5 @@
 ---
+import Navbar from '../components/landing/Navbar';
 import LandingPage from '../components/landing/LandingPage';
 import Seo from '../components/Seo.astro';
 
@@ -26,6 +27,7 @@ export const prerender = true;
     </style>
   </head>
   <body>
-    <LandingPage client:load />
+    <Navbar client:visible />
+    <LandingPage />
   </body>
 </html>

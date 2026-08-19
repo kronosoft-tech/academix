@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "measure:home-js": "node scripts/measure-home-js.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.0",
