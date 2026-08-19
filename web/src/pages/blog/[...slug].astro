@@ -47,7 +47,15 @@ function formatDate(date: Date): string {
 }
 ---
 
-<Base title={post.data.title} description={post.data.description}>
+<Base
+  title={post.data.title}
+  description={post.data.description}
+  type="article"
+  publishedTime={post.data.pubDate.toISOString()}
+  updatedTime={post.data.updatedDate?.toISOString()}
+  author={post.data.author}
+  tags={post.data.tags}
+>
   <Fragment slot="head">
     <link rel="alternate" type="text/markdown" href={`/blog/${post.id}.md`} />
   </Fragment>
