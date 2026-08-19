@@ -1,15 +1,29 @@
 ---
 import UserNavbar from "../components/UserNavbar.astro";
+import Seo from "../components/Seo.astro";
+import "@fontsource-variable/inter";
 import "../styles/global.css";
 
 interface Props {
   title: string;
   description?: string;
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  updatedTime?: string;
+  author?: string;
+  tags?: string[];
+  image?: string;
 }
 
 const {
   title,
   description = "Sistema de gestión académica para instituciones educativas",
+  type = 'website',
+  publishedTime,
+  updatedTime,
+  author,
+  tags = [],
+  image,
 } = Astro.props;
 ---
 
@@ -21,6 +35,16 @@ const {
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} | Academix</title>
+    <Seo
+      title={title}
+      description={description}
+      type={type}
+      publishedTime={publishedTime}
+      updatedTime={updatedTime}
+      author={author}
+      tags={tags}
+      image={image}
+    />
     <slot name="head" />
   </head>
   <body class="bg-slate-950 text-white min-h-screen flex flex-col antialiased">
@@ -29,7 +53,17 @@ const {
         class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
       >
         <a href="/" class="text-xl font-bold text-emerald-400">Academix</a>
+        <a
+          href="/blog"
+          class="md:hidden text-sm text-emerald-400 hover:text-emerald-300 transition-colors ml-4"
+          >Blog</a
+        >
         <div class="hidden md:flex items-center gap-6">
+          <a
+            href="/blog"
+            class="text-slate-300 hover:text-white transition-colors"
+            >Blog</a
+          >
           <a
             href="/pricing"
             class="text-slate-300 hover:text-white transition-colors">Precios</a
@@ -86,6 +120,10 @@ const {
               <li>
                 <a href="/tutorials" class="hover:text-white transition-colors"
                   >Tutoriales</a>
+              </li>
+              <li>
+                <a href="/blog" class="hover:text-white transition-colors"
+                  >Blog</a>
               </li>
             </ul>
           </div>

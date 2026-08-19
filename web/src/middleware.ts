@@ -8,6 +8,7 @@ const PUBLIC_ROUTES = [
   '/faq',
   '/contact',
   '/tutorials',
+  '/blog',
   '/auth/login',
   '/auth/register',
   '/auth/reset-password',
@@ -17,6 +18,7 @@ const PUBLIC_ROUTES = [
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
   if (pathname.startsWith('/tutorials/')) return true;
+  if (pathname.startsWith('/blog/')) return true;
   if (pathname.startsWith('/api/')) return true;
   return false;
 }

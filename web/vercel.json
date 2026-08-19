@@ -12,5 +12,16 @@
       "path": "/api/cron/charge-wompi",
       "schedule": "0 8 * * *"
     }
+  ],
+  "headers": [
+    {
+      "source": "/blog/(.*).md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        }
+      ]
+    }
   ]
 }

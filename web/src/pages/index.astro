@@ -1,5 +1,6 @@
 ---
 import LandingPage from '../components/landing/LandingPage';
+import Seo from '../components/Seo.astro';
 
 export const prerender = true;
 ---
@@ -15,6 +16,10 @@ export const prerender = true;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>Academix — Gestión académica simple y poderosa</title>
+    <Seo
+      title="Academix — Gestión académica simple y poderosa"
+      description="La plataforma de gestión académica que simplifica la administración para instituciones educativas en Latinoamérica."
+    />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { background-color: #09090b; }
