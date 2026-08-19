@@ -21,4 +21,20 @@ const faq = defineCollection({
   }),
 });
 
-export const collections = { tutorials, faq };
+// Blog content collection (blog R1/R2). Schema violations fail the build.
+const blog = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/blog' }),
+  schema: z.object({
+    title: z.string().min(1),
+    description: z.string(),
+    pubDate: z.coerce.date(),
+    author: z.string(),
+    tags: z.array(z.string()),
+    isPillar: z.boolean().default(false),
+    updatedDate: z.coerce.date().optional(),
+    draft: z.boolean().default(false),
+    coverImage: z.string().optional(),
+  }),
+});
+
+export const collections = { tutorials, faq, blog };
