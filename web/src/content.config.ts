@@ -1,6 +1,7 @@
 import { defineCollection } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { blogEntrySchema } from './lib/blog-schema';
 
 const tutorials = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/tutorials' }),
@@ -24,17 +25,7 @@ const faq = defineCollection({
 // Blog content collection (blog R1/R2). Schema violations fail the build.
 const blog = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/blog' }),
-  schema: z.object({
-    title: z.string().min(1),
-    description: z.string(),
-    pubDate: z.coerce.date(),
-    author: z.string(),
-    tags: z.array(z.string()),
-    isPillar: z.boolean().default(false),
-    updatedDate: z.coerce.date().optional(),
-    draft: z.boolean().default(false),
-    coverImage: z.string().optional(),
-  }),
+  schema: blogEntrySchema,
 });
 
 export const collections = { tutorials, faq, blog };

@@ -18,7 +18,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'bun run dev',
+    // Astro 7 auto-daemonizes `astro dev` in agent/CI environments (am-i-vibing
+    // detection), which makes the spawned process exit early and Playwright's
+    // webServer fail. Pin ASTRO_DEV_BACKGROUND=1 to force foreground mode.
+    command: 'ASTRO_DEV_BACKGROUND=1 bun run dev',
     url: 'http://localhost:4321',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,

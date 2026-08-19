@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outDir = process.env.OUT_DIR || join(root, '.vercel', 'output', 'static');
 const htmlPath = join(outDir, 'index.html');
-const baselinePath = join(root, 'scripts', 'perf-baseline.json');
+const baselinePath = join(root, 'perf-baseline.json');
 
 if (!existsSync(htmlPath)) {
   console.error(`Home page not found: ${htmlPath}`);
