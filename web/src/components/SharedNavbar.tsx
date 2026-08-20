@@ -7,13 +7,20 @@ interface UserData {
   role?: string;
 }
 
-const navLinks = [
+const marketingLinks = [
   { label: 'Producto', href: '#features' },
   { label: 'Precios', href: '/pricing' },
   { label: 'Descargar', href: '/downloads' },
   { label: 'Tutoriales', href: '/tutorials' },
   { label: 'Blog', href: '/blog' },
   { label: 'Contacto', href: '/contact' },
+];
+
+const dashboardLinks = [
+  { label: 'Resumen', href: '/dashboard' },
+  { label: 'Suscripción', href: '/dashboard/subscription' },
+  { label: 'Pagos', href: '/dashboard/payments' },
+  { label: 'Soporte', href: '/dashboard/support' },
 ];
 
 function getInitials(name: string): string {
@@ -25,21 +32,25 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-/**
- * Site navbar. The only interactive section of the landing page, so it is
- * the only part hydrated on the client (client:visible island in index.astro).
- * Tailwind-only: keeps MUI/emotion out of the home JS bundles.
- */
-export default function Navbar() {
+function isDashboardRoute(pathname: string): boolean {
+  return pathname.startsWith('/dashboard');
+}
+
+export default function SharedNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
+  const [pathname, setPathname] = useState('/');
 
   useEffect(() => {
+    setPathname(window.location.pathname);
     fetch('/api/me')
       .then((res) => res.json())
       .then((data) => setUser(data))
       .catch(() => setUser(null));
   }, []);
+
+  const isDashboard = isDashboardRoute(pathname);
+  const links = isDashboard ? dashboardLinks : marketingLinks;
 
   return (
     <>
@@ -50,7 +61,7 @@ export default function Navbar() {
           </a>
 
           <div className="hidden items-center gap-1 md:flex">
-            {navLinks.map(({ label, href }) => (
+            {links.map(({ label, href }) => (
               <a
                 key={label}
                 href={href}
@@ -63,17 +74,29 @@ export default function Navbar() {
 
           <div className="hidden items-center gap-3 md:flex">
             {user?.authenticated ? (
-              <a
-                href="/dashboard"
-                className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800/60"
-              >
-                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 text-white text-sm font-semibold">
-                  {getInitials(user.name || 'U')}
-                </span>
-                <span className="text-sm font-medium text-slate-300">
-                  {user.name}
-                </span>
-              </a>
+              <div className="flex items-center gap-3">
+                <a
+                  href="/dashboard"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800/60"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+                    {getInitials(user.name || 'U')}
+                  </span>
+                  <span className="text-sm font-medium text-slate-300">
+                    {user.name}
+                  </span>
+                </a>
+                {isDashboard && (
+                  <form method="POST" action="/_actions/logout">
+                    <button
+                      type="submit"
+                      className="text-sm font-medium text-slate-400 transition-colors hover:text-red-400"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </form>
+                )}
+              </div>
             ) : (
               <>
                 <a
@@ -99,12 +122,7 @@ export default function Navbar() {
             onClick={() => setMobileOpen(true)}
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         </nav>
@@ -129,16 +147,11 @@ export default function Navbar() {
             onClick={() => setMobileOpen(false)}
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <nav className="mt-2 flex flex-col">
-            {navLinks.map(({ label, href }) => (
+            {links.map(({ label, href }) => (
               <a
                 key={label}
                 href={href}
@@ -152,27 +165,42 @@ export default function Navbar() {
           <div className="my-4 border-t border-slate-800" />
           <div className="flex flex-col gap-3 px-1">
             {user?.authenticated ? (
-              <a
-                href="/dashboard"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
-              >
-                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-600 text-white text-sm font-semibold">
-                  {getInitials(user.name || 'U')}
-                </span>
-                <span className="text-sm font-medium text-slate-200">
-                  {user.name}
-                </span>
-              </a>
+              <>
+                <a
+                  href="/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+                    {getInitials(user.name || 'U')}
+                  </span>
+                  <span className="text-sm font-medium text-slate-200">
+                    {user.name}
+                  </span>
+                </a>
+                {isDashboard && (
+                  <form method="POST" action="/_actions/logout">
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 hover:text-red-300"
+                    >
+                      Cerrar sesión
+                    </button>
+                  </form>
+                )}
+              </>
             ) : (
               <>
                 <a
                   href="/auth/login"
+                  onClick={() => setMobileOpen(false)}
                   className="rounded-lg border border-slate-700 px-3 py-2 text-center text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
                 >
                   Iniciar sesión
                 </a>
                 <a
                   href="/downloads"
+                  onClick={() => setMobileOpen(false)}
                   className="rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-500"
                 >
                   Comenzar gratis

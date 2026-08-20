@@ -1,7 +1,8 @@
 ---
-import Navbar from '../components/landing/Navbar';
+import SharedNavbar from '../components/SharedNavbar';
 import LandingPage from '../components/landing/LandingPage';
 import Seo from '../components/Seo.astro';
+import "../styles/global.css";
 
 export const prerender = true;
 ---
@@ -27,7 +28,7 @@ export const prerender = true;
     </style>
   </head>
   <body>
-    <Navbar client:visible />
+    <SharedNavbar client:visible />
     <LandingPage />
   </body>
 </html>
