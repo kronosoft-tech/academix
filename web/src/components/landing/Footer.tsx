@@ -36,8 +36,8 @@ const footerLinks = [
     links: [
       { label: 'Contacto', href: '/contact' },
       { label: 'Blog', href: '/tutorials' },
-      { label: 'Privacidad', href: '#' },
-      { label: 'Términos', href: '#' },
+      { label: 'Privacidad', href: '/privacidad' },
+      { label: 'Términos', href: '/terminos' },
     ],
   },
 ];
@@ -143,21 +143,21 @@ export default function Footer() {
           </Typography>
           <Stack sx={{ flexDirection: 'row', gap: 3 }}>
             <Link
-              href="#"
+              href="/privacidad"
               underline="none"
               sx={{ color: alpha('#94a3b8', 0.6), fontSize: '0.8rem', '&:hover': { color: '#f8fafc' } }}
             >
               Privacidad
             </Link>
             <Link
-              href="#"
+              href="/terminos"
               underline="none"
               sx={{ color: alpha('#94a3b8', 0.6), fontSize: '0.8rem', '&:hover': { color: '#f8fafc' } }}
             >
               Términos
             </Link>
             <Link
-              href="#"
+              href="/cookies"
               underline="none"
               sx={{ color: alpha('#94a3b8', 0.6), fontSize: '0.8rem', '&:hover': { color: '#f8fafc' } }}
             >

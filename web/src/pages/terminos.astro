@@ -1,0 +1,200 @@
+---
+import Base from '../layouts/Base.astro';
+
+export const prerender = true;
+
+const LAST_UPDATED = '20 de agosto de 2026';
+---
+
+<Base
+  title="Términos y Condiciones"
+  description="Términos y Condiciones de uso del servicio Academix: suscripciones, pagos, prueba gratuita, cancelación y ley aplicable."
+>
+  <section class="py-20">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h1 class="text-3xl sm:text-4xl font-bold text-center mb-4">Términos y Condiciones</h1>
+      <p class="text-center text-slate-400 text-sm mb-12">Última actualización: {LAST_UPDATED}</p>
+
+      <div class="space-y-10 text-slate-300 text-sm leading-relaxed">
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">1. Aceptación de los términos</h2>
+          <p>
+            Estos Términos y Condiciones («los Términos») regulan el acceso y uso del servicio Academix,
+            incluyendo la aplicación de escritorio, la plataforma web y los servicios asociados de cuenta y
+            suscripción. Al registrarse, contratar un plan o utilizar el servicio, usted declara haber leído,
+            entendido y aceptado estos Términos y nuestra <a href="/privacidad" class="text-emerald-400 hover:underline">Política de Privacidad</a>.
+            Si no está de acuerdo, no debe utilizar el servicio.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">2. Descripción del servicio</h2>
+          <p>
+            Academix es un sistema de gestión académica para instituciones educativas que permite administrar
+            estudiantes, docentes, grupos, horarios, calificaciones y demás procesos propios de la gestión
+            académica, mediante una aplicación de escritorio sincronizada con una plataforma en la nube. Cada
+            institución recibe una base de datos dedicada e independiente para su información.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">3. Registro y cuenta de usuario</h2>
+          <ul class="list-disc pl-5 space-y-2">
+            <li>Debe proporcionar información veraz, completa y actualizada durante el registro.</li>
+            <li>Su contraseña se almacena únicamente como hash criptográfico. Usted es responsable de mantener la confidencialidad de sus credenciales y de toda actividad realizada desde su cuenta.</li>
+            <li>Notifique de inmediato cualquier uso no autorizado de su cuenta a support@academix.app.</li>
+            <li>El servicio está dirigido a instituciones educativas y adultos con capacidad legal para contratar.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">4. Prueba gratuita</h2>
+          <p>
+            Al registrarse, su institución recibe una prueba gratuita de <strong>quince (15) días calendario</strong>
+            con acceso a las funcionalidades del plan seleccionado. La prueba es única por institución o usuario y no
+            requiere medios de pago. Al finalizar la prueba, si no ha contratado una suscripción, el acceso al servicio
+            pasará a estado limitado o suspendido hasta que se active un plan; sus datos permanecerán almacenados
+            conforme a la Política de Privacidad.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">5. Suscripciones, precios y pagos</h2>
+          <ul class="list-disc pl-5 space-y-2">
+            <li>Los planes disponibles y sus precios son los publicados en la página de <a href="/pricing" class="text-emerald-400 hover:underline">Precios</a>, expresados en la moneda indicada en cada caso.</li>
+            <li>Las suscripciones se facturan por períodos de <strong>treinta (30) días calendario</strong>, salvo que se indique lo contrario al momento de la compra.</li>
+            <li>Los pagos se procesan exclusivamente a través de pasarelas certificadas: <strong>Wompi</strong> (Colombia) y <strong>Mercado Pago</strong> (demás países). Academix no almacena datos de tarjetas ni otros medios de pago.</li>
+            <li>Los precios pueden modificarse previo aviso razonable; dichos cambios no afectan períodos ya pagados.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">6. Renovación y período de gracia</h2>
+          <p>
+            Las suscripciones se renuevan automáticamente al vencer cada período de treinta (30) días, salvo
+            cancelación previa. Si un cobro de renovación falla, la suscripción entra en un <strong>período de gracia
+            de siete (7) días</strong> durante el cual podrá regularizar el pago conservando el acceso. Vencido dicho
+            plazo sin pago, la suscripción se cancelará y el acceso al servicio quedará suspendido.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">7. Cancelación y reembolsos</h2>
+          <ul class="list-disc pl-5 space-y-2">
+            <li>Puede cancelar su suscripción en cualquier momento desde su panel de cuenta o escribiendo a support@academix.app. La cancelación impide futuras renovaciones y conserva el acceso hasta el final del período ya pagado.</li>
+            <li>Salvo disposición legal en contrario, los períodos iniciados no son reembolsables de forma proporcional.</li>
+            <li><strong>Derecho de retracto (Colombia):</strong> conforme al artículo 47 de la Ley 1480 de 2011, modificado por el Decreto 519 de 2023, los consumidores en Colombia pueden ejercer el retracto dentro de los cinco (5) días hábiles siguientes a la compra, salvo las excepciones legales aplicables (por ejemplo, cuando el servicio haya sido consumido o ejecutado total o parcialmente con conocimiento y aceptación previa del consumidor). Para ejercerlo, escriba a support@academix.app dentro del término legal.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">8. Uso aceptable del servicio</h2>
+          <p>Usted se compromete a NO utilizar el servicio para:</p>
+          <ul class="list-disc pl-5 space-y-2 mt-3">
+            <li>Fines ilícitos, fraudulentos o que vulneren derechos de terceros.</li>
+            <li>Cargar datos personales de terceros sin contar con las autorizaciones exigidas por la ley aplicable, incluidos los datos de menores de edad sin autorización de padres o acudientes.</li>
+            <li>Intentar acceder a bases de datos, cuentas o información de otras instituciones o usuarios.</li>
+            <li>Reversear, descompilar o intentar extraer el código fuente del software, salvo excepciones legales.</li>
+            <li>Sobrecargar la infraestructura, interferir con el servicio o evadir sus controles de seguridad.</li>
+          </ul>
+          <p class="mt-3">
+            El incumplimiento de estas obligaciones podrá dar lugar a la suspensión o terminación inmediata de la
+            cuenta, sin perjuicio de las acciones legales correspondientes.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">9. Datos académicos y propiedad del contenido</h2>
+          <p>
+            Toda la información académica que su institución cargue en la plataforma (estudiantes, docentes,
+            calificaciones, horarios, etc.) es y seguirá siendo <strong>propiedad exclusiva de su institución</strong>.
+            Academix solo la trata para prestar el servicio, conforme a la Política de Privacidad, y no la utiliza
+            para publicidad ni la comparte con terceros salvo lo allí descrito. Puede solicitar la exportación o
+            eliminación de sus datos al terminar la relación contractual.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">10. Propiedad intelectual</h2>
+          <p>
+            El software, la marca, los diseños, la documentación y demás elementos del servicio son titularidad de
+            Academix o de sus licenciantes, y se ofrecen bajo licencia de uso limitado, no exclusiva, revocable y no
+            transferible, únicamente para los fines previstos en estos Términos.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">11. Disponibilidad y soporte</h2>
+          <p>
+            Trabajamos para mantener una alta disponibilidad del servicio, aunque no garantizamos operación continua
+            e ininterrumpida: podrán realizarse mantenimientos programados o presentarse interrupciones por causas
+            ajenas a nuestro control (fallas de proveedores de infraestructura, redes, fuerza mayor). El soporte se
+            presta a través de los canales publicados en el sitio (chat, tickets y correo electrónico).
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">12. Limitación de responsabilidad</h2>
+          <p>
+            En la máxima medida permitida por la ley aplicable, Academix no será responsable por daños indirectos,
+            incidentales o por lucro cesante derivados del uso o la imposibilidad de usar el servicio, ni por la
+            pérdida de datos causada por factores externos al servicio. La responsabilidad total de Academix frente
+            a usted, por cualquier reclamación, se limitará como máximo al valor equivalente a los últimos tres (3)
+            períodos mensuales efectivamente pagados. Nada en estos Términos limita responsabilidades que no puedan
+            excluirse legalmente, incluidas las garantías del régimen de protección al consumidor.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">13. Suspensión y terminación</h2>
+          <p>
+            Puede dejar de usar el servicio y eliminar su cuenta en cualquier momento. Academix podrá suspender o
+            terminar cuentas ante incumplimiento de estos Términos, falta de pago vencido el período de gracia, o
+            requerimiento legal, informándolo al usuario cuando sea posible. Terminada la relación, aplicarán los
+            plazos de retención y eliminación descritos en la Política de Privacidad.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">14. Modificaciones</h2>
+          <p>
+            Podremos actualizar estos Términos para reflejar cambios del servicio o de la normativa aplicable.
+            Publicaremos la versión vigente en esta página con su fecha de actualización, y comunicaremos con aviso
+            razonable los cambios sustanciales antes de su entrada en vigor. El uso continuado del servicio después
+            de dicha publicación constituye aceptación de la versión actualizada.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">15. Ley aplicable y jurisdicción</h2>
+          <p>
+            Estos Términos se rigen por las leyes de la República de Colombia, en particular el Estatuto del
+            Consumidor (Ley 1480 de 2011) y sus normas modificatorias. Cualquier controversia será resuelta ante los
+            jueces competentes de Colombia, sin perjuicio del derecho de los consumidores a acudir ante la
+            Superintendencia de Industria y Comercio (SIC) o ante los mecanismos alternativos de solución de
+            conflictos previstos por la ley. Si usted contrata desde otro país, además conservará los derechos
+            irrenunciables que le reconozca la legislación de consumo de su jurisdicción.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-semibold text-white mb-3">16. Contacto</h2>
+          <p>
+            Para preguntas sobre estos Términos, escríbanos a
+            <a href="mailto:support@academix.app" class="text-emerald-400 hover:underline">support@academix.app</a>.
+          </p>
+        </section>
+
+        <aside class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-xs text-slate-400">
+          <p>
+            <strong class="text-slate-300">Nota:</strong> este documento refleja el funcionamiento actual del servicio
+            (prueba gratuita de 15 días, períodos de facturación de 30 días y período de gracia de 7 días) y se redactó
+            considerando la normativa colombiana de consumo. No constituye asesoría legal; se recomienda validarlo con
+            un abogado antes de su uso definitivo, especialmente respecto de la razón social, NIT y domicilio del
+            prestador.
+          </p>
+        </aside>
+      </div>
+    </div>
+  </section>
+</Base>
