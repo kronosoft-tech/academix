@@ -58,7 +58,7 @@ describe('Smoke Tests — Endpoints de Checkout', () => {
 
     it('plan inválido → retorna 400', async () => {
       const { PLANS } = await import('../../data/plans');
-      const plan = PLANS.find((p) => p.id === 'nonexistent');
+      const plan = PLANS.find((p) => p.id === ('nonexistent' as string));
       expect(plan).toBeUndefined();
     });
 
@@ -66,56 +66,6 @@ describe('Smoke Tests — Endpoints de Checkout', () => {
       const { PLANS } = await import('../../data/plans');
       const ids = PLANS.map((p) => p.id);
       expect(ids).toEqual(['basico', 'pro', 'premium']);
-    });
-  });
-
-  describe('Stripe Checkout (/api/checkout/stripe)', () => {
-    it('sin STRIPE_SECRET_KEY → retorna 500 "Stripe not configured"', () => {
-      // El endpoint verifica: if (!stripeKey) return 500
-      const stripeKey = ''; // Empty = not configured
-      expect(!stripeKey).toBe(true);
-    });
-
-    it('sin STRIPE_PRICE_BASIC → retorna 500 "Price not configured"', () => {
-      const prices: Record<string, string> = {
-        basico: '', // Not configured
-        pro: '',
-        premium: '',
-      };
-      const priceId = prices['basico'] || '';
-      expect(!priceId).toBe(true);
-    });
-
-    it('con configuración válida → crea checkout session y retorna URL', () => {
-      // El flujo esperado:
-      // 1. Verifica auth (JWT cookie)
-      // 2. Parsea body { planId }
-      // 3. Busca plan en PLANS
-      // 4. Crea Stripe Checkout Session con:
-      //    - mode: 'subscription'
-      //    - trial_period_days: 15
-      //    - customer_email: del JWT
-      //    - success_url: /dashboard?payment=success
-      //    - cancel_url: /pricing?payment=cancelled
-      //    - metadata: { userId, planId }
-      // 5. Retorna { url: session.url }
-
-      const expectedSessionConfig = {
-        mode: 'subscription',
-        trial_period_days: 15,
-        success_url: expect.stringContaining('/dashboard?payment=success'),
-        cancel_url: expect.stringContaining('/pricing?payment=cancelled'),
-      };
-
-      expect(expectedSessionConfig.mode).toBe('subscription');
-      expect(expectedSessionConfig.trial_period_days).toBe(15);
-    });
-
-    it('el frontend redirige a la URL de Stripe', () => {
-      // En CheckoutPlans.tsx:
-      // if (data.url) { window.location.href = data.url; }
-      const mockResponse = { url: 'https://checkout.stripe.com/c/pay_xxxxx' };
-      expect(mockResponse.url).toContain('checkout.stripe.com');
     });
   });
 
@@ -232,23 +182,23 @@ describe('Smoke Tests — Flujo del Frontend (CheckoutPlans.tsx)', () => {
     expect(geoToGateway('AR')).toBe('mercadopago');
   });
 
-  it('auto-detecta gateway por país: US → stripe', async () => {
+  it('auto-detecta gateway por país: US → mercadopago', async () => {
     const { geoToGateway } = await import('../../lib/payments/gateway');
-    expect(geoToGateway('US')).toBe('stripe');
+    expect(geoToGateway('US')).toBe('mercadopago');
   });
 
-  it('auto-detecta gateway por país: null → stripe (fallback)', async () => {
+  it('auto-detecta gateway por país: null → wompi (fallback)', async () => {
     const { geoToGateway } = await import('../../lib/payments/gateway');
-    expect(geoToGateway(null)).toBe('stripe');
+    expect(geoToGateway(null)).toBe('wompi');
   });
 
   it('POST va a /api/checkout/{gateway} con planId en body', () => {
-    const gateway = 'stripe';
+    const gateway = 'mercadopago';
     const planId = 'pro';
     const expectedUrl = `/api/checkout/${gateway}`;
     const expectedBody = JSON.stringify({ planId });
 
-    expect(expectedUrl).toBe('/api/checkout/stripe');
+    expect(expectedUrl).toBe('/api/checkout/mercadopago');
     expect(JSON.parse(expectedBody)).toEqual({ planId: 'pro' });
   });
 
@@ -260,7 +210,7 @@ describe('Smoke Tests — Flujo del Frontend (CheckoutPlans.tsx)', () => {
   });
 
   it('si responde con { url } → redirige a la URL de la pasarela', () => {
-    const response = { url: 'https://checkout.stripe.com/pay_xxx' };
+    const response = { url: 'https://www.mercadopago.com.co/subscriptions/checkout?xxx' };
     expect(response.url).toBeTruthy();
     // window.location.href = response.url
   });
@@ -276,13 +226,6 @@ describe('Smoke Tests — Flujo del Frontend (CheckoutPlans.tsx)', () => {
 });
 
 describe('Estado actual de cada pasarela', () => {
-  it('STRIPE: ✅ Funcional con API keys — redirige a Stripe Checkout hosted page', () => {
-    // Requiere: STRIPE_SECRET_KEY, STRIPE_PRICE_BASIC/PRO/PREMIUM
-    // Retorna: { url: "https://checkout.stripe.com/..." }
-    // Frontend: window.location.href = url
-    expect(true).toBe(true);
-  });
-
   it('WOMPI: ⚠️ Parcial — endpoint retorna config para widget pero frontend no lo renderiza aún', () => {
     // Requiere: WOMPI_PUBLIC_KEY, WOMPI_PRIVATE_KEY, WOMPI_EVENTS_SECRET
     // Retorna: { publicKey, amountInCents, reference, acceptanceToken, customerEmail }
