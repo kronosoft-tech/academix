@@ -74,29 +74,64 @@ export default function SharedNavbar() {
 
           <div className="hidden items-center gap-3 md:flex">
             {user?.authenticated ? (
-              <div className="flex items-center gap-3">
-                <a
-                  href="/dashboard"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800/60"
-                >
+              <details className="group relative">
+                <summary className="flex cursor-pointer list-none select-none items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
                     {getInitials(user.name || 'U')}
                   </span>
-                  <span className="text-sm font-medium text-slate-300">
-                    {user.name}
-                  </span>
-                </a>
-                {isDashboard && (
-                  <form method="POST" action="/_actions/logout">
-                    <button
-                      type="submit"
-                      className="text-sm font-medium text-slate-400 transition-colors hover:text-red-400"
+                  <span className="text-sm font-medium text-slate-300">{user.name}</span>
+                  <svg
+                    className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-slate-700 bg-slate-800 py-1 shadow-xl">
+                  <div className="border-b border-slate-700 px-4 py-2">
+                    <p className="truncate text-sm font-medium text-white">{user.name}</p>
+                    <p className="truncate text-xs text-slate-400">{user.email}</p>
+                  </div>
+                  <nav className="py-1">
+                    <a
+                      href="/dashboard"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
                     >
-                      Cerrar sesión
-                    </button>
-                  </form>
-                )}
-              </div>
+                      Dashboard
+                    </a>
+                    <a
+                      href="/dashboard"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                    >
+                      Mi Academia
+                    </a>
+                    <a
+                      href="/dashboard/subscription"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                    >
+                      Suscripción
+                    </a>
+                    <a
+                      href="/downloads"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+                    >
+                      Descargar App
+                    </a>
+                  </nav>
+                  <div className="border-t border-slate-700 py-1">
+                    <form method="POST" action="/api/logout">
+                      <button
+                        type="submit"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-400 transition-colors hover:bg-slate-700 hover:text-red-300"
+                      >
+                        Cerrar sesión
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </details>
             ) : (
               <>
                 <a
@@ -166,28 +201,44 @@ export default function SharedNavbar() {
           <div className="flex flex-col gap-3 px-1">
             {user?.authenticated ? (
               <>
-                <a
-                  href="/dashboard"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
-                >
+                <div className="flex items-center gap-3 rounded-lg px-3 py-2">
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
                     {getInitials(user.name || 'U')}
                   </span>
-                  <span className="text-sm font-medium text-slate-200">
-                    {user.name}
-                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-200">{user.name}</p>
+                    <p className="truncate text-xs text-slate-400">{user.email}</p>
+                  </div>
+                </div>
+                <a
+                  href="/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Dashboard
                 </a>
-                {isDashboard && (
-                  <form method="POST" action="/_actions/logout">
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 hover:text-red-300"
-                    >
-                      Cerrar sesión
-                    </button>
-                  </form>
-                )}
+                <a
+                  href="/dashboard/subscription"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Suscripción
+                </a>
+                <a
+                  href="/downloads"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Descargar App
+                </a>
+                <form method="POST" action="/api/logout">
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 hover:text-red-300"
+                  >
+                    Cerrar sesión
+                  </button>
+                </form>
               </>
             ) : (
               <>
