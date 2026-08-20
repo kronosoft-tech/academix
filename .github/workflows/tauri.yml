@@ -6,6 +6,10 @@ on:
       - main
       - develop
       - release
+    # Package-hosting commits (see host-store-package job) must not
+    # retrigger the full desktop build matrix.
+    paths-ignore:
+      - "web/public/downloads/**"
     tags:
       - "app-v*"
   pull_request:
@@ -96,3 +100,44 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Microsoft Store MSI/EXE submissions need a versioned, direct-download
+  # URL with no redirects. This job copies the Windows x64 installer from
+  # the freshly published release into web/public/downloads/v<version>/,
+  # which Vercel then serves straight from its edge CDN at
+  # https://<domain>/downloads/v<version>/academix_<version>_x64-setup.exe
+  host-store-package:
+    name: Host Store package (web/public/downloads)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Download Windows x64 installer from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#app-v}"
+          gh release download "app-v${VERSION}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "academix_${VERSION}_x64-setup.exe" \
+            --clobber
+          mkdir -p "web/public/downloads/v${VERSION}"
+          mv "academix_${VERSION}_x64-setup.exe" "web/public/downloads/v${VERSION}/"
+
+      - name: Commit hosted package
+        run: |
+          VERSION="${GITHUB_REF_NAME#app-v}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "web/public/downloads/v${VERSION}"
+          if git diff --cached --quiet; then
+            echo "Package already hosted, nothing to commit"
+          else
+            git commit -m "chore(web): host v${VERSION} windows x64 installer for Store"
+            git push
+          fi
