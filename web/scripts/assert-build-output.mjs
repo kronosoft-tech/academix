@@ -57,6 +57,18 @@ check('sitemap lists /blog', sitemap.includes('/blog'));
 const missing = seeded.filter((slug) => !sitemap.includes(`/blog/${slug}`));
 check(`sitemap lists all ${seeded.length} seeded slugs`, missing.length === 0);
 
+// --- S-R2-S2: sitemap <loc> URLs must be absolute (schemed) ---
+// HONEST LIMITATION: cannot safely reproduce Astro's build-time throw on a
+// missing `site` (S-R2-S2) because the localhost fallback in astro.config.mjs
+// makes the build succeed regardless. Gate = structural output assert instead:
+// every <loc> carries a scheme (http/https), never a bare pathname.
+const locCount = (sitemap.match(/<loc>/g) || []).length;
+const absoluteLocCount = (sitemap.match(/<loc>https?:\/\//g) || []).length;
+check(
+  'S-R2-S2: sitemap-0.xml <loc> URLs are absolute (scheme present)',
+  locCount > 0 && absoluteLocCount === locCount,
+);
+
 // --- .md endpoints emitted ---
 const mdMissing = seeded.filter((slug) => !existsSync(join(outDir, 'blog', `${slug}.md`)));
 check('.md endpoints emitted for all seeded slugs', mdMissing.length === 0);

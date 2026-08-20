@@ -41,4 +41,10 @@ describe('site URL helpers', () => {
     const { absoluteUrl } = await import('../lib/site');
     expect(absoluteUrl('/pricing')).toBe('http://localhost:4321/pricing');
   });
+
+  it('S-R7-S1: absoluteUrl builds full URL from SITE_URL with multi-segment path', async () => {
+    process.env.SITE_URL = 'https://academix.example.com/';
+    const { absoluteUrl } = await import('../lib/site');
+    expect(absoluteUrl('/blog/x')).toBe('https://academix.example.com/blog/x');
+  });
 });
